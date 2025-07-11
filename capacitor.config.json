@@ -1,0 +1,19 @@
+
+{
+  "appId": "app.lovable.107321861e70412696cef1530f104a69",
+  "appName": "For My Pet",
+  "webDir": "dist",
+  "server": {
+    "url": "https://10732186-1e70-4126-96ce-f1530f104a69.lovableproject.com?forceHideBadge=true",
+    "cleartext": true
+  },
+  "plugins": {
+    "Camera": {
+      "permissions": ["camera", "photos"]
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon_config_sample",
+      "iconColor": "#488AFF"
+    }
+  }
+}
