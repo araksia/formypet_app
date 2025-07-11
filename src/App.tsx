@@ -8,6 +8,7 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import PetsPage from "./pages/PetsPage";
 import AddPetPage from "./pages/AddPetPage";
+import CalendarPage from "./pages/CalendarPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,7 +24,7 @@ const App = () => (
             <Route path="/" element={<Dashboard />} />
             <Route path="/pets" element={<PetsPage />} />
             <Route path="/add-pet" element={<AddPetPage />} />
-            <Route path="/calendar" element={<div className="p-4 text-center">Σελίδα Ημερολογίου - Υπό Κατασκευή</div>} />
+            <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/settings" element={<div className="p-4 text-center">Ρυθμίσεις - Υπό Κατασκευή</div>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
