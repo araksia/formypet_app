@@ -156,8 +156,12 @@ const LoginPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
-          <div className="text-4xl mb-2">🐾</div>
-          <CardTitle className="text-2xl font-bold">Pet Helper Greece</CardTitle>
+          <img 
+            src="/lovable-uploads/e33fce6b-baa6-4fdb-b245-796702e4b22d.png" 
+            alt="For my pet logo" 
+            className="h-16 w-16 mx-auto"
+          />
+          <CardTitle className="text-2xl font-bold">For my pet</CardTitle>
           <p className="text-muted-foreground">Φροντίδα κατοικιδίων στην Ελλάδα</p>
         </CardHeader>
         <CardContent className="space-y-4">

@@ -126,8 +126,8 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full overflow-hidden">
             <img 
-              src="/lovable-uploads/80a1ae36-cd7c-4cc3-804b-42587ec0efb4.png" 
-              alt="For My Pet Logo"
+              src="/lovable-uploads/e33fce6b-baa6-4fdb-b245-796702e4b22d.png" 
+              alt="For my pet Logo"
               className="w-full h-full object-cover"
             />
           </div>
