@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,29 +22,30 @@ const PetsPage = () => {
   const [shareLoading, setShareLoading] = useState(false);
   const [copiedPetId, setCopiedPetId] = useState<string | null>(null);
 
+  // Fetch pets when user is available
   useEffect(() => {
-    console.log('PetsPage useEffect running...');
-    if (!authLoading) {
+    console.log('🚀 PetsPage mounted. AuthLoading:', authLoading, 'User:', user?.id);
+    if (!authLoading && user) {
       fetchPets();
+    } else if (!authLoading && !user) {
+      console.log('❌ No user found after auth loading completed');
+      setPets([]);
+      setLoading(false);
     }
   }, [authLoading, user]);
 
   const fetchPets = async () => {
-    console.log('🔄 fetchPets started...');
-    console.log('👤 Current user from AuthContext:', user);
-    
     if (!user) {
-      console.log('❌ No user found in AuthContext');
+      console.log('❌ No user available for fetchPets');
       setPets([]);
       setLoading(false);
       return;
     }
 
+    console.log('🔄 fetchPets started for user:', user.id);
     setLoading(true);
     
     try {
-      console.log('🔍 Fetching pets for user:', user.id);
-
       const { data, error } = await supabase
         .from('pets')
         .select('*')
@@ -55,34 +55,30 @@ const PetsPage = () => {
       console.log('📊 Supabase response - data:', data, 'error:', error);
 
       if (error) {
-        console.error('❌ Supabase error fetching pets:', error);
+        console.error('❌ Supabase error:', error);
         toast({
           title: "Σφάλμα",
           description: "Δεν ήταν δυνατή η φόρτωση των κατοικιδίων: " + error.message,
           variant: "destructive"
         });
-        throw error;
+        setPets([]);
+      } else {
+        console.log('✅ Successfully fetched', data?.length || 0, 'pets');
+        setPets(data || []);
       }
-
-      console.log('✅ Successfully fetched pets:', data);
-      setPets(data || []);
     } catch (error: any) {
       console.error('💥 Error in fetchPets:', error);
       setPets([]);
     } finally {
-      console.log('🏁 fetchPets finished, setting loading to false');
       setLoading(false);
     }
   };
 
   const handleSharePet = async () => {
-    if (!shareEmail || !selectedPetForShare) return;
+    if (!shareEmail || !selectedPetForShare || !user) return;
 
     setShareLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
-
       // Find user by email
       const { data: profiles, error: profileError } = await supabase
         .from('profiles')
@@ -164,12 +160,23 @@ const PetsPage = () => {
     return emojiMap[species] || '🐾';
   };
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
         <Header title="Τα Κατοικίδιά μου" />
         <div className="p-4 flex justify-center items-center h-32">
-          <p>Φόρτωση κατοικιδίων...</p>
+          <p>Φόρτωση...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
+        <Header title="Τα Κατοικίδιά μου" />
+        <div className="p-4 flex justify-center items-center h-32">
+          <p>Δεν είστε συνδεδεμένος</p>
         </div>
       </div>
     );
@@ -182,9 +189,11 @@ const PetsPage = () => {
       <div className="p-3 sm:p-4 space-y-4">
         {/* Debug info */}
         <div className="bg-yellow-50 p-2 rounded text-xs">
+          <p>Auth Loading: {authLoading ? 'true' : 'false'}</p>
+          <p>User ID: {user?.id || 'null'}</p>
           <p>Loading: {loading ? 'true' : 'false'}</p>
           <p>Pets count: {pets.length}</p>
-          <Button size="sm" onClick={fetchPets} className="mt-2">Reload Pets</Button>
+          <Button size="sm" onClick={fetchPets} className="mt-2">🔄 Reload Pets</Button>
         </div>
 
         {/* Add Pet Button */}
@@ -196,8 +205,15 @@ const PetsPage = () => {
           Προσθήκη Νέου Κατοικιδίου
         </Button>
 
+        {/* Loading State */}
+        {loading && (
+          <div className="text-center py-8">
+            <p>Φόρτωση κατοικιδίων...</p>
+          </div>
+        )}
+
         {/* Pets Grid/List */}
-        {pets.length > 0 ? (
+        {!loading && pets.length > 0 ? (
           <div className="grid gap-3 sm:gap-4">
             {pets.map((pet) => (
               <Card key={pet.id} className="overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -360,7 +376,7 @@ const PetsPage = () => {
               </Card>
             ))}
           </div>
-        ) : (
+        ) : !loading && pets.length === 0 ? (
           <Card className="p-8">
             <div className="text-center space-y-4">
               <div className="text-6xl">🐾</div>
@@ -372,7 +388,7 @@ const PetsPage = () => {
               </Button>
             </div>
           </Card>
-        )}
+        ) : null}
       </div>
     </div>
   );

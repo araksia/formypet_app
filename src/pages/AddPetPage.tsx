@@ -11,10 +11,12 @@ import { useNavigate } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/components/AuthProvider';
 
 const AddPetPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [petImage, setPetImage] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -51,12 +53,11 @@ const AddPetPage = () => {
     setLoading(true);
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        throw new Error('Δεν βρέθηκε συνδεδεμένος χρήστης');
+        throw new Error('Δεν είστε συνδεδεμένος. Παρακαλώ κάντε login.');
       }
 
-      console.log('Saving pet with data:', {
+      console.log('💾 Saving pet with data for user:', user.id, {
         name: formData.name,
         species: formData.species,
         breed: formData.breed || null,
