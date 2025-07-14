@@ -30,7 +30,7 @@ const Dashboard = () => {
     { 
       icon: Stethoscope, 
       label: 'Ιατρικός Φάκελος', 
-      action: () => navigate('/medical'),
+      action: () => navigate('/pets'),
       color: 'bg-red-500'
     },
   ];
