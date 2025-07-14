@@ -66,6 +66,8 @@ const PetsPage = () => {
       }
 
       console.log('📡 Making Supabase query...');
+      
+      // Try with explicit authentication header
       const { data, error } = await supabase
         .from('pets')
         .select('*')
