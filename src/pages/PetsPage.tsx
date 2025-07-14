@@ -10,10 +10,12 @@ import { Plus, Heart, Calendar, FileText, Stethoscope, Share2, Users, Copy, Chec
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/components/AuthProvider';
 
 const PetsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
   const [pets, setPets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [shareEmail, setShareEmail] = useState('');
@@ -23,37 +25,25 @@ const PetsPage = () => {
 
   useEffect(() => {
     console.log('PetsPage useEffect running...');
-    fetchPets();
-  }, []);
+    if (!authLoading) {
+      fetchPets();
+    }
+  }, [authLoading, user]);
 
   const fetchPets = async () => {
     console.log('🔄 fetchPets started...');
+    console.log('👤 Current user from AuthContext:', user);
+    
+    if (!user) {
+      console.log('❌ No user found in AuthContext');
+      setPets([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     
     try {
-      console.log('📡 Getting user...');
-      
-      // Add timeout to auth call
-      const userPromise = supabase.auth.getUser();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Auth timeout')), 5000)
-      );
-      
-      const { data: { user }, error: authError } = await Promise.race([userPromise, timeoutPromise]) as any;
-      
-      console.log('👤 User result:', user, 'Auth error:', authError);
-      
-      if (authError) {
-        console.log('❌ Auth error:', authError);
-        throw authError;
-      }
-      
-      if (!user) {
-        console.log('❌ No user found');
-        setPets([]);
-        return;
-      }
-
       console.log('🔍 Fetching pets for user:', user.id);
 
       const { data, error } = await supabase
@@ -78,13 +68,6 @@ const PetsPage = () => {
       setPets(data || []);
     } catch (error: any) {
       console.error('💥 Error in fetchPets:', error);
-      if (error.message === 'Auth timeout') {
-        toast({
-          title: "Σφάλμα",
-          description: "Το σύστημα δεν απαντά. Παρακαλώ δοκιμάστε ξανά.",
-          variant: "destructive"
-        });
-      }
       setPets([]);
     } finally {
       console.log('🏁 fetchPets finished, setting loading to false');
