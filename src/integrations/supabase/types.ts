@@ -239,7 +239,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      user_can_invite_to_pet: {
+        Args: { pet_id_param: string }
+        Returns: boolean
+      }
+      user_owns_pet: {
+        Args: { pet_id_param: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
