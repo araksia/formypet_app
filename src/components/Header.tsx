@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Bell, User, Users, Calendar, Heart, Clock } from 'lucide-react';
+import { Bell, User, Users, Calendar, Heart, Clock, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './AuthProvider';
+import { useToast } from '@/hooks/use-toast';
 
 interface HeaderProps {
   title: string;
@@ -27,6 +28,26 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Αποσύνδεση",
+        description: "Αποσυνδεθήκατε επιτυχώς"
+      });
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Υπήρξε πρόβλημα κατά την αποσύνδεση",
+        variant: "destructive"
+      });
+    }
+  };
 
   useEffect(() => {
     // Mock notifications - in a real app, these would come from the database
@@ -186,14 +207,36 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
             </DropdownMenu>
           )}
           {showProfile && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="p-2"
-              onClick={() => navigate('/profile')}
-            >
-              <User className="h-5 w-5 text-gray-600" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="p-2"
+                >
+                  <User className="h-5 w-5 text-gray-600" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  {user?.email || 'Χρήστης'}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/profile')}>
+                  <User className="h-4 w-4 mr-2" />
+                  Προφίλ
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/settings')}>
+                  <Clock className="h-4 w-4 mr-2" />
+                  Ρυθμίσεις
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Αποσύνδεση
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>
