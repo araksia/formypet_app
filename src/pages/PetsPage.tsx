@@ -73,13 +73,28 @@ const PetsPage = () => {
                         <p className="text-xs text-primary mt-1">{pet.nextEvent}</p>
                       </div>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={() => navigate(`/pet/${pet.id}`)}
+                        >
                           <Heart className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={() => navigate('/calendar')}
+                        >
                           <Calendar className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={() => navigate('/add-event')}
+                        >
                           <FileText className="h-4 w-4" />
                         </Button>
                       </div>

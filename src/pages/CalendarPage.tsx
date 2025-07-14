@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Header from '@/components/Header';
-import { Plus, Pill, Heart, Gift, Scissors, Syringe } from 'lucide-react';
+import { Plus, Pill, Heart, Gift, Scissors, Syringe, Utensils, Activity } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
 import { el } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 
 // Mock data για events
 const mockEvents = [
@@ -62,6 +63,7 @@ const eventTypeColors = {
 };
 
 const CalendarPage = () => {
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
 
@@ -202,7 +204,10 @@ const CalendarPage = () => {
 
         {/* Quick Add Event Button */}
         <div className="fixed bottom-20 right-4">
-          <Button className="h-14 w-14 rounded-full shadow-lg">
+          <Button 
+            className="h-14 w-14 rounded-full shadow-lg"
+            onClick={() => navigate('/add-event')}
+          >
             <Plus className="h-6 w-6" />
           </Button>
         </div>
