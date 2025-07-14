@@ -37,9 +37,9 @@ const Dashboard = () => {
   ];
 
   const upcomingEvents = [
-    { type: 'Εμβόλιο', pet: 'Μπάρμπι', date: '15 Δεκ', time: '10:00', icon: Stethoscope, urgent: true },
-    { type: 'Φάρμακο', pet: 'Ρεξ', date: '16 Δεκ', time: '18:00', icon: Pill, urgent: false },
-    { type: 'Grooming', pet: 'Μάξι', date: '18 Δεκ', time: '14:30', icon: Star, urgent: false },
+    { id: '1', type: 'Εμβόλιο', pet: 'Μπάρμπι', date: '15 Δεκ', time: '10:00', icon: Stethoscope, urgent: true },
+    { id: '2', type: 'Φάρμακο', pet: 'Ρεξ', date: '16 Δεκ', time: '18:00', icon: Pill, urgent: false },
+    { id: '3', type: 'Grooming', pet: 'Μάξι', date: '18 Δεκ', time: '14:30', icon: Star, urgent: false },
   ];
 
   const stats = [
@@ -146,10 +146,14 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {upcomingEvents.map((event, index) => {
+              {upcomingEvents.map((event) => {
                 const IconComponent = event.icon;
                 return (
-                  <div key={index} className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors duration-200">
+                  <div 
+                    key={event.id} 
+                    className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+                    onClick={() => navigate(`/event/${event.id}`)}
+                  >
                     <div className="relative">
                       <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm">
                         <IconComponent className="h-5 w-5 text-gray-600" />
