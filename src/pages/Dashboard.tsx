@@ -75,15 +75,6 @@ const Dashboard = () => {
       </div>
 
       <div className="p-4 space-y-6">
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-          <input 
-            type="text" 
-            placeholder="Αναζήτηση για κατοικίδια, φάρμακα, κτηνιάτρους..."
-            className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-gray-100 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30"
-          />
-        </div>
 
         {/* Dog with Speech Bubble Banner */}
         <Card className="bg-gradient-to-r from-primary to-primary/80 border-0 overflow-hidden">
@@ -95,17 +86,15 @@ const Dashboard = () => {
                   <p className="text-gray-800 text-sm leading-relaxed">
                     "Ευτυχώς που κατέβασε το ForMyPet και δε θα ξεχάσει ξανά να με πάει για μπάνιο!"
                   </p>
-                  {/* Speech bubble tail */}
-                  <div className="absolute bottom-0 left-6 w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[12px] border-t-white transform translate-y-full"></div>
+                  {/* Speech bubble tail pointing right */}
+                  <div className="absolute top-4 right-0 w-0 h-0 border-t-[12px] border-t-transparent border-b-[12px] border-b-transparent border-l-[12px] border-l-white transform translate-x-full"></div>
                 </div>
               </div>
               
               {/* Dog Character */}
-              <div className="flex flex-col items-center ml-4">
-                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-2 animate-bounce">
-                  <Dog className="h-8 w-8 text-white" />
-                </div>
-                <div className="text-white/80 text-xs text-center">Μπάτμαν</div>
+              <div className="flex flex-col items-center ml-6">
+                <div className="text-5xl mb-2 animate-bounce">🐕‍🦺</div>
+                <div className="text-white/90 text-xs text-center font-medium">Μπάτμαν<br />3 ετών</div>
               </div>
             </div>
           </CardContent>
