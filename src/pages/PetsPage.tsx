@@ -28,10 +28,25 @@ const PetsPage = () => {
 
   const fetchPets = async () => {
     console.log('🔄 fetchPets started...');
+    setLoading(true);
+    
     try {
       console.log('📡 Getting user...');
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('👤 User:', user);
+      
+      // Add timeout to auth call
+      const userPromise = supabase.auth.getUser();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Auth timeout')), 5000)
+      );
+      
+      const { data: { user }, error: authError } = await Promise.race([userPromise, timeoutPromise]) as any;
+      
+      console.log('👤 User result:', user, 'Auth error:', authError);
+      
+      if (authError) {
+        console.log('❌ Auth error:', authError);
+        throw authError;
+      }
       
       if (!user) {
         console.log('❌ No user found');
@@ -61,8 +76,15 @@ const PetsPage = () => {
 
       console.log('✅ Successfully fetched pets:', data);
       setPets(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('💥 Error in fetchPets:', error);
+      if (error.message === 'Auth timeout') {
+        toast({
+          title: "Σφάλμα",
+          description: "Το σύστημα δεν απαντά. Παρακαλώ δοκιμάστε ξανά.",
+          variant: "destructive"
+        });
+      }
       setPets([]);
     } finally {
       console.log('🏁 fetchPets finished, setting loading to false');
