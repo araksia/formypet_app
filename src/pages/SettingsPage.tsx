@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/components/AuthProvider';
 import { 
   User, 
   Bell, 
@@ -34,6 +35,7 @@ import {
 const SettingsPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { signOut } = useAuth();
   
   const [settings, setSettings] = useState({
     // Notifications
@@ -50,14 +52,23 @@ const SettingsPage = () => {
     shareActivity: true,
     
     // App preferences
-    language: 'el',
-    theme: 'auto',
+    theme: 'light',
     soundEnabled: true,
     
     // Security
     twoFactorAuth: false,
     biometricLogin: false,
   });
+
+  // Apply theme changes
+  useEffect(() => {
+    const html = document.documentElement;
+    if (settings.theme === 'dark') {
+      html.classList.add('dark');
+    } else {
+      html.classList.remove('dark');
+    }
+  }, [settings.theme]);
 
   const handleSettingChange = (key: string, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -67,12 +78,21 @@ const SettingsPage = () => {
     });
   };
 
-  const handleLogout = () => {
-    toast({
-      title: "Αποσύνδεση",
-      description: "Αποσυνδεθήκατε επιτυχώς.",
-    });
-    // In a real app, this would handle actual logout
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast({
+        title: "Αποσύνδεση",
+        description: "Αποσυνδεθήκατε επιτυχώς.",
+      });
+      navigate('/login');
+    } catch (error) {
+      toast({
+        title: "Σφάλμα",
+        description: "Υπήρξε πρόβλημα κατά την αποσύνδεση.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleDeleteAccount = () => {
@@ -245,22 +265,6 @@ const SettingsPage = () => {
           </CardHeader>
           <CardContent className="space-y-1">
             <SettingItem
-              icon={Globe}
-              title="Γλώσσα"
-              description="Επιλέξτε τη γλώσσα της εφαρμογής"
-            >
-              <Select value={settings.language} onValueChange={(value) => handleSettingChange('language', value)}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="el">Ελληνικά</SelectItem>
-                  <SelectItem value="en">English</SelectItem>
-                </SelectContent>
-              </Select>
-            </SettingItem>
-            <Separator />
-            <SettingItem
               icon={settings.theme === 'dark' ? Moon : Sun}
               title="Θέμα εφαρμογής"
               description="Επιλέξτε το θέμα που προτιμάτε"
@@ -270,7 +274,6 @@ const SettingsPage = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="auto">Αυτόματο</SelectItem>
                   <SelectItem value="light">Φωτεινό</SelectItem>
                   <SelectItem value="dark">Σκοτεινό</SelectItem>
                 </SelectContent>

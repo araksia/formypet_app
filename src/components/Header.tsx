@@ -7,6 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { format, isToday, isTomorrow } from 'date-fns';
+import { el } from 'date-fns/locale';
 
 interface HeaderProps {
   title: string;
@@ -50,49 +53,121 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
   };
 
   useEffect(() => {
-    // Mock notifications - in a real app, these would come from the database
-    const mockNotifications: Notification[] = [
-      {
-        id: '1',
-        type: 'family_invite',
-        title: 'Νέα πρόσκληση οικογένειας',
-        message: 'Η Μαρία σας προσκάλεσε να γίνετε μέλος της οικογένειας του Μπάτμαν',
-        time: '5 λεπτά πριν',
-        read: false,
-        icon: Users
-      },
-      {
-        id: '2',
-        type: 'upcoming_event',
-        title: 'Επερχόμενο εμβόλιο',
-        message: 'Το εμβόλιο της Μπάρμπι είναι προγραμματισμένο για αύριο στις 10:00',
-        time: '1 ώρα πριν',
-        read: false,
-        icon: Calendar
-      },
-      {
-        id: '3',
-        type: 'reminder',
-        title: 'Ώρα για φάρμακο',
-        message: 'Ο Ρεξ χρειάζεται το φάρμακό του σε 30 λεπτά',
-        time: '2 ώρες πριν',
-        read: true,
-        icon: Clock
-      },
-      {
-        id: '4',
-        type: 'system',
-        title: 'Καλώς ήρθατε!',
-        message: 'Η εφαρμογή ForMyPet είναι έτοιμη για χρήση',
-        time: '1 ημέρα πριν',
-        read: true,
-        icon: Heart
-      }
-    ];
+    loadNotifications();
+  }, [user]);
 
-    setNotifications(mockNotifications);
-    setUnreadCount(mockNotifications.filter(n => !n.read).length);
-  }, []);
+  const loadNotifications = async () => {
+    if (!user) return;
+
+    try {
+      const realNotifications: Notification[] = [];
+
+      // Load upcoming events
+      const { data: events } = await supabase
+        .from('events')
+        .select(`
+          id,
+          title,
+          event_date,
+          event_time,
+          event_type,
+          pet_id
+        `)
+        .eq('user_id', user.id)
+        .gte('event_date', new Date().toISOString().split('T')[0])
+        .order('event_date', { ascending: true })
+        .limit(5);
+
+      if (events && events.length > 0) {
+        // Get pet names separately
+        const petIds = [...new Set(events.map(e => e.pet_id))];
+        const { data: pets } = await supabase
+          .from('pets')
+          .select('id, name')
+          .in('id', petIds);
+
+        const petMap = new Map(pets?.map(p => [p.id, p.name]) || []);
+
+        events.forEach(event => {
+          const eventDate = new Date(event.event_date);
+          let timeMessage = '';
+          
+          if (isToday(eventDate)) {
+            timeMessage = 'Σήμερα';
+          } else if (isTomorrow(eventDate)) {
+            timeMessage = 'Αύριο';
+          } else {
+            timeMessage = format(eventDate, 'dd/MM/yyyy', { locale: el });
+          }
+
+          if (event.event_time) {
+            timeMessage += ` στις ${event.event_time}`;
+          }
+
+          const petName = petMap.get(event.pet_id) || 'κατοικίδιό σας';
+
+          realNotifications.push({
+            id: event.id,
+            type: 'upcoming_event',
+            title: `Επερχόμενο ${event.event_type}`,
+            message: `${event.title} για τον/την ${petName} - ${timeMessage}`,
+            time: format(eventDate, 'dd/MM', { locale: el }),
+            read: false,
+            icon: Calendar
+          });
+        });
+      }
+
+      // Load pending family invites
+      const { data: invites } = await supabase
+        .from('pet_family_members')
+        .select(`
+          id,
+          role,
+          pet_id,
+          invited_by
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'pending');
+
+      if (invites && invites.length > 0) {
+        // Get pet and profile names separately
+        const petIds = [...new Set(invites.map(i => i.pet_id))];
+        const profileIds = [...new Set(invites.map(i => i.invited_by))];
+        
+        const [petsResult, profilesResult] = await Promise.all([
+          supabase.from('pets').select('id, name').in('id', petIds),
+          supabase.from('profiles').select('user_id, display_name').in('user_id', profileIds)
+        ]);
+
+        const petMap = new Map(petsResult.data?.map(p => [p.id, p.name]) || []);
+        const profileMap = new Map(profilesResult.data?.map(p => [p.user_id, p.display_name]) || []);
+
+        invites.forEach(invite => {
+          const petName = petMap.get(invite.pet_id) || 'κατοικίδιο';
+          const inviterName = profileMap.get(invite.invited_by) || 'Κάποιος';
+          
+          realNotifications.push({
+            id: invite.id,
+            type: 'family_invite',
+            title: 'Νέα πρόσκληση οικογένειας',
+            message: `${inviterName} σας προσκάλεσε ως ${invite.role} για τον/την ${petName}`,
+            time: 'Νέα',
+            read: false,
+            icon: Users
+          });
+        });
+      }
+
+      setNotifications(realNotifications);
+      setUnreadCount(realNotifications.filter(n => !n.read).length);
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+      // Fallback to empty notifications on error
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+  };
 
   const markAsRead = (notificationId: string) => {
     setNotifications(prev => 
