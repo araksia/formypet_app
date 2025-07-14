@@ -1,14 +1,14 @@
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Heart, Calendar, Settings, Plus } from 'lucide-react';
+import { Home, Heart, Calendar, Settings, Plus, Euro } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Navigation = () => {
   const navItems = [
     { icon: Home, label: 'Αρχική', path: '/' },
     { icon: Heart, label: 'Κατοικίδια', path: '/pets' },
-    { icon: Plus, label: 'Προσθήκη', path: '/add-pet' },
+    { icon: Euro, label: 'Έξοδα', path: '/expenses' },
     { icon: Calendar, label: 'Ημερολόγιο', path: '/calendar' },
     { icon: Settings, label: 'Ρυθμίσεις', path: '/settings' },
   ];
