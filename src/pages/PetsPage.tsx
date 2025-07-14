@@ -28,7 +28,13 @@ const PetsPage = () => {
   const fetchPets = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.log('No user found');
+        setPets([]);
+        return;
+      }
+
+      console.log('Fetching pets for user:', user.id);
 
       const { data, error } = await supabase
         .from('pets')
@@ -36,10 +42,21 @@ const PetsPage = () => {
         .eq('owner_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error fetching pets:', error);
+        toast({
+          title: "Σφάλμα",
+          description: "Δεν ήταν δυνατή η φόρτωση των κατοικιδίων",
+          variant: "destructive"
+        });
+        throw error;
+      }
+
+      console.log('Fetched pets:', data);
       setPets(data || []);
     } catch (error) {
       console.error('Error fetching pets:', error);
+      setPets([]);
     } finally {
       setLoading(false);
     }

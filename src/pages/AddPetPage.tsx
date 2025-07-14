@@ -52,9 +52,23 @@ const AddPetPage = () => {
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
+      if (!user) {
+        throw new Error('Δεν βρέθηκε συνδεδεμένος χρήστης');
+      }
 
-      const { error } = await supabase
+      console.log('Saving pet with data:', {
+        name: formData.name,
+        species: formData.species,
+        breed: formData.breed || null,
+        gender: formData.gender || null,
+        age: formData.age ? parseInt(formData.age) : null,
+        weight: formData.weight ? parseFloat(formData.weight) : null,
+        description: formData.description || null,
+        avatar_url: petImage || null,
+        owner_id: user.id
+      });
+
+      const { data, error } = await supabase
         .from('pets')
         .insert({
           name: formData.name,
@@ -66,22 +80,34 @@ const AddPetPage = () => {
           description: formData.description || null,
           avatar_url: petImage || null,
           owner_id: user.id
-        });
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      console.log('Pet saved successfully:', data);
 
       toast({
-        title: "Επιτυχία!",
-        description: "Το κατοικίδιο προστέθηκε επιτυχώς"
+        title: "🎉 Επιτυχία!",
+        description: `Το κατοικίδιο "${formData.name}" καταχωρήθηκε επιτυχώς!`,
+        duration: 4000
       });
 
-      navigate('/pets');
-    } catch (error) {
+      // Wait a bit for the toast to show, then navigate
+      setTimeout(() => {
+        navigate('/pets');
+      }, 1000);
+
+    } catch (error: any) {
       console.error('Error adding pet:', error);
       toast({
-        title: "Σφάλμα",
-        description: "Υπήρξε πρόβλημα κατά την αποθήκευση του κατοικιδίου",
-        variant: "destructive"
+        title: "❌ Σφάλμα",
+        description: error.message || "Υπήρξε πρόβλημα κατά την αποθήκευση του κατοικιδίου",
+        variant: "destructive",
+        duration: 5000
       });
     } finally {
       setLoading(false);
