@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Heart, Calendar, Camera, Pill, Stethoscope, Plus, PawPrint, Star, Clock, Search, ShoppingCart, Bell, User, TrendingUp, Award, MapPin, ChevronRight } from 'lucide-react';
+import { Heart, Calendar, Euro, Plus, PawPrint, Star, Clock, Search, User, TrendingUp, Award, MapPin, ChevronRight, Users, Activity, FileText, Stethoscope, Pill } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
@@ -10,28 +10,28 @@ const Dashboard = () => {
 
   const quickActions = [
     { 
-      icon: Plus, 
+      icon: PawPrint, 
       label: 'Προσθήκη Κατοικιδίου', 
       action: () => navigate('/add-pet'),
       color: 'bg-primary'
     },
     { 
-      icon: Camera, 
-      label: 'Φωτογραφία', 
-      action: () => {},
-      color: 'bg-orange-500'
-    },
-    { 
-      icon: Pill, 
-      label: 'Φάρμακα', 
-      action: () => navigate('/medications'),
+      icon: Calendar, 
+      label: 'Προσθήκη Event', 
+      action: () => navigate('/add-event'),
       color: 'bg-blue-500'
     },
     { 
-      icon: Stethoscope, 
-      label: 'Ιατρικός Φάκελος', 
-      action: () => navigate('/pets'),
-      color: 'bg-red-500'
+      icon: Euro, 
+      label: 'Προσθήκη Εξόδων', 
+      action: () => navigate('/add-expense'),
+      color: 'bg-green-500'
+    },
+    { 
+      icon: Users, 
+      label: 'Νέο Μέλος Οικογένειας', 
+      action: () => navigate('/add-family-member'),
+      color: 'bg-purple-500'
     },
   ];
 
@@ -43,9 +43,9 @@ const Dashboard = () => {
 
   const stats = [
     { label: 'Κατοικίδια', value: '3', icon: PawPrint, trend: '+1' },
-    { label: 'Events', value: '5', icon: Calendar, trend: '+2' },
-    { label: 'Βραβεία', value: '12', icon: Award, trend: '+3' },
-    { label: 'Γειτονιά', value: '8°', icon: MapPin, trend: '️☀️' },
+    { label: 'Ιατρικά Αρχεία', value: '8', icon: FileText, trend: '+2' },
+    { label: 'Συνολικά Έξοδα', value: '€245', icon: Euro, trend: '+€50' },
+    { label: 'Μέλη Οικογένειας', value: '4', icon: Users, trend: '+1' },
   ];
 
   return (
@@ -67,13 +67,7 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" className="p-2">
-              <Bell className="h-5 w-5 text-gray-600" />
-            </Button>
-            <Button variant="ghost" size="sm" className="p-2">
-              <ShoppingCart className="h-5 w-5 text-gray-600" />
-            </Button>
-            <Button variant="ghost" size="sm" className="p-2">
+            <Button variant="ghost" size="sm" className="p-2" onClick={() => navigate('/profile')}>
               <User className="h-5 w-5 text-gray-600" />
             </Button>
           </div>
@@ -96,10 +90,10 @@ const Dashboard = () => {
           <CardContent className="p-6 relative">
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <h3 className="text-white font-semibold text-lg mb-1">Χριστουγεννιάτικη Προσφορά!</h3>
-                <p className="text-white/90 text-sm mb-3">Δωρεάν παράδοση για όλα τα φάρμακα</p>
+                <h3 className="text-white font-semibold text-lg mb-1">For My Pet</h3>
+                <p className="text-white/90 text-sm mb-3">Η πλήρης εφαρμογή για τη φροντίδα των κατοικίδιών σας</p>
                 <Button size="sm" className="bg-white text-primary hover:bg-gray-100 font-medium">
-                  Κάντε αγορά τώρα
+                  Εξερευνήστε τη φροντίδα
                 </Button>
               </div>
               <div className="flex gap-2">
@@ -207,6 +201,16 @@ const Dashboard = () => {
                   </div>
                 );
               })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Google Ads Section */}
+        <Card className="border-0 shadow-sm bg-gray-50">
+          <CardContent className="p-4 text-center">
+            <div className="text-sm text-gray-500 mb-2">Διαφήμιση</div>
+            <div className="h-24 bg-white rounded-lg flex items-center justify-center border border-gray-200">
+              <span className="text-gray-400 text-sm">Google Ads Space</span>
             </div>
           </CardContent>
         </Card>
