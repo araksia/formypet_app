@@ -35,88 +35,52 @@ const PetsPage = () => {
   }, [authLoading, user]);
 
   const fetchPets = async () => {
-    if (!user) {
-      console.log('❌ No user available for fetchPets');
-      setPets([]);
-      setLoading(false);
-      return;
-    }
-
-    console.log('🔄 fetchPets started for user:', user.id);
+    console.log('🔄 fetchPets started for user:', user?.id);
     setLoading(true);
     
     try {
-      // Get the current session to debug authentication
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('🔑 Session exists:', !!session);
-      console.log('🔑 Session user ID:', session?.user?.id);
-      console.log('🔑 Auth user ID:', user.id);
-      console.log('🔑 Session token exists:', !!session?.access_token);
-
-      if (!session) {
-        console.error('❌ No session found');
-        toast({
-          title: "Πρόβλημα Authentication",
-          description: "Δεν βρέθηκε έγκυρη συνεδρία. Παρακαλώ κάντε logout και login ξανά.",
-          variant: "destructive"
-        });
+      if (!user) {
+        console.log('❌ No user available');
         setPets([]);
-        setLoading(false);
         return;
       }
 
-      console.log('📡 Making Supabase query...');
+      console.log('📡 Making direct query to pets table...');
       
-      // Try with explicit authentication header
+      // Simple direct query without complex authentication checks
       const { data, error } = await supabase
         .from('pets')
         .select('*')
-        .eq('owner_id', user.id)
         .order('created_at', { ascending: false });
 
-      console.log('📊 Supabase response:');
-      console.log('   - Data:', data);
-      console.log('   - Error:', error);
-      console.log('   - Data length:', data?.length || 0);
+      console.log('📊 Query result - data:', data, 'error:', error);
 
       if (error) {
-        console.error('❌ Supabase error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        
+        console.error('❌ Database error:', error);
         toast({
-          title: "Σφάλμα Βάσης Δεδομένων",
-          description: `Δεν ήταν δυνατή η φόρτωση των κατοικιδίων: ${error.message}`,
+          title: "Σφάλμα",
+          description: `Σφάλμα βάσης: ${error.message}`,
           variant: "destructive"
         });
         setPets([]);
       } else {
-        console.log('✅ Successfully fetched', data?.length || 0, 'pets');
-        setPets(data || []);
-        
-        if (!data || data.length === 0) {
-          console.log('ℹ️ No pets found for user');
-        }
+        console.log('✅ Found', data?.length || 0, 'pets total');
+        // Filter pets for current user in the frontend for now
+        const userPets = data?.filter(pet => pet.owner_id === user.id) || [];
+        console.log('✅ User pets:', userPets.length);
+        setPets(userPets);
       }
       
     } catch (error: any) {
-      console.error('💥 Unexpected error in fetchPets:', {
-        message: error.message,
-        stack: error.stack,
-        error: error
-      });
-      
+      console.error('💥 Fetch error:', error);
       toast({
-        title: "Απροσδόκητο Σφάλμα",
-        description: "Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.",
+        title: "Σφάλμα",
+        description: "Απροσδόκητο σφάλμα κατά τη φόρτωση",
         variant: "destructive"
       });
       setPets([]);
     } finally {
-      console.log('🏁 fetchPets finished');
+      console.log('🏁 fetchPets completed');
       setLoading(false);
     }
   };
