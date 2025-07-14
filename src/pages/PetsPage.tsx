@@ -46,6 +46,14 @@ const PetsPage = () => {
     setLoading(true);
     
     try {
+      // Get the current session to ensure we have a valid token
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('🔑 Current session:', session ? 'exists' : 'null');
+      
+      if (!session) {
+        throw new Error('No valid session found');
+      }
+      
       const { data, error } = await supabase
         .from('pets')
         .select('*')
