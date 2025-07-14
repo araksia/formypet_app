@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Heart, Calendar, Euro, Plus, PawPrint, Star, Clock, Search, User, TrendingUp, Award, MapPin, ChevronRight, Users, Activity, FileText, Stethoscope, Pill } from 'lucide-react';
+import { Heart, Calendar, Euro, Plus, PawPrint, Star, Clock, Search, User, TrendingUp, Award, MapPin, ChevronRight, Users, Activity, FileText, Stethoscope, Pill, Dog } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
@@ -86,7 +86,7 @@ const Dashboard = () => {
         </div>
 
         {/* Dog with Speech Bubble Banner */}
-        <Card className="bg-gradient-to-r from-blue-500 to-purple-600 border-0 overflow-hidden">
+        <Card className="bg-gradient-to-r from-primary to-primary/80 border-0 overflow-hidden">
           <CardContent className="p-6 relative">
             <div className="flex items-start justify-between">
               <div className="flex-1">
@@ -102,16 +102,11 @@ const Dashboard = () => {
               
               {/* Dog Character */}
               <div className="flex flex-col items-center ml-4">
-                <div className="text-6xl mb-2 animate-bounce">🐕</div>
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-2 animate-bounce">
+                  <Dog className="h-8 w-8 text-white" />
+                </div>
                 <div className="text-white/80 text-xs text-center">Μπάτμαν</div>
               </div>
-            </div>
-            
-            {/* App promotion */}
-            <div className="mt-4 pt-4 border-t border-white/20">
-              <Button size="sm" className="bg-white text-blue-600 hover:bg-gray-100 font-medium">
-                Εξερευνήστε την εφαρμογή 🐾
-              </Button>
             </div>
           </CardContent>
         </Card>
