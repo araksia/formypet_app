@@ -31,41 +31,66 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
+    let mounted = true;
+
+    // Get initial session with timeout
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      setLoading(false);
+      try {
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session timeout')), 10000)
+        );
+        
+        const sessionPromise = supabase.auth.getSession();
+        
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        
+        if (mounted) {
+          setUser(session?.user ?? null);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Session error:', error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
     };
 
     getSession();
 
-    // Listen for auth changes
+    // Listen for auth changes - no async operations inside
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null);
-        setLoading(false);
+      (event, session) => {
+        if (mounted) {
+          setUser(session?.user ?? null);
+          setLoading(false);
+        }
 
-        // Create or update profile when user signs in
+        // Defer profile update to avoid deadlock
         if (event === 'SIGNED_IN' && session?.user) {
-          const { error } = await supabase
-            .from('profiles')
-            .upsert({
-              user_id: session.user.id,
-              email: session.user.email,
-              display_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0]
-            }, {
-              onConflict: 'user_id'
-            });
-
-          if (error) {
-            console.error('Error updating profile:', error);
-          }
+          setTimeout(async () => {
+            try {
+              await supabase
+                .from('profiles')
+                .upsert({
+                  user_id: session.user.id,
+                  email: session.user.email,
+                  display_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0]
+                }, {
+                  onConflict: 'user_id'
+                });
+            } catch (error) {
+              console.error('Error updating profile:', error);
+            }
+          }, 0);
         }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {

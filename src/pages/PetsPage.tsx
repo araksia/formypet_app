@@ -35,52 +35,52 @@ const PetsPage = () => {
   }, [authLoading, user]);
 
   const fetchPets = async () => {
-    console.log('🔄 fetchPets started for user:', user?.id);
+    if (!user) {
+      setPets([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     
     try {
-      if (!user) {
-        console.log('❌ No user available');
-        setPets([]);
-        return;
-      }
+      // Query with timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-      console.log('📡 Making direct query to pets table...');
-      
-      // Simple direct query without complex authentication checks
-      const { data, error } = await supabase
+      const query = supabase
         .from('pets')
         .select('*')
-        .order('created_at', { ascending: false });
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false })
+        .abortSignal(controller.signal);
 
-      console.log('📊 Query result - data:', data, 'error:', error);
+      const { data, error } = await query;
+      
+      clearTimeout(timeoutId);
 
       if (error) {
-        console.error('❌ Database error:', error);
-        toast({
-          title: "Σφάλμα",
-          description: `Σφάλμα βάσης: ${error.message}`,
-          variant: "destructive"
-        });
-        setPets([]);
-      } else {
-        console.log('✅ Found', data?.length || 0, 'pets total');
-        // Filter pets for current user in the frontend for now
-        const userPets = data?.filter(pet => pet.owner_id === user.id) || [];
-        console.log('✅ User pets:', userPets.length);
-        setPets(userPets);
+        throw error;
       }
+
+      setPets(data || []);
       
     } catch (error: any) {
-      console.error('💥 Fetch error:', error);
-      toast({
-        title: "Σφάλμα",
-        description: "Απροσδόκητο σφάλμα κατά τη φόρτωση",
-        variant: "destructive"
-      });
+      if (error.name === 'AbortError') {
+        toast({
+          title: "Timeout",
+          description: "Η φόρτωση πήρε πολύ ώρα. Δοκιμάστε ξανά.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Σφάλμα",
+          description: error.message || "Σφάλμα κατά τη φόρτωση",
+          variant: "destructive"
+        });
+      }
       setPets([]);
     } finally {
-      console.log('🏁 fetchPets completed');
       setLoading(false);
     }
   };
