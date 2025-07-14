@@ -168,7 +168,7 @@ const AddEventPage = () => {
                     <SelectValue placeholder="Χωρίς επανάληψη" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Χωρίς επανάληψη</SelectItem>
+                    <SelectItem value="none">Χωρίς επανάληψη</SelectItem>
                     <SelectItem value="daily">Καθημερινά</SelectItem>
                     <SelectItem value="weekly">Εβδομαδιαία</SelectItem>
                     <SelectItem value="monthly">Μηνιαία</SelectItem>
