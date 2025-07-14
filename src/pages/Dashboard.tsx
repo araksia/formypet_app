@@ -85,25 +85,33 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* Promotional Banner */}
-        <Card className="bg-gradient-to-r from-primary to-primary/80 border-0 overflow-hidden">
+        {/* Dog with Speech Bubble Banner */}
+        <Card className="bg-gradient-to-r from-blue-500 to-purple-600 border-0 overflow-hidden">
           <CardContent className="p-6 relative">
-            <div className="flex items-center justify-between">
+            <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="text-white font-semibold text-lg mb-1">For My Pet</h3>
-                <p className="text-white/90 text-sm mb-3">Η πλήρης εφαρμογή για τη φροντίδα των κατοικίδιών σας</p>
-                <Button size="sm" className="bg-white text-primary hover:bg-gray-100 font-medium">
-                  Εξερευνήστε τη φροντίδα
-                </Button>
-              </div>
-              <div className="flex gap-2">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                  🐱
-                </div>
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                  🐶
+                {/* Speech Bubble */}
+                <div className="bg-white rounded-2xl p-4 relative max-w-xs shadow-lg">
+                  <p className="text-gray-800 text-sm leading-relaxed">
+                    "Ευτυχώς που κατέβασε το ForMyPet και δε θα ξεχάσει ξανά να με πάει για μπάνιο!"
+                  </p>
+                  {/* Speech bubble tail */}
+                  <div className="absolute bottom-0 left-6 w-0 h-0 border-l-[12px] border-l-transparent border-r-[12px] border-r-transparent border-t-[12px] border-t-white transform translate-y-full"></div>
                 </div>
               </div>
+              
+              {/* Dog Character */}
+              <div className="flex flex-col items-center ml-4">
+                <div className="text-6xl mb-2 animate-bounce">🐕</div>
+                <div className="text-white/80 text-xs text-center">Μπάτμαν</div>
+              </div>
+            </div>
+            
+            {/* App promotion */}
+            <div className="mt-4 pt-4 border-t border-white/20">
+              <Button size="sm" className="bg-white text-blue-600 hover:bg-gray-100 font-medium">
+                Εξερευνήστε την εφαρμογή 🐾
+              </Button>
             </div>
           </CardContent>
         </Card>
