@@ -98,18 +98,30 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-      <div className="flex items-center justify-between px-4 py-3">
-        <h1 className="text-xl font-bold text-primary">For My Pet</h1>
-        <div className="flex items-center space-x-2">
+    <div className="bg-white border-b border-gray-100">
+      <div className="flex items-center justify-between p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full overflow-hidden">
+            <img 
+              src="/lovable-uploads/80a1ae36-cd7c-4cc3-804b-42587ec0efb4.png" 
+              alt="For My Pet Logo"
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
+            <p className="text-xs text-gray-500">Καλημέρα! 🐾</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
           {showNotifications && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-5 w-5" />
+                <Button variant="ghost" size="sm" className="p-2 relative">
+                  <Bell className="h-5 w-5 text-gray-600" />
                   {unreadCount > 0 && (
                     <Badge 
-                      className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-destructive text-destructive-foreground text-xs rounded-full"
+                      className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0 bg-destructive text-destructive-foreground text-xs rounded-full"
                     >
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </Badge>
@@ -172,18 +184,13 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
             </DropdownMenu>
           )}
           {showProfile && (
-            <Button variant="ghost" size="icon">
-              <User className="h-5 w-5" />
+            <Button variant="ghost" size="sm" className="p-2">
+              <User className="h-5 w-5 text-gray-600" />
             </Button>
           )}
         </div>
       </div>
-      {title !== "For My Pet" && (
-        <div className="px-4 pb-3">
-          <h2 className="text-lg font-semibold">{title}</h2>
-        </div>
-      )}
-    </header>
+    </div>
   );
 };
 
