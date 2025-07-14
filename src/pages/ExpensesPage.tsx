@@ -134,10 +134,10 @@ const ExpensesPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 p-4">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 p-4 overflow-hidden">
+      <div className="max-w-7xl mx-auto h-screen flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
@@ -147,17 +147,17 @@ const ExpensesPage = () => {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold">Έξοδα Κατοικιδίων</h1>
-              <p className="text-muted-foreground">Παρακολούθηση & ανάλυση εξόδων</p>
+              <h1 className="text-xl font-bold">Έξοδα Κατοικιδίων</h1>
+              <p className="text-sm text-muted-foreground">Παρακολούθηση & ανάλυση εξόδων</p>
             </div>
           </div>
           
           <div className="flex gap-2">
             <Button variant="outline" size="sm">
               <Download className="h-4 w-4 mr-2" />
-              Export PDF
+              Export
             </Button>
-            <Button onClick={() => navigate("/add-expense")}>
+            <Button onClick={() => navigate("/add-expense")} size="sm">
               <Plus className="h-4 w-4 mr-2" />
               Νέο Έξοδο
             </Button>
@@ -165,9 +165,9 @@ const ExpensesPage = () => {
         </div>
 
         {/* Filters */}
-        <div className="flex gap-4">
+        <div className="flex gap-4 mb-4">
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-32">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -178,7 +178,7 @@ const ExpensesPage = () => {
           </Select>
           
           <Select value={selectedPet} onValueChange={setSelectedPet}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -192,177 +192,150 @@ const ExpensesPage = () => {
 
         {/* Budget Alert */}
         {isOverBudget && (
-          <Alert className="border-destructive">
+          <Alert className="border-destructive mb-4">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>
+            <AlertDescription className="text-sm">
               <strong>Προσοχή!</strong> Έχεις ξεπεράσει τον μηνιαίο προϋπολογισμό κατά {(totalExpenses - monthlyBudget).toFixed(2)}€
             </AlertDescription>
           </Alert>
         )}
 
-        {/* Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Συνολικά Έξοδα</CardTitle>
-              <Euro className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalExpenses.toFixed(2)}€</div>
-              <div className="flex items-center text-xs text-muted-foreground">
-                <TrendingUp className="h-3 w-3 mr-1" />
-                +12% από προηγούμενο μήνα
-              </div>
-            </CardContent>
-          </Card>
+        {/* Main Content - Two Column Layout */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0">
           
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Προϋπολογισμός</CardTitle>
-              <PieChart className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{budgetUsed.toFixed(0)}%</div>
-              <div className="w-full bg-secondary rounded-full h-2 mt-2">
-                <div 
-                  className={`h-2 rounded-full ${isOverBudget ? 'bg-destructive' : 'bg-primary'}`}
-                  style={{ width: `${Math.min(budgetUsed, 100)}%` }}
-                />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Μέσος Όρος</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{(totalExpenses / mockExpenses.length).toFixed(2)}€</div>
-              <p className="text-xs text-muted-foreground">
-                ανά έξοδο
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Έξοδα Μήνα</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{mockExpenses.length}</div>
-              <p className="text-xs text-muted-foreground">
-                συνολικά έξοδα
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Category Breakdown */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Κατανομή ανά Κατηγορία</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsePieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => `${value}€`} />
-                  </RechartsePieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Pet Comparison */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Σύγκριση ανά Κατοικίδιο</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={petData}>
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip formatter={(value) => `${value}€`} />
-                    <Bar dataKey="amount" fill="#8884d8" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Monthly Trends */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Μηνιαίες Τάσεις</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyTrends}>
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => `${value}€`} />
-                  <Bar dataKey="amount" fill="#82ca9d" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Recent Expenses */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Πρόσφατα Έξοδα</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {mockExpenses.slice(0, 5).map((expense) => (
-                <div key={expense.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-full" style={{ backgroundColor: `${categoryColors[expense.category as keyof typeof categoryColors]}20` }}>
-                      <Euro className="h-4 w-4" style={{ color: categoryColors[expense.category as keyof typeof categoryColors] }} />
-                    </div>
-                    <div>
-                      <p className="font-medium">{expense.description}</p>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>{expense.petName}</span>
-                        <span>•</span>
-                        <span>{categoryLabels[expense.category as keyof typeof categoryLabels]}</span>
-                        <span>•</span>
-                        <span>{format(new Date(expense.date), "dd/MM/yyyy", { locale: el })}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {expense.receipt && (
-                      <Badge variant="secondary" className="text-xs">📄</Badge>
-                    )}
-                    <span className="font-bold">{expense.amount.toFixed(2)}€</span>
+          {/* Left Column - Overview & Charts */}
+          <div className="lg:col-span-2 space-y-4 min-h-0 flex flex-col">
+            
+            {/* Overview Cards */}
+            <div className="grid grid-cols-4 gap-3">
+              <Card className="p-3">
+                <div className="flex items-center justify-between">
+                  <Euro className="h-4 w-4 text-muted-foreground" />
+                  <div className="text-right">
+                    <div className="text-lg font-bold">{totalExpenses.toFixed(0)}€</div>
+                    <div className="text-xs text-muted-foreground">Συνολικά</div>
                   </div>
                 </div>
-              ))}
+              </Card>
+              
+              <Card className="p-3">
+                <div className="flex items-center justify-between">
+                  <PieChart className="h-4 w-4 text-muted-foreground" />
+                  <div className="text-right">
+                    <div className="text-lg font-bold">{budgetUsed.toFixed(0)}%</div>
+                    <div className="text-xs text-muted-foreground">Προϋπολογισμός</div>
+                  </div>
+                </div>
+              </Card>
+              
+              <Card className="p-3">
+                <div className="flex items-center justify-between">
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                  <div className="text-right">
+                    <div className="text-lg font-bold">{(totalExpenses / mockExpenses.length).toFixed(0)}€</div>
+                    <div className="text-xs text-muted-foreground">Μέσος όρος</div>
+                  </div>
+                </div>
+              </Card>
+              
+              <Card className="p-3">
+                <div className="flex items-center justify-between">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <div className="text-right">
+                    <div className="text-lg font-bold">{mockExpenses.length}</div>
+                    <div className="text-xs text-muted-foreground">Έξοδα</div>
+                  </div>
+                </div>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
+              {/* Category Breakdown */}
+              <Card className="flex flex-col min-h-0">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Κατανομή ανά Κατηγορία</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 min-h-0">
+                  <div className="h-full min-h-[200px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsePieChart>
+                        <Pie
+                          data={categoryData}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={60}
+                          dataKey="value"
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {categoryData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value) => `${value}€`} />
+                      </RechartsePieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Pet Comparison */}
+              <Card className="flex flex-col min-h-0">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Σύγκριση ανά Κατοικίδιο</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 min-h-0">
+                  <div className="h-full min-h-[200px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={petData}>
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip formatter={(value) => `${value}€`} />
+                        <Bar dataKey="amount" fill="#8884d8" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Right Column - Recent Expenses */}
+          <div className="flex flex-col min-h-0">
+            <Card className="flex-1 min-h-0 flex flex-col">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Πρόσφατα Έξοδα</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 min-h-0 overflow-y-auto">
+                <div className="space-y-2">
+                  {mockExpenses.map((expense) => (
+                    <div key={expense.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="p-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: `${categoryColors[expense.category as keyof typeof categoryColors]}20` }}>
+                          <Euro className="h-3 w-3" style={{ color: categoryColors[expense.category as keyof typeof categoryColors] }} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate">{expense.description}</p>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <span className="truncate">{expense.petName}</span>
+                            <span>•</span>
+                            <span className="truncate">{categoryLabels[expense.category as keyof typeof categoryLabels]}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {expense.receipt && (
+                          <Badge variant="secondary" className="text-xs p-0.5">📄</Badge>
+                        )}
+                        <span className="font-bold text-sm">{expense.amount.toFixed(0)}€</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
