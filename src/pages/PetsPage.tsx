@@ -22,6 +22,7 @@ const PetsPage = () => {
   const [copiedPetId, setCopiedPetId] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log('PetsPage useEffect running...');
     fetchPets();
   }, []);
 
@@ -167,6 +168,13 @@ const PetsPage = () => {
       <Header title="Τα Κατοικίδιά μου" />
       
       <div className="p-3 sm:p-4 space-y-4">
+        {/* Debug info */}
+        <div className="bg-yellow-50 p-2 rounded text-xs">
+          <p>Loading: {loading ? 'true' : 'false'}</p>
+          <p>Pets count: {pets.length}</p>
+          <Button size="sm" onClick={fetchPets} className="mt-2">Reload Pets</Button>
+        </div>
+
         {/* Add Pet Button */}
         <Button 
           onClick={() => navigate('/add-pet')}
