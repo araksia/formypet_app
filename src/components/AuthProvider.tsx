@@ -70,6 +70,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    // Force reload to clear all state
+    window.location.href = '/login';
   };
 
   const value = {

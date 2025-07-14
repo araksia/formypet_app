@@ -14,7 +14,7 @@ import { useAuth } from '@/components/AuthProvider';
 const PetsPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [pets, setPets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [shareEmail, setShareEmail] = useState('');
@@ -201,7 +201,10 @@ const PetsPage = () => {
           <p>User ID: {user?.id || 'null'}</p>
           <p>Loading: {loading ? 'true' : 'false'}</p>
           <p>Pets count: {pets.length}</p>
-          <Button size="sm" onClick={fetchPets} className="mt-2">🔄 Reload Pets</Button>
+          <div className="flex gap-2 mt-2">
+            <Button size="sm" onClick={fetchPets}>🔄 Reload Pets</Button>
+            <Button size="sm" variant="destructive" onClick={signOut}>🚪 Force Logout</Button>
+          </div>
         </div>
 
         {/* Add Pet Button */}
