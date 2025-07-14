@@ -57,7 +57,7 @@ const PetProfilePage = () => {
 
   if (!pet) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
         <Header title="Κατοικίδιο δεν βρέθηκε" />
         <div className="p-4 text-center">
           <p>Το κατοικίδιο δεν βρέθηκε.</p>
@@ -75,7 +75,7 @@ const PetProfilePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
       <Header title={pet.name} showNotifications={false} />
       
       <div className="p-4 space-y-6">

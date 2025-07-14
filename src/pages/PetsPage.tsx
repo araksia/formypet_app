@@ -40,7 +40,7 @@ const PetsPage = () => {
   ];
 
   return (
-    <div>
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
       <Header title="Τα Κατοικίδιά μου" />
       
       <div className="p-4 space-y-4">

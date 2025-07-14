@@ -84,7 +84,7 @@ const CalendarPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
       <Header title="Ημερολόγιο" />
       
       <div className="p-4 space-y-6">
