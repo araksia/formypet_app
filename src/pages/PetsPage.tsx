@@ -35,49 +35,48 @@ const PetsPage = () => {
   }, [authLoading, user]);
 
   const fetchPets = async () => {
-    if (!user) {
-      console.log('❌ No user available for fetchPets');
-      setPets([]);
-      setLoading(false);
-      return;
-    }
-
-    console.log('🔄 fetchPets started for user:', user.id);
+    console.log('🔄 fetchPets started for user:', user?.id);
     setLoading(true);
     
     try {
-      // Get the current session to ensure we have a valid token
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('🔑 Current session:', session ? 'exists' : 'null');
+      // TEMPORARY: Use hardcoded data to test UI
+      console.log('⚠️ Using hardcoded data for testing');
       
-      if (!session) {
-        throw new Error('No valid session found');
-      }
+      const hardcodedPets = [
+        {
+          id: 'test-1',
+          name: 'Διας',
+          species: 'dog',
+          breed: 'αδεσποτο',
+          age: 4,
+          weight: 45,
+          gender: 'male',
+          avatar_url: null,
+          created_at: '2025-07-14T11:38:23.819906+00:00',
+          owner_id: user?.id
+        },
+        {
+          id: 'test-2', 
+          name: 'Μίτσος',
+          species: 'cat',
+          breed: null,
+          age: 2,
+          weight: 4,
+          gender: 'male',
+          avatar_url: null,
+          created_at: '2025-07-14T11:41:54.053459+00:00',
+          owner_id: user?.id
+        }
+      ];
       
-      const { data, error } = await supabase
-        .from('pets')
-        .select('*')
-        .eq('owner_id', user.id)
-        .order('created_at', { ascending: false });
-
-      console.log('📊 Supabase response - data:', data, 'error:', error);
-
-      if (error) {
-        console.error('❌ Supabase error:', error);
-        toast({
-          title: "Σφάλμα",
-          description: "Δεν ήταν δυνατή η φόρτωση των κατοικιδίων: " + error.message,
-          variant: "destructive"
-        });
-        setPets([]);
-      } else {
-        console.log('✅ Successfully fetched', data?.length || 0, 'pets');
-        setPets(data || []);
-      }
+      console.log('✅ Setting hardcoded pets:', hardcodedPets);
+      setPets(hardcodedPets);
+      
     } catch (error: any) {
       console.error('💥 Error in fetchPets:', error);
       setPets([]);
     } finally {
+      console.log('🏁 fetchPets finished');
       setLoading(false);
     }
   };
