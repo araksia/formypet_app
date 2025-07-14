@@ -115,8 +115,8 @@ const Dashboard = () => {
                 className="border-0 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer active:scale-95"
                 onClick={action}
               >
-                <CardContent className="p-4">
-                  <div className={`w-12 h-12 ${color} rounded-2xl flex items-center justify-center mb-3`}>
+                <CardContent className="p-4 text-center">
+                  <div className={`w-12 h-12 ${color} rounded-2xl flex items-center justify-center mb-3 mx-auto`}>
                     <Icon className="h-6 w-6 text-white" />
                   </div>
                   <h4 className="font-medium text-gray-900 text-sm leading-tight">{label}</h4>

@@ -8,8 +8,8 @@ const Navigation = () => {
   const navItems = [
     { icon: Home, label: 'Αρχική', path: '/' },
     { icon: Heart, label: 'Κατοικίδια', path: '/pets' },
-    { icon: Euro, label: 'Έξοδα', path: '/expenses' },
     { icon: Calendar, label: 'Ημερολόγιο', path: '/calendar' },
+    { icon: Euro, label: 'Έξοδα', path: '/expenses' },
     { icon: Settings, label: 'Ρυθμίσεις', path: '/settings' },
   ];
 
