@@ -3,7 +3,7 @@ import React from 'react';
 import Header from '@/components/Header';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Heart, Calendar, FileText } from 'lucide-react';
+import { Plus, Heart, Calendar, FileText, Stethoscope } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const PetsPage = () => {
@@ -88,6 +88,14 @@ const PetsPage = () => {
                           onClick={() => navigate('/calendar')}
                         >
                           <Calendar className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8"
+                          onClick={() => navigate(`/pet/${pet.id}/medical`)}
+                        >
+                          <Stethoscope className="h-4 w-4" />
                         </Button>
                         <Button 
                           variant="ghost" 
