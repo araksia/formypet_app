@@ -35,45 +35,83 @@ const PetsPage = () => {
   }, [authLoading, user]);
 
   const fetchPets = async () => {
-    console.log('🔄 fetchPets started for user:', user?.id);
+    if (!user) {
+      console.log('❌ No user available for fetchPets');
+      setPets([]);
+      setLoading(false);
+      return;
+    }
+
+    console.log('🔄 fetchPets started for user:', user.id);
     setLoading(true);
     
     try {
-      // TEMPORARY: Use hardcoded data to test UI
-      console.log('⚠️ Using hardcoded data for testing');
-      
-      const hardcodedPets = [
-        {
-          id: 'test-1',
-          name: 'Διας',
-          species: 'dog',
-          breed: 'αδεσποτο',
-          age: 4,
-          weight: 45,
-          gender: 'male',
-          avatar_url: null,
-          created_at: '2025-07-14T11:38:23.819906+00:00',
-          owner_id: user?.id
-        },
-        {
-          id: 'test-2', 
-          name: 'Μίτσος',
-          species: 'cat',
-          breed: null,
-          age: 2,
-          weight: 4,
-          gender: 'male',
-          avatar_url: null,
-          created_at: '2025-07-14T11:41:54.053459+00:00',
-          owner_id: user?.id
+      // Get the current session to debug authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('🔑 Session exists:', !!session);
+      console.log('🔑 Session user ID:', session?.user?.id);
+      console.log('🔑 Auth user ID:', user.id);
+      console.log('🔑 Session token exists:', !!session?.access_token);
+
+      if (!session) {
+        console.error('❌ No session found');
+        toast({
+          title: "Πρόβλημα Authentication",
+          description: "Δεν βρέθηκε έγκυρη συνεδρία. Παρακαλώ κάντε logout και login ξανά.",
+          variant: "destructive"
+        });
+        setPets([]);
+        setLoading(false);
+        return;
+      }
+
+      console.log('📡 Making Supabase query...');
+      const { data, error } = await supabase
+        .from('pets')
+        .select('*')
+        .eq('owner_id', user.id)
+        .order('created_at', { ascending: false });
+
+      console.log('📊 Supabase response:');
+      console.log('   - Data:', data);
+      console.log('   - Error:', error);
+      console.log('   - Data length:', data?.length || 0);
+
+      if (error) {
+        console.error('❌ Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        
+        toast({
+          title: "Σφάλμα Βάσης Δεδομένων",
+          description: `Δεν ήταν δυνατή η φόρτωση των κατοικιδίων: ${error.message}`,
+          variant: "destructive"
+        });
+        setPets([]);
+      } else {
+        console.log('✅ Successfully fetched', data?.length || 0, 'pets');
+        setPets(data || []);
+        
+        if (!data || data.length === 0) {
+          console.log('ℹ️ No pets found for user');
         }
-      ];
-      
-      console.log('✅ Setting hardcoded pets:', hardcodedPets);
-      setPets(hardcodedPets);
+      }
       
     } catch (error: any) {
-      console.error('💥 Error in fetchPets:', error);
+      console.error('💥 Unexpected error in fetchPets:', {
+        message: error.message,
+        stack: error.stack,
+        error: error
+      });
+      
+      toast({
+        title: "Απροσδόκητο Σφάλμα",
+        description: "Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.",
+        variant: "destructive"
+      });
       setPets([]);
     } finally {
       console.log('🏁 fetchPets finished');
