@@ -4,7 +4,7 @@ import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Calendar, Heart, FileText, Edit, Pill, Syringe, Gift, Scissors } from 'lucide-react';
+import { ArrowLeft, Calendar, Heart, FileText, Edit, Pill, Syringe, Gift, Scissors, Stethoscope } from 'lucide-react';
 import { format } from 'date-fns';
 import { el } from 'date-fns/locale';
 
@@ -168,9 +168,10 @@ const PetProfilePage = () => {
           <Button 
             variant="outline" 
             className="h-20 flex-col gap-2"
+            onClick={() => navigate(`/pet/${petId}/medical`)}
           >
-            <FileText className="h-5 w-5" />
-            <span className="text-xs">Ιστορικό</span>
+            <Stethoscope className="h-5 w-5" />
+            <span className="text-xs">Ιατρικός Φάκελος</span>
           </Button>
         </div>
 
