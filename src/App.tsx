@@ -14,6 +14,7 @@ import PetProfilePage from "./pages/PetProfilePage";
 import MedicalRecordsPage from "./pages/MedicalRecordsPage";
 import ExpensesPage from "./pages/ExpensesPage";
 import AddExpensePage from "./pages/AddExpensePage";
+import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/pet/:petId/medical" element={<MedicalRecordsPage />} />
             <Route path="/expenses" element={<ExpensesPage />} />
             <Route path="/add-expense" element={<AddExpensePage />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<div className="p-4 text-center">Ρυθμίσεις - Υπό Κατασκευή</div>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
