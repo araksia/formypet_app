@@ -239,6 +239,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      is_pet_owner: {
+        Args: { pet_id_param: string }
+        Returns: boolean
+      }
       user_can_invite_to_pet: {
         Args: { pet_id_param: string }
         Returns: boolean
