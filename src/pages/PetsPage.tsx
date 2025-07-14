@@ -24,11 +24,9 @@ const PetsPage = () => {
 
   // Fetch pets when user is available
   useEffect(() => {
-    console.log('🚀 PetsPage mounted. AuthLoading:', authLoading, 'User:', user?.id);
     if (!authLoading && user) {
       fetchPets();
     } else if (!authLoading && !user) {
-      console.log('❌ No user found after auth loading completed');
       setPets([]);
       setLoading(false);
     }
@@ -85,30 +83,6 @@ const PetsPage = () => {
     }
   };
 
-  const refreshAuth = async () => {
-    console.log('🔄 Refreshing authentication...');
-    try {
-      const { data: { session }, error } = await supabase.auth.refreshSession();
-      if (error) {
-        console.error('❌ Auth refresh error:', error);
-        toast({
-          title: "Σφάλμα Authentication",
-          description: "Δεν ήταν δυνατή η ανανέωση της συνεδρίας",
-          variant: "destructive"
-        });
-      } else {
-        console.log('✅ Auth refreshed successfully');
-        toast({
-          title: "Επιτυχία",
-          description: "Η συνεδρία ανανεώθηκε. Δοκιμάστε ξανά.",
-        });
-        // Retry fetching pets after auth refresh
-        await fetchPets();
-      }
-    } catch (error: any) {
-      console.error('💥 Unexpected error refreshing auth:', error);
-    }
-  };
 
   const handleSharePet = async () => {
     if (!shareEmail || !selectedPetForShare || !user) return;
@@ -223,18 +197,6 @@ const PetsPage = () => {
       <Header title="Τα Κατοικίδιά μου" />
       
       <div className="p-3 sm:p-4 space-y-4">
-        {/* Debug info */}
-        <div className="bg-yellow-50 p-2 rounded text-xs">
-          <p>Auth Loading: {authLoading ? 'true' : 'false'}</p>
-          <p>User ID: {user?.id || 'null'}</p>
-          <p>Loading: {loading ? 'true' : 'false'}</p>
-          <p>Pets count: {pets.length}</p>
-          <div className="flex gap-2 mt-2">
-            <Button size="sm" onClick={fetchPets}>🔄 Reload Pets</Button>
-            <Button size="sm" variant="outline" onClick={refreshAuth}>🔑 Refresh Auth</Button>
-            <Button size="sm" variant="destructive" onClick={signOut}>🚪 Force Logout</Button>
-          </div>
-        </div>
 
         {/* Add Pet Button */}
         <Button 
