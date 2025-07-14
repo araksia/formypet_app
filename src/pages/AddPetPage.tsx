@@ -9,21 +9,83 @@ import { Textarea } from '@/components/ui/textarea';
 import { Camera, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const AddPetPage = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [petImage, setPetImage] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    species: '',
+    breed: '',
+    gender: '',
+    age: '',
+    weight: '',
+    description: ''
+  });
 
   const handleImageCapture = () => {
     // Placeholder for camera functionality
     console.log('Camera functionality will be implemented with Capacitor');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
-    console.log('Pet added successfully');
-    navigate('/pets');
+    
+    if (!formData.name || !formData.species) {
+      toast({
+        title: "Σφάλμα",
+        description: "Παρακαλώ συμπληρώστε τα υποχρεωτικά πεδία (Όνομα και Είδος)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user found');
+
+      const { error } = await supabase
+        .from('pets')
+        .insert({
+          name: formData.name,
+          species: formData.species,
+          breed: formData.breed || null,
+          gender: formData.gender || null,
+          age: formData.age ? parseInt(formData.age) : null,
+          weight: formData.weight ? parseFloat(formData.weight) : null,
+          description: formData.description || null,
+          avatar_url: petImage || null,
+          owner_id: user.id
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Επιτυχία!",
+        description: "Το κατοικίδιο προστέθηκε επιτυχώς"
+      });
+
+      navigate('/pets');
+    } catch (error) {
+      console.error('Error adding pet:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Υπήρξε πρόβλημα κατά την αποθήκευση του κατοικιδίου",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -77,11 +139,17 @@ const AddPetPage = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="name">Όνομα *</Label>
-                  <Input id="name" placeholder="π.χ. Μπάρμπι" required />
+                  <Input 
+                    id="name" 
+                    placeholder="π.χ. Μπάρμπι" 
+                    value={formData.name}
+                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    required 
+                  />
                 </div>
                 <div>
                   <Label htmlFor="type">Είδος *</Label>
-                  <Select name="type" required>
+                  <Select value={formData.species} onValueChange={(value) => handleInputChange('species', value)} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Επίλεξε είδος" />
                     </SelectTrigger>
@@ -103,11 +171,16 @@ const AddPetPage = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="breed">Ράτσα</Label>
-                  <Input id="breed" placeholder="π.χ. Golden Retriever" />
+                  <Input 
+                    id="breed" 
+                    placeholder="π.χ. Golden Retriever" 
+                    value={formData.breed}
+                    onChange={(e) => handleInputChange('breed', e.target.value)}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="gender">Φύλο</Label>
-                  <Select name="gender">
+                  <Select value={formData.gender} onValueChange={(value) => handleInputChange('gender', value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Επίλεξε φύλο" />
                     </SelectTrigger>
@@ -121,18 +194,26 @@ const AddPetPage = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="birthdate">Ημ/νία Γέννησης</Label>
-                  <Input id="birthdate" type="date" />
+                  <Label htmlFor="age">Ηλικία (χρόνια)</Label>
+                  <Input 
+                    id="age" 
+                    type="number" 
+                    placeholder="π.χ. 3"
+                    value={formData.age}
+                    onChange={(e) => handleInputChange('age', e.target.value)}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="weight">Βάρος (kg)</Label>
-                  <Input id="weight" type="number" step="0.1" placeholder="π.χ. 25.5" />
+                  <Input 
+                    id="weight" 
+                    type="number" 
+                    step="0.1" 
+                    placeholder="π.χ. 25.5"
+                    value={formData.weight}
+                    onChange={(e) => handleInputChange('weight', e.target.value)}
+                  />
                 </div>
-              </div>
-
-              <div>
-                <Label htmlFor="microchip">Αριθμός Microchip</Label>
-                <Input id="microchip" placeholder="Προαιρετικό" />
               </div>
 
               <div>
@@ -140,14 +221,16 @@ const AddPetPage = () => {
                 <Textarea 
                   id="notes" 
                   placeholder="Οποιες επιπλέον πληροφορίες θέλεις να κρατήσεις..."
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
                 />
               </div>
             </CardContent>
           </Card>
 
           {/* Submit Button */}
-          <Button type="submit" className="w-full h-12">
-            Αποθήκευση Κατοικιδίου
+          <Button type="submit" className="w-full h-12" disabled={loading}>
+            {loading ? 'Αποθήκευση...' : 'Αποθήκευση Κατοικιδίου'}
           </Button>
         </form>
       </div>

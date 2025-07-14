@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   ArrowLeft, 
@@ -22,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { supabase } from '@/integrations/supabase/client';
 
 const AddExpensePage = () => {
   const navigate = useNavigate();
@@ -38,8 +39,31 @@ const AddExpensePage = () => {
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [pets, setPets] = useState<any[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    fetchUserPets();
+  }, []);
+
+  const fetchUserPets = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('pets')
+        .select('id, name, species')
+        .eq('owner_id', user.id);
+
+      if (error) throw error;
+      setPets(data || []);
+    } catch (error) {
+      console.error('Error fetching pets:', error);
+    }
+  };
 
   const categories = [
     { value: "food", label: "Φαγητό", icon: "🍖" },
@@ -51,12 +75,6 @@ const AddExpensePage = () => {
     { value: "training", label: "Εκπαίδευση", icon: "🎓" },
     { value: "insurance", label: "Ασφάλεια", icon: "🛡️" },
     { value: "other", label: "Άλλο", icon: "📦" },
-  ];
-
-  const pets = [
-    { id: "1", name: "Μπάρμπι" },
-    { id: "2", name: "Ρεξ" },
-    { id: "3", name: "Μάξι" },
   ];
 
   const startCamera = async () => {
@@ -148,7 +166,7 @@ const AddExpensePage = () => {
     }, 2000);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!expense.category || !expense.amount || !expense.petId || !expense.description) {
       toast({
         title: "Σφάλμα",
@@ -158,13 +176,44 @@ const AddExpensePage = () => {
       return;
     }
 
-    // Προσομοίωση αποθήκευσης
-    toast({
-      title: "Επιτυχία",
-      description: `Το έξοδο ${expense.amount}€ προστέθηκε επιτυχώς`,
-    });
+    setLoading(true);
 
-    navigate("/expenses");
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user found');
+
+      const { error } = await supabase
+        .from('expenses')
+        .insert({
+          category: expense.category,
+          amount: parseFloat(expense.amount),
+          pet_id: expense.petId,
+          user_id: user.id,
+          description: expense.description,
+          expense_date: expense.date,
+          is_recurring: expense.isRecurring,
+          recurring_frequency: expense.isRecurring ? expense.recurringFrequency : null,
+          receipt_url: receiptImage || null
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Επιτυχία!",
+        description: `Το έξοδο ${expense.amount}€ προστέθηκε επιτυχώς`,
+      });
+
+      navigate("/expenses");
+    } catch (error) {
+      console.error('Error creating expense:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Υπήρξε πρόβλημα κατά την αποθήκευση του εξόδου",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const selectedCategory = categories.find(cat => cat.value === expense.category);
@@ -343,7 +392,7 @@ const AddExpensePage = () => {
                 <SelectContent>
                   {pets.map((pet) => (
                     <SelectItem key={pet.id} value={pet.id}>
-                      {pet.name}
+                      {pet.name} ({pet.species})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -445,8 +494,9 @@ const AddExpensePage = () => {
           <Button
             onClick={handleSubmit}
             className="flex-1"
+            disabled={loading}
           >
-            Αποθήκευση Εξόδου
+            {loading ? 'Αποθήκευση...' : 'Αποθήκευση Εξόδου'}
           </Button>
         </div>
       </div>

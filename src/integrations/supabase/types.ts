@@ -56,6 +56,51 @@ export type Database = {
         }
         Relationships: []
       }
+      expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          description: string
+          expense_date: string
+          id: string
+          is_recurring: boolean | null
+          pet_id: string
+          receipt_url: string | null
+          recurring_frequency: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          description: string
+          expense_date?: string
+          id?: string
+          is_recurring?: boolean | null
+          pet_id: string
+          receipt_url?: string | null
+          recurring_frequency?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          description?: string
+          expense_date?: string
+          id?: string
+          is_recurring?: boolean | null
+          pet_id?: string
+          receipt_url?: string | null
+          recurring_frequency?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pet_family_members: {
         Row: {
           created_at: string

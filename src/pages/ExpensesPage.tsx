@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Plus, 
@@ -20,60 +20,19 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PieChart as RechartsePieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
+import { supabase } from '@/integrations/supabase/client';
 
-// Mock data για έξοδα
-const mockExpenses = [
-  {
-    id: "1",
-    category: "food",
-    amount: 45.50,
-    petId: "1",
-    petName: "Μπάρμπι",
-    description: "Royal Canin Adult 15kg",
-    date: "2024-01-15",
-    receipt: true,
-  },
-  {
-    id: "2",
-    category: "vet",
-    amount: 85.00,
-    petId: "1",
-    petName: "Μπάρμπι",
-    description: "Εμβόλιο λύσσας + εξέταση",
-    date: "2024-01-10",
-    receipt: true,
-  },
-  {
-    id: "3",
-    category: "medication",
-    amount: 25.30,
-    petId: "2",
-    petName: "Ρεξ",
-    description: "Αντιβιοτικό Amoxicillin",
-    date: "2024-01-08",
-    receipt: false,
-  },
-  {
-    id: "4",
-    category: "grooming",
-    amount: 35.00,
-    petId: "3",
-    petName: "Μάξι",
-    description: "Κούρεμα + νύχια",
-    date: "2024-01-05",
-    receipt: true,
-  },
-  {
-    id: "5",
-    category: "toys",
-    amount: 18.90,
-    petId: "1",
-    petName: "Μπάρμπι",
-    description: "Kong Classic Large",
-    date: "2024-01-03",
-    receipt: true,
-  },
-];
+// Type definitions
+type Expense = {
+  id: string;
+  category: string;
+  amount: number;
+  petId: string;
+  petName: string;
+  description: string;
+  date: string;
+  receipt: boolean;
+};
 
 const categoryLabels = {
   food: "Φαγητό",
@@ -81,6 +40,10 @@ const categoryLabels = {
   medication: "Φάρμακα", 
   grooming: "Grooming",
   toys: "Παιχνίδια",
+  accessories: "Αξεσουάρ",
+  training: "Εκπαίδευση",
+  insurance: "Ασφάλεια",
+  other: "Άλλο"
 };
 
 const categoryColors = {
@@ -89,34 +52,93 @@ const categoryColors = {
   medication: "#ffc658",
   grooming: "#ff7c7c",
   toys: "#8dd1e1",
+  accessories: "#d084d0",
+  training: "#ffb347",
+  insurance: "#87ceeb",
+  other: "#dda0dd"
 };
 
 const ExpensesPage = () => {
   const navigate = useNavigate();
   const [selectedPeriod, setSelectedPeriod] = useState("month");
   const [selectedPet, setSelectedPet] = useState("all");
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [pets, setPets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Fetch expenses and pets data
+      const [expensesData, petsData] = await Promise.all([
+        supabase
+          .from('expenses')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('expense_date', { ascending: false }),
+        supabase
+          .from('pets')
+          .select('id, name')
+          .eq('owner_id', user.id)
+      ]);
+
+      if (expensesData.error) throw expensesData.error;
+      if (petsData.error) throw petsData.error;
+
+      // Create a map of pet ids to names
+      const petNamesMap = new Map();
+      petsData.data?.forEach(pet => {
+        petNamesMap.set(pet.id, pet.name);
+      });
+
+      // Format expenses data
+      const formattedExpenses: Expense[] = (expensesData.data || []).map(expense => ({
+        id: expense.id,
+        category: expense.category,
+        amount: expense.amount,
+        petId: expense.pet_id,
+        petName: petNamesMap.get(expense.pet_id) || 'Άγνωστο',
+        description: expense.description,
+        date: expense.expense_date,
+        receipt: !!expense.receipt_url
+      }));
+
+      setExpenses(formattedExpenses);
+      setPets(petsData.data || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Υπολογισμοί
-  const totalExpenses = mockExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const monthlyBudget = 200; // Mock budget
   const budgetUsed = (totalExpenses / monthlyBudget) * 100;
   const isOverBudget = totalExpenses > monthlyBudget;
 
   // Category breakdown για pie chart
   const categoryData = Object.entries(
-    mockExpenses.reduce((acc, expense) => {
+    expenses.reduce((acc, expense) => {
       acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
       return acc;
     }, {} as Record<string, number>)
   ).map(([category, amount]) => ({
-    name: categoryLabels[category as keyof typeof categoryLabels],
+    name: categoryLabels[category as keyof typeof categoryLabels] || category,
     value: amount,
-    color: categoryColors[category as keyof typeof categoryColors],
+    color: categoryColors[category as keyof typeof categoryColors] || "#999999",
   }));
 
   // Pet comparison data
   const petData = Object.entries(
-    mockExpenses.reduce((acc, expense) => {
+    expenses.reduce((acc, expense) => {
       acc[expense.petName] = (acc[expense.petName] || 0) + expense.amount;
       return acc;
     }, {} as Record<string, number>)
@@ -132,6 +154,18 @@ const ExpensesPage = () => {
     { month: "Δεκ", amount: 195 },
     { month: "Ιαν", amount: totalExpenses },
   ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 p-2 sm:p-4">
+        <div className="max-w-7xl mx-auto space-y-4">
+          <div className="flex justify-center items-center h-32">
+            <p>Φόρτωση εξόδων...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 p-2 sm:p-4">
@@ -183,9 +217,11 @@ const ExpensesPage = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Όλα τα κατοικίδια</SelectItem>
-              <SelectItem value="1">Μπάρμπι</SelectItem>
-              <SelectItem value="2">Ρεξ</SelectItem>
-              <SelectItem value="3">Μάξι</SelectItem>
+              {pets.map((pet) => (
+                <SelectItem key={pet.id} value={pet.id}>
+                  {pet.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -226,7 +262,7 @@ const ExpensesPage = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <BarChart3 className="h-4 w-4 text-muted-foreground mb-1 sm:mb-0" />
               <div className="text-left sm:text-right">
-                <div className="text-lg sm:text-xl font-bold">{(totalExpenses / mockExpenses.length).toFixed(0)}€</div>
+                <div className="text-lg sm:text-xl font-bold">{(expenses.length > 0 ? totalExpenses / expenses.length : 0).toFixed(0)}€</div>
                 <div className="text-xs text-muted-foreground">Μέσος όρος</div>
               </div>
             </div>
@@ -236,7 +272,7 @@ const ExpensesPage = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <Calendar className="h-4 w-4 text-muted-foreground mb-1 sm:mb-0" />
               <div className="text-left sm:text-right">
-                <div className="text-lg sm:text-xl font-bold">{mockExpenses.length}</div>
+                <div className="text-lg sm:text-xl font-bold">{expenses.length}</div>
                 <div className="text-xs text-muted-foreground">Έξοδα</div>
               </div>
             </div>
@@ -300,7 +336,7 @@ const ExpensesPage = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2 sm:space-y-3 max-h-64 sm:max-h-80 overflow-y-auto">
-              {mockExpenses.map((expense) => (
+              {expenses.length > 0 ? expenses.map((expense) => (
                 <div key={expense.id} className="flex items-center justify-between p-2 sm:p-3 bg-muted/50 rounded-md">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div className="p-1 sm:p-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: `${categoryColors[expense.category as keyof typeof categoryColors]}20` }}>
@@ -311,7 +347,7 @@ const ExpensesPage = () => {
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <span className="truncate">{expense.petName}</span>
                         <span className="hidden sm:inline">•</span>
-                        <span className="truncate hidden sm:inline">{categoryLabels[expense.category as keyof typeof categoryLabels]}</span>
+                        <span className="truncate hidden sm:inline">{categoryLabels[expense.category as keyof typeof categoryLabels] || expense.category}</span>
                       </div>
                     </div>
                   </div>
@@ -322,7 +358,12 @@ const ExpensesPage = () => {
                     <span className="font-bold text-xs sm:text-sm">{expense.amount.toFixed(0)}€</span>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Δεν υπάρχουν έξοδα ακόμα</p>
+                  <p className="text-sm">Προσθέστε το πρώτο σας έξοδο!</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
