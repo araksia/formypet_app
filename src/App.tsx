@@ -33,27 +33,83 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
-            <Route path="*" element={
+            <Route path="/" element={
               <ProtectedRoute>
                 <Layout>
-                  <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/pets" element={<PetsPage />} />
-                    <Route path="/add-pet" element={<AddPetPage />} />
-                    <Route path="/calendar" element={<CalendarPage />} />
-                    <Route path="/add-event" element={<AddEventPage />} />
-                    <Route path="/pet/:petId" element={<PetProfilePage />} />
-                    <Route path="/pet/:petId/medical" element={<MedicalRecordsPage />} />
-                    <Route path="/expenses" element={<ExpensesPage />} />
-                    <Route path="/add-expense" element={<AddExpensePage />} />
-                    <Route path="/add-family-member" element={<AddFamilyMemberPage />} />
-                    <Route path="/profile" element={<ProfilePage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
+                  <Dashboard />
                 </Layout>
               </ProtectedRoute>
             } />
+            <Route path="/pets" element={
+              <ProtectedRoute>
+                <Layout>
+                  <PetsPage />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/add-pet" element={
+              <ProtectedRoute>
+                <AddPetPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/calendar" element={
+              <ProtectedRoute>
+                <Layout>
+                  <CalendarPage />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/add-event" element={
+              <ProtectedRoute>
+                <AddEventPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/pet/:petId" element={
+              <ProtectedRoute>
+                <Layout>
+                  <PetProfilePage />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/pet/:petId/medical" element={
+              <ProtectedRoute>
+                <Layout>
+                  <MedicalRecordsPage />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/expenses" element={
+              <ProtectedRoute>
+                <Layout>
+                  <ExpensesPage />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/add-expense" element={
+              <ProtectedRoute>
+                <AddExpensePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/add-family-member" element={
+              <ProtectedRoute>
+                <AddFamilyMemberPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Layout>
+                  <ProfilePage />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <Layout>
+                  <SettingsPage />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>
