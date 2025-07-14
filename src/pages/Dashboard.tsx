@@ -1,13 +1,165 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Heart, Calendar, Euro, Plus, PawPrint, Star, Clock, User, TrendingUp, Award, MapPin, ChevronRight, Users, Activity, FileText, Stethoscope, Pill, Dog } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
+import { format, isAfter, isBefore, addDays } from 'date-fns';
+import { el } from 'date-fns/locale';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [stats, setStats] = useState({
+    pets: 0,
+    medicalRecords: 0,
+    totalExpenses: 0,
+    familyMembers: 0
+  });
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      loadDashboardData();
+    }
+  }, [user]);
+
+  const loadDashboardData = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      await Promise.all([
+        loadStats(),
+        loadUpcomingEvents()
+      ]);
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      // Get pets count
+      const { data: pets, error: petsError } = await supabase
+        .from('pets')
+        .select('id')
+        .eq('owner_id', user!.id);
+
+      if (petsError) throw petsError;
+
+      // Get family members count (excluding owner)
+      const { data: familyMembers, error: familyError } = await supabase
+        .from('pet_family_members')
+        .select('id')
+        .neq('user_id', user!.id)
+        .eq('status', 'accepted');
+
+      if (familyError) throw familyError;
+
+      // Get total expenses
+      const { data: expenses, error: expensesError } = await supabase
+        .from('expenses')
+        .select('amount')
+        .eq('user_id', user!.id);
+
+      if (expensesError) throw expensesError;
+
+      const totalExpenses = expenses?.reduce((sum, expense) => sum + Number(expense.amount), 0) || 0;
+
+      setStats({
+        pets: pets?.length || 0,
+        medicalRecords: 0, // We don't have medical records table yet
+        totalExpenses,
+        familyMembers: familyMembers?.length || 0
+      });
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    }
+  };
+
+  const loadUpcomingEvents = async () => {
+    try {
+      const nextWeek = addDays(new Date(), 7);
+
+      const { data: events, error } = await supabase
+        .from('events')
+        .select('id, title, event_type, event_date, event_time, pet_id')
+        .eq('user_id', user!.id)
+        .gte('event_date', new Date().toISOString())
+        .lte('event_date', nextWeek.toISOString())
+        .order('event_date', { ascending: true })
+        .limit(3);
+
+      if (error) throw error;
+
+      if (!events || events.length === 0) {
+        setUpcomingEvents([]);
+        return;
+      }
+
+      // Get pet names for the events
+      const petIds = events.map(event => event.pet_id);
+      const { data: pets, error: petsError } = await supabase
+        .from('pets')
+        .select('id, name')
+        .in('id', petIds);
+
+      if (petsError) throw petsError;
+
+      const petNameMap = pets?.reduce((acc, pet) => {
+        acc[pet.id] = pet.name;
+        return acc;
+      }, {} as { [key: string]: string }) || {};
+
+      const formattedEvents = events.map(event => ({
+        id: event.id,
+        type: getEventTypeLabel(event.event_type),
+        pet: petNameMap[event.pet_id] || 'Άγνωστο',
+        date: format(new Date(event.event_date), 'dd MMM', { locale: el }),
+        time: event.event_time || '00:00',
+        icon: getEventIcon(event.event_type),
+        urgent: isAfter(new Date(), new Date(event.event_date))
+      }));
+
+      setUpcomingEvents(formattedEvents);
+    } catch (error) {
+      console.error('Error loading upcoming events:', error);
+      setUpcomingEvents([]);
+    }
+  };
+
+  const getEventTypeLabel = (type: string) => {
+    const types: { [key: string]: string } = {
+      'medication': 'Φάρμακο',
+      'vaccination': 'Εμβόλιο',
+      'checkup': 'Εξέταση',
+      'grooming': 'Grooming',
+      'birthday': 'Γενέθλια',
+      'feeding': 'Φαγητό',
+      'exercise': 'Άσκηση'
+    };
+    return types[type] || type;
+  };
+
+  const getEventIcon = (type: string) => {
+    const icons: { [key: string]: any } = {
+      'medication': Pill,
+      'vaccination': Stethoscope,
+      'checkup': Stethoscope,
+      'grooming': Star,
+      'birthday': Star,
+      'feeding': Star,
+      'exercise': Activity
+    };
+    return icons[type] || Activity;
+  };
 
   const quickActions = [
     { 
@@ -36,17 +188,11 @@ const Dashboard = () => {
     },
   ];
 
-  const upcomingEvents = [
-    { id: '1', type: 'Εμβόλιο', pet: 'Μπάρμπι', date: '15 Δεκ', time: '10:00', icon: Stethoscope, urgent: true },
-    { id: '2', type: 'Φάρμακο', pet: 'Ρεξ', date: '16 Δεκ', time: '18:00', icon: Pill, urgent: false },
-    { id: '3', type: 'Grooming', pet: 'Μάξι', date: '18 Δεκ', time: '14:30', icon: Star, urgent: false },
-  ];
-
-  const stats = [
-    { label: 'Κατοικίδια', value: '3', icon: PawPrint, trend: '+1' },
-    { label: 'Ιατρικά Αρχεία', value: '8', icon: FileText, trend: '+2' },
-    { label: 'Συνολικά Έξοδα', value: '€245', icon: Euro, trend: '+€50' },
-    { label: 'Μέλη Οικογένειας', value: '4', icon: Users, trend: '+1' },
+  const statsData = [
+    { label: 'Κατοικίδια', value: stats.pets.toString(), icon: PawPrint },
+    { label: 'Ιατρικά Αρχεία', value: stats.medicalRecords.toString(), icon: FileText },
+    { label: 'Συνολικά Έξοδα', value: `€${stats.totalExpenses.toFixed(2)}`, icon: Euro },
+    { label: 'Μέλη Οικογένειας', value: stats.familyMembers.toString(), icon: Users },
   ];
 
   return (
@@ -105,11 +251,10 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Stats Grid */}
         <div>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Στατιστικά</h3>
           <div className="grid grid-cols-2 gap-3">
-            {stats.map((stat, index) => {
+            {statsData.map((stat, index) => {
               const IconComponent = stat.icon;
               return (
                 <Card key={index} className="border-0 shadow-sm">
@@ -118,10 +263,6 @@ const Dashboard = () => {
                       <div className="p-2 bg-gray-100 rounded-xl">
                         <IconComponent className="h-5 w-5 text-gray-600" />
                       </div>
-                      <span className="text-xs text-green-600 font-medium flex items-center">
-                        <TrendingUp className="h-3 w-3 mr-1" />
-                        {stat.trend}
-                      </span>
                     </div>
                     <div className="text-2xl font-bold text-gray-900 mb-1">{stat.value}</div>
                     <div className="text-sm text-gray-500">{stat.label}</div>
@@ -146,36 +287,44 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {upcomingEvents.map((event) => {
-                const IconComponent = event.icon;
-                return (
-                  <div 
-                    key={event.id} 
-                    className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
-                    onClick={() => navigate(`/event/${event.id}`)}
-                  >
-                    <div className="relative">
-                      <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                        <IconComponent className="h-5 w-5 text-gray-600" />
-                      </div>
-                      {event.urgent && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-                          <div className="w-2 h-2 bg-white rounded-full"></div>
+              {loading ? (
+                <div className="text-center py-4 text-gray-500">Φόρτωση...</div>
+              ) : upcomingEvents.length === 0 ? (
+                <div className="text-center py-4 text-gray-500">
+                  Δεν υπάρχουν επερχόμενα events
+                </div>
+              ) : (
+                upcomingEvents.map((event) => {
+                  const IconComponent = event.icon;
+                  return (
+                    <div 
+                      key={event.id} 
+                      className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+                      onClick={() => navigate('/calendar')}
+                    >
+                      <div className="relative">
+                        <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                          <IconComponent className="h-5 w-5 text-gray-600" />
                         </div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-medium text-gray-900">{event.type}</h4>
-                        <span className="text-sm text-gray-500">•</span>
-                        <span className="text-sm text-gray-600">{event.pet}</span>
+                        {event.urgent && (
+                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                            <div className="w-2 h-2 bg-white rounded-full"></div>
+                          </div>
+                        )}
                       </div>
-                      <p className="text-sm text-gray-500">{event.date} στις {event.time}</p>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-medium text-gray-900">{event.type}</h4>
+                          <span className="text-sm text-gray-500">•</span>
+                          <span className="text-sm text-gray-600">{event.pet}</span>
+                        </div>
+                        <p className="text-sm text-gray-500">{event.date} στις {event.time}</p>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-gray-400" />
                     </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </CardContent>
         </Card>
