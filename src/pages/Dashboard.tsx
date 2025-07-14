@@ -86,23 +86,31 @@ const Dashboard = () => {
 
   const loadUpcomingEvents = async () => {
     try {
-      const nextWeek = addDays(new Date(), 7);
+      const today = new Date();
+      const nextMonth = addDays(new Date(), 30); // Extend to 30 days instead of 7
+
+      console.log('🔍 Loading events between:', today.toISOString(), 'and', nextMonth.toISOString());
 
       const { data: events, error } = await supabase
         .from('events')
         .select('id, title, event_type, event_date, event_time, pet_id')
         .eq('user_id', user!.id)
-        .gte('event_date', new Date().toISOString())
-        .lte('event_date', nextWeek.toISOString())
+        .gte('event_date', today.toISOString().split('T')[0]) // Use date only
+        .lte('event_date', nextMonth.toISOString().split('T')[0])
         .order('event_date', { ascending: true })
         .limit(3);
+
+      console.log('📅 Events query result:', { events, error });
 
       if (error) throw error;
 
       if (!events || events.length === 0) {
+        console.log('❌ No events found');
         setUpcomingEvents([]);
         return;
       }
+
+      console.log('✅ Found', events.length, 'events');
 
       // Get pet names for the events
       const petIds = events.map(event => event.pet_id);
@@ -128,9 +136,10 @@ const Dashboard = () => {
         urgent: isAfter(new Date(), new Date(event.event_date))
       }));
 
+      console.log('📋 Formatted events:', formattedEvents);
       setUpcomingEvents(formattedEvents);
     } catch (error) {
-      console.error('Error loading upcoming events:', error);
+      console.error('💥 Error loading upcoming events:', error);
       setUpcomingEvents([]);
     }
   };
