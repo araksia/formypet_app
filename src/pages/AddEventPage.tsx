@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,8 @@ import { format } from 'date-fns';
 import { el } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { CalendarIcon } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const eventTypes = [
   { value: 'medication', label: '💊 Φάρμακο', icon: Pill, color: 'bg-blue-500' },
@@ -25,26 +27,94 @@ const eventTypes = [
   { value: 'exercise', label: '🏃 Άσκηση', icon: Activity, color: 'bg-emerald-500' },
 ];
 
-const mockPets = [
-  { id: 1, name: 'Μπάρμπι', type: 'Σκύλος' },
-  { id: 2, name: 'Ρεξ', type: 'Σκύλος' },
-  { id: 3, name: 'Μάξι', type: 'Γάτα' },
-];
-
 const AddEventPage = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState('');
   const [eventType, setEventType] = useState('');
   const [petId, setPetId] = useState('');
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
-  const [recurring, setRecurring] = useState('');
+  const [recurring, setRecurring] = useState('none');
+  const [pets, setPets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetchUserPets();
+  }, []);
+
+  const fetchUserPets = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('pets')
+        .select('id, name, species')
+        .eq('owner_id', user.id);
+
+      if (error) throw error;
+      setPets(data || []);
+    } catch (error) {
+      console.error('Error fetching pets:', error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Event added successfully');
-    navigate('/calendar');
+    if (!selectedDate || !eventType || !petId || !title) {
+      toast({
+        title: "Σφάλμα",
+        description: "Παρακαλώ συμπληρώστε όλα τα απαραίτητα πεδία",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user found');
+
+      // Combine date and time
+      const eventDateTime = new Date(selectedDate);
+      if (selectedTime) {
+        const [hours, minutes] = selectedTime.split(':');
+        eventDateTime.setHours(parseInt(hours), parseInt(minutes));
+      }
+
+      const { error } = await supabase
+        .from('events')
+        .insert({
+          title,
+          event_type: eventType,
+          pet_id: petId,
+          user_id: user.id,
+          event_date: eventDateTime.toISOString(),
+          event_time: selectedTime || null,
+          recurring,
+          notes: notes || null
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Επιτυχία!",
+        description: "Το event προστέθηκε επιτυχώς"
+      });
+
+      navigate('/calendar');
+    } catch (error) {
+      console.error('Error creating event:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Υπήρξε πρόβλημα κατά την αποθήκευση του event",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -94,9 +164,9 @@ const AddEventPage = () => {
                   <SelectValue placeholder="Επίλεξε κατοικίδιο" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockPets.map((pet) => (
-                    <SelectItem key={pet.id} value={pet.id.toString()}>
-                      {pet.name} ({pet.type})
+                  {pets.map((pet) => (
+                    <SelectItem key={pet.id} value={pet.id}>
+                      {pet.name} ({pet.species})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -190,8 +260,8 @@ const AddEventPage = () => {
           </Card>
 
           {/* Submit Button */}
-          <Button type="submit" className="w-full h-12">
-            Αποθήκευση Event
+          <Button type="submit" className="w-full h-12" disabled={loading}>
+            {loading ? 'Αποθήκευση...' : 'Αποθήκευση Event'}
           </Button>
         </form>
       </div>

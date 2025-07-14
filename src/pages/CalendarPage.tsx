@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,42 +9,18 @@ import { Plus, Pill, Heart, Gift, Scissors, Syringe, Utensils, Activity } from '
 import { format, isSameDay } from 'date-fns';
 import { el } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
-// Mock data για events
-const mockEvents = [
-  {
-    id: 1,
-    title: 'Φάρμακο Σκύλου',
-    type: 'medication',
-    date: new Date(2024, 11, 15),
-    petName: 'Μπάτμαν',
-    recurring: 'daily'
-  },
-  {
-    id: 2,
-    title: 'Εμβόλιο Γάτας',
-    type: 'vaccination',
-    date: new Date(2024, 11, 20),
-    petName: 'Λούνα',
-    recurring: 'yearly'
-  },
-  {
-    id: 3,
-    title: 'Γενέθλια',
-    type: 'birthday',
-    date: new Date(2024, 11, 18),
-    petName: 'Μπάτμαν',
-    recurring: 'yearly'
-  },
-  {
-    id: 4,
-    title: 'Grooming',
-    type: 'grooming',
-    date: new Date(2024, 11, 22),
-    petName: 'Λούνα',
-    recurring: 'monthly'
-  }
-];
+// Event types για icons και colors
+type EventType = {
+  id: string;
+  title: string;
+  event_type: string;
+  date: Date;
+  petName: string;
+  recurring: string;
+  notes?: string;
+};
 
 const eventTypeIcons = {
   medication: Pill,
@@ -66,14 +42,65 @@ const CalendarPage = () => {
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
+  const [events, setEvents] = useState<EventType[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // First get events
+      const { data: eventsData, error: eventsError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (eventsError) throw eventsError;
+
+      // Then get pets for pet names
+      const { data: petsData, error: petsError } = await supabase
+        .from('pets')
+        .select('id, name')
+        .eq('owner_id', user.id);
+
+      if (petsError) throw petsError;
+
+      // Create a map of pet ids to names
+      const petNamesMap = new Map();
+      petsData?.forEach(pet => {
+        petNamesMap.set(pet.id, pet.name);
+      });
+
+      const formattedEvents: EventType[] = (eventsData || []).map(event => ({
+        id: event.id,
+        title: event.title,
+        event_type: event.event_type,
+        date: new Date(event.event_date),
+        petName: petNamesMap.get(event.pet_id) || 'Άγνωστο',
+        recurring: event.recurring,
+        notes: event.notes
+      }));
+
+      setEvents(formattedEvents);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Filter events για την επιλεγμένη ημερομηνία
   const selectedDateEvents = selectedDate 
-    ? mockEvents.filter(event => isSameDay(event.date, selectedDate))
+    ? events.filter(event => isSameDay(event.date, selectedDate))
     : [];
 
   // Get upcoming events (επόμενες 7 ημέρες)
-  const upcomingEvents = mockEvents
+  const upcomingEvents = events
     .filter(event => event.date >= new Date())
     .sort((a, b) => a.date.getTime() - b.date.getTime())
     .slice(0, 5);
@@ -82,6 +109,17 @@ const CalendarPage = () => {
     const IconComponent = eventTypeIcons[type as keyof typeof eventTypeIcons] || Heart;
     return <IconComponent className="h-4 w-4" />;
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
+        <Header title="Ημερολόγιο" />
+        <div className="p-4 flex justify-center items-center h-32">
+          <p>Φόρτωση...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
@@ -118,7 +156,7 @@ const CalendarPage = () => {
                   locale={el}
                   className="w-full"
                   modifiers={{
-                    hasEvent: mockEvents.map(event => event.date)
+                    hasEvent: events.map(event => event.date)
                   }}
                   modifiersStyles={{
                     hasEvent: { 
@@ -143,10 +181,10 @@ const CalendarPage = () => {
                   {selectedDateEvents.length > 0 ? (
                     <div className="space-y-3">
                       {selectedDateEvents.map(event => (
-                        <div key={event.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                          <div className={`p-2 rounded-full ${eventTypeColors[event.type as keyof typeof eventTypeColors]} text-white`}>
-                            {renderEventIcon(event.type)}
-                          </div>
+                  <div key={event.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                    <div className={`p-2 rounded-full ${eventTypeColors[event.event_type as keyof typeof eventTypeColors]} text-white`}>
+                      {renderEventIcon(event.event_type)}
+                    </div>
                           <div className="flex-1">
                             <p className="font-medium">{event.title}</p>
                             <p className="text-sm text-muted-foreground">{event.petName}</p>
@@ -178,10 +216,10 @@ const CalendarPage = () => {
             <CardContent>
               <div className="space-y-3">
                 {upcomingEvents.map(event => (
-                  <div key={event.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                    <div className={`p-2 rounded-full ${eventTypeColors[event.type as keyof typeof eventTypeColors]} text-white`}>
-                      {renderEventIcon(event.type)}
-                    </div>
+                        <div key={event.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                          <div className={`p-2 rounded-full ${eventTypeColors[event.event_type as keyof typeof eventTypeColors]} text-white`}>
+                            {renderEventIcon(event.event_type)}
+                          </div>
                     <div className="flex-1">
                       <p className="font-medium">{event.title}</p>
                       <p className="text-sm text-muted-foreground">{event.petName}</p>
