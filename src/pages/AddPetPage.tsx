@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Camera, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const AddPetPage = () => {
   const navigate = useNavigate();
@@ -80,7 +81,22 @@ const AddPetPage = () => {
                 </div>
                 <div>
                   <Label htmlFor="type">Είδος *</Label>
-                  <Input id="type" placeholder="π.χ. Σκύλος" required />
+                  <Select name="type" required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Επίλεξε είδος" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dog">🐕 Σκύλος</SelectItem>
+                      <SelectItem value="cat">🐱 Γάτα</SelectItem>
+                      <SelectItem value="rabbit">🐰 Κουνέλι</SelectItem>
+                      <SelectItem value="bird">🐦 Πουλί</SelectItem>
+                      <SelectItem value="fish">🐠 Ψάρι</SelectItem>
+                      <SelectItem value="hamster">🐹 Χάμστερ</SelectItem>
+                      <SelectItem value="guinea-pig">🐹 Ινδικό Χοιρίδιο</SelectItem>
+                      <SelectItem value="reptile">🦎 Ερπετό</SelectItem>
+                      <SelectItem value="other">🐾 Άλλο</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               
@@ -91,7 +107,15 @@ const AddPetPage = () => {
                 </div>
                 <div>
                   <Label htmlFor="gender">Φύλο</Label>
-                  <Input id="gender" placeholder="Αρσενικό/Θηλυκό" />
+                  <Select name="gender">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Επίλεξε φύλο" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">♂️ Αρσενικό</SelectItem>
+                      <SelectItem value="female">♀️ Θηλυκό</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
