@@ -27,15 +27,19 @@ const PetsPage = () => {
   }, []);
 
   const fetchPets = async () => {
+    console.log('🔄 fetchPets started...');
     try {
+      console.log('📡 Getting user...');
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('👤 User:', user);
+      
       if (!user) {
-        console.log('No user found');
+        console.log('❌ No user found');
         setPets([]);
         return;
       }
 
-      console.log('Fetching pets for user:', user.id);
+      console.log('🔍 Fetching pets for user:', user.id);
 
       const { data, error } = await supabase
         .from('pets')
@@ -43,22 +47,25 @@ const PetsPage = () => {
         .eq('owner_id', user.id)
         .order('created_at', { ascending: false });
 
+      console.log('📊 Supabase response - data:', data, 'error:', error);
+
       if (error) {
-        console.error('Supabase error fetching pets:', error);
+        console.error('❌ Supabase error fetching pets:', error);
         toast({
           title: "Σφάλμα",
-          description: "Δεν ήταν δυνατή η φόρτωση των κατοικιδίων",
+          description: "Δεν ήταν δυνατή η φόρτωση των κατοικιδίων: " + error.message,
           variant: "destructive"
         });
         throw error;
       }
 
-      console.log('Fetched pets:', data);
+      console.log('✅ Successfully fetched pets:', data);
       setPets(data || []);
     } catch (error) {
-      console.error('Error fetching pets:', error);
+      console.error('💥 Error in fetchPets:', error);
       setPets([]);
     } finally {
+      console.log('🏁 fetchPets finished, setting loading to false');
       setLoading(false);
     }
   };
