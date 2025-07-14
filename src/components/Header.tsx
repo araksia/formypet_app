@@ -4,6 +4,7 @@ import { Bell, User, Users, Calendar, Heart, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
 interface HeaderProps {
@@ -25,6 +26,7 @@ interface Notification {
 const Header = ({ title, showNotifications = true, showProfile = true }: HeaderProps) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Mock notifications - in a real app, these would come from the database
@@ -184,7 +186,12 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
             </DropdownMenu>
           )}
           {showProfile && (
-            <Button variant="ghost" size="sm" className="p-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="p-2"
+              onClick={() => navigate('/profile')}
+            >
               <User className="h-5 w-5 text-gray-600" />
             </Button>
           )}
