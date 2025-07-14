@@ -16,6 +16,7 @@ import ExpensesPage from "./pages/ExpensesPage";
 import AddExpensePage from "./pages/AddExpensePage";
 import AddFamilyMemberPage from "./pages/AddFamilyMemberPage";
 import ProfilePage from "./pages/ProfilePage";
+import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,7 +40,7 @@ const App = () => (
             <Route path="/add-expense" element={<AddExpensePage />} />
             <Route path="/add-family-member" element={<AddFamilyMemberPage />} />
             <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/settings" element={<div className="p-4 text-center">Ρυθμίσεις - Υπό Κατασκευή</div>} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>
