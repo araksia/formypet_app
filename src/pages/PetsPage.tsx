@@ -119,6 +119,31 @@ const PetsPage = () => {
     }
   };
 
+  const refreshAuth = async () => {
+    console.log('🔄 Refreshing authentication...');
+    try {
+      const { data: { session }, error } = await supabase.auth.refreshSession();
+      if (error) {
+        console.error('❌ Auth refresh error:', error);
+        toast({
+          title: "Σφάλμα Authentication",
+          description: "Δεν ήταν δυνατή η ανανέωση της συνεδρίας",
+          variant: "destructive"
+        });
+      } else {
+        console.log('✅ Auth refreshed successfully');
+        toast({
+          title: "Επιτυχία",
+          description: "Η συνεδρία ανανεώθηκε. Δοκιμάστε ξανά.",
+        });
+        // Retry fetching pets after auth refresh
+        await fetchPets();
+      }
+    } catch (error: any) {
+      console.error('💥 Unexpected error refreshing auth:', error);
+    }
+  };
+
   const handleSharePet = async () => {
     if (!shareEmail || !selectedPetForShare || !user) return;
 
@@ -240,6 +265,7 @@ const PetsPage = () => {
           <p>Pets count: {pets.length}</p>
           <div className="flex gap-2 mt-2">
             <Button size="sm" onClick={fetchPets}>🔄 Reload Pets</Button>
+            <Button size="sm" variant="outline" onClick={refreshAuth}>🔑 Refresh Auth</Button>
             <Button size="sm" variant="destructive" onClick={signOut}>🚪 Force Logout</Button>
           </div>
         </div>
