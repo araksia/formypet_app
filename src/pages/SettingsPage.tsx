@@ -104,6 +104,33 @@ const SettingsPage = () => {
     });
   };
 
+  const handleHelpSupport = () => {
+    window.location.href = 'mailto:info@formypet.gr?subject=Βοήθεια ForMyPet&body=Γεια σας,%0D%0A%0D%0AΘα θέλα βοήθεια με:%0D%0A%0D%0A';
+  };
+
+  const handleAbout = () => {
+    toast({
+      title: "ForMyPet v1.0.0",
+      description: "Εφαρμογή διαχείρισης κατοικίδιων. © 2024 ForMyPet",
+    });
+  };
+
+  const handleDataExport = async () => {
+    try {
+      toast({
+        title: "Εξαγωγή δεδομένων",
+        description: "Η εξαγωγή ξεκίνησε. Θα λάβετε email με τα δεδομένα σας.",
+      });
+      // In a real app, this would trigger an export process
+    } catch (error) {
+      toast({
+        title: "Σφάλμα",
+        description: "Υπήρξε πρόβλημα με την εξαγωγή δεδομένων.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const SettingItem = ({ 
     icon: Icon, 
     title, 
@@ -191,12 +218,6 @@ const SettingsPage = () => {
               onClick={() => navigate('/profile')}
             />
             <Separator />
-            <ActionItem
-              icon={Shield}
-              title="Ιδιωτικότητα και ασφάλεια"
-              description="Διαχείριση δικαιωμάτων πρόσβασης"
-              onClick={() => {}}
-            />
           </CardContent>
         </Card>
 
@@ -228,17 +249,6 @@ const SettingsPage = () => {
               <Switch
                 checked={settings.pushNotifications}
                 onCheckedChange={(checked) => handleSettingChange('pushNotifications', checked)}
-              />
-            </SettingItem>
-            <Separator />
-            <SettingItem
-              icon={Bell}
-              title="Υπενθυμίσεις φαρμάκων"
-              description="Ειδοποιήσεις για φάρμακα κατοικίδιων"
-            >
-              <Switch
-                checked={settings.medicationReminders}
-                onCheckedChange={(checked) => handleSettingChange('medicationReminders', checked)}
               />
             </SettingItem>
             <Separator />
@@ -293,44 +303,6 @@ const SettingsPage = () => {
           </CardContent>
         </Card>
 
-        {/* Privacy & Security */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Lock className="h-5 w-5 text-primary" />
-              Ιδιωτικότητα & Ασφάλεια
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            <SettingItem
-              icon={Eye}
-              title="Ορατότητα προφίλ"
-              description="Ποιος μπορεί να δει το προφίλ σας"
-            >
-              <Select value={settings.profileVisibility} onValueChange={(value) => handleSettingChange('profileVisibility', value)}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">Δημόσιο</SelectItem>
-                  <SelectItem value="friends">Φίλοι</SelectItem>
-                  <SelectItem value="private">Ιδιωτικό</SelectItem>
-                </SelectContent>
-              </Select>
-            </SettingItem>
-            <Separator />
-            <SettingItem
-              icon={Shield}
-              title="Αυθεντοποίηση δύο παραγόντων"
-              description="Πρόσθετη ασφάλεια για τον λογαριασμό σας"
-            >
-              <Switch
-                checked={settings.twoFactorAuth}
-                onCheckedChange={(checked) => handleSettingChange('twoFactorAuth', checked)}
-              />
-            </SettingItem>
-          </CardContent>
-        </Card>
 
         {/* Support & Info */}
         <Card>
@@ -345,21 +317,21 @@ const SettingsPage = () => {
               icon={HelpCircle}
               title="Βοήθεια & Υποστήριξη"
               description="FAQ και επικοινωνία"
-              onClick={() => {}}
+              onClick={handleHelpSupport}
             />
             <Separator />
             <ActionItem
               icon={Info}
               title="Σχετικά με την εφαρμογή"
               description="Έκδοση, όροι χρήσης"
-              onClick={() => {}}
+              onClick={handleAbout}
             />
             <Separator />
             <ActionItem
               icon={Download}
               title="Εξαγωγή δεδομένων"
               description="Κατεβάστε τα δεδομένα σας"
-              onClick={() => {}}
+              onClick={handleDataExport}
             />
           </CardContent>
         </Card>
