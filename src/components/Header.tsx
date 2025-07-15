@@ -30,6 +30,7 @@ interface Notification {
 const Header = ({ title, showNotifications = true, showProfile = true }: HeaderProps) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [greeting, setGreeting] = useState('');
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { toast } = useToast();
@@ -51,6 +52,32 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
       });
     }
   };
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    
+    if (hour >= 5 && hour < 12) {
+      return 'Καλημέρα!';
+    } else if (hour >= 12 && hour < 18) {
+      return 'Καλό απόγευμα!';
+    } else if (hour >= 18 && hour < 22) {
+      return 'Καλησπέρα!';
+    } else {
+      return 'Καληνύχτα!';
+    }
+  };
+
+  useEffect(() => {
+    // Set initial greeting
+    setGreeting(getGreeting());
+    
+    // Update greeting every minute
+    const interval = setInterval(() => {
+      setGreeting(getGreeting());
+    }, 60000); // 1 minute
+    
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     loadNotifications();
@@ -208,7 +235,7 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
           </div>
           <div>
             <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
-            <p className="text-xs text-gray-500">Καλημέρα! 🐾</p>
+            <p className="text-xs text-gray-500">{greeting} 🐾</p>
           </div>
         </div>
         <div className="flex items-center gap-3">

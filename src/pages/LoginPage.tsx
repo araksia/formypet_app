@@ -95,11 +95,6 @@ const LoginPage = () => {
 
       if (error) throw error;
 
-      toast({
-        title: "Επιτυχία!",
-        description: "Συνδεθήκατε επιτυχώς"
-      });
-
       navigate('/');
     } catch (error: any) {
       console.error('Error with email login:', error);

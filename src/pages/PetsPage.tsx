@@ -220,17 +220,17 @@ const PetsPage = () => {
             {pets.map((pet) => (
               <Card key={pet.id} className="overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <CardContent className="p-0">
-                  <div className="flex flex-col sm:flex-row">
+                  <div className="flex flex-col sm:flex-row h-full">
                     {/* Pet Image */}
                     <div className="relative flex-shrink-0">
                       {pet.avatar_url ? (
                         <img 
                           src={pet.avatar_url} 
                           alt={pet.name}
-                          className="w-full h-32 sm:w-24 sm:h-24 object-cover"
+                          className="w-full h-32 sm:w-24 sm:h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-32 sm:w-24 sm:h-24 bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                        <div className="w-full h-32 sm:w-24 sm:h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
                           <span className="text-3xl sm:text-2xl">{getSpeciesEmoji(pet.species)}</span>
                         </div>
                       )}
