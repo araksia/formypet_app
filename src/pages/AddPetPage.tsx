@@ -225,6 +225,7 @@ const AddPetPage = () => {
                   <Input 
                     id="age" 
                     type="number" 
+                    min="0"
                     placeholder="π.χ. 3"
                     value={formData.age}
                     onChange={(e) => handleInputChange('age', e.target.value)}
@@ -236,6 +237,7 @@ const AddPetPage = () => {
                     id="weight" 
                     type="number" 
                     step="0.1" 
+                    min="0"
                     placeholder="π.χ. 25.5"
                     value={formData.weight}
                     onChange={(e) => handleInputChange('weight', e.target.value)}
