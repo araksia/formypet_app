@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ForMyPet</string>
+    <string name="title_activity_main">ForMyPet</string>
+    <string name="package_name">gr.formypet.app</string>
+    <string name="custom_url_scheme">gr.formypet.app</string>
+</resources>
