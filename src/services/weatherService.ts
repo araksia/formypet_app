@@ -98,13 +98,18 @@ export class WeatherService {
       // Check cache first
       const cached = this.getCachedWeather();
       if (cached) {
+        console.log('Using cached weather data from:', cached.location);
         return cached.data;
       }
 
+      console.log('Requesting fresh weather data...');
+      
       // Get user's current position
       const position = await this.getCurrentPosition();
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
+      
+      console.log('Got location coordinates:', { lat, lon });
 
       // Fetch weather data from OpenWeatherMap API
       const response = await fetch(
@@ -116,6 +121,7 @@ export class WeatherService {
       }
 
       const apiData = await response.json();
+      console.log('API response:', apiData);
       
       // Map API response to our WeatherData interface
       const weatherData: WeatherData = {
@@ -128,7 +134,9 @@ export class WeatherService {
       };
 
       // Cache the result with real location name
-      this.setCachedWeather(weatherData, `${apiData.name}, ${apiData.sys.country}`);
+      const locationName = `${apiData.name}, ${apiData.sys.country}`;
+      console.log('Caching weather data for location:', locationName);
+      this.setCachedWeather(weatherData, locationName);
       
       return weatherData;
     } catch (error) {
@@ -136,13 +144,19 @@ export class WeatherService {
       
       // Check if it's a geolocation error specifically
       const isGeolocationError = error instanceof GeolocationPositionError || 
-                                 (error instanceof Error && error.message.includes('Geolocation'));
+                                 (error instanceof Error && (
+                                   error.message.includes('Geolocation') ||
+                                   error.message.includes('User denied') ||
+                                   error.name === 'NotAllowedError'
+                                 ));
       
       const demoData = this.getDemoWeatherData();
       
       if (isGeolocationError) {
+        console.log('Location access denied, using demo data');
         this.setCachedWeather(demoData, 'Demo Location (Location access denied)');
       } else {
+        console.log('Network/API error, using demo data');
         this.setCachedWeather(demoData, 'Demo Location (Network error)');
       }
       
