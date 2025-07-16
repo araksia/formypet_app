@@ -127,16 +127,25 @@ export class WeatherService {
         icon: apiData.weather[0].icon
       };
 
-      // Cache the result
+      // Cache the result with real location name
       this.setCachedWeather(weatherData, `${apiData.name}, ${apiData.sys.country}`);
       
       return weatherData;
     } catch (error) {
       console.error('Error fetching weather data:', error);
       
-      // If geolocation fails or API is down, return demo data as fallback
+      // Check if it's a geolocation error specifically
+      const isGeolocationError = error instanceof GeolocationPositionError || 
+                                 (error instanceof Error && error.message.includes('Geolocation'));
+      
       const demoData = this.getDemoWeatherData();
-      this.setCachedWeather(demoData, 'Demo Location (Location access denied)');
+      
+      if (isGeolocationError) {
+        this.setCachedWeather(demoData, 'Demo Location (Location access denied)');
+      } else {
+        this.setCachedWeather(demoData, 'Demo Location (Network error)');
+      }
+      
       return demoData;
     }
   }

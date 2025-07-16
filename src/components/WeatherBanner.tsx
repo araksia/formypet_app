@@ -45,13 +45,12 @@ export const WeatherBanner = () => {
       const data = await weatherService.getWeatherData();
       setWeatherData(data);
       
-      // Check if location was denied by checking cache for demo data
+      // Check if location was denied by checking if we're using demo data
+      // Only show warning if the service explicitly fell back to demo due to location denial
       const cached = localStorage.getItem('weather_cache');
       if (cached) {
         const cacheData = JSON.parse(cached);
-        if (cacheData.location.includes('Demo Location') || cacheData.location.includes('Location access denied')) {
-          setLocationDenied(true);
-        }
+        setLocationDenied(cacheData.location.includes('Location access denied'));
       }
     } catch (err) {
       setError('Δεν μπόρεσα να φορτώσω τα δεδομένα καιρού');
