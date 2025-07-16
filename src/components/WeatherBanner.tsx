@@ -10,8 +10,11 @@ import {
   ThermometerSnowflake,
   Wind,
   Droplets,
-  Loader2
+  Loader2,
+  MapPin,
+  RefreshCw
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { weatherService } from '@/services/weatherService';
 
 interface WeatherData {
@@ -27,6 +30,7 @@ export const WeatherBanner = () => {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [locationDenied, setLocationDenied] = useState(false);
 
   useEffect(() => {
     loadWeatherData();
@@ -36,14 +40,31 @@ export const WeatherBanner = () => {
     try {
       setLoading(true);
       setError(null);
+      setLocationDenied(false);
+      
       const data = await weatherService.getWeatherData();
       setWeatherData(data);
+      
+      // Check if location was denied by checking cache for demo data
+      const cached = localStorage.getItem('weather_cache');
+      if (cached) {
+        const cacheData = JSON.parse(cached);
+        if (cacheData.location.includes('Demo Location') || cacheData.location.includes('Location access denied')) {
+          setLocationDenied(true);
+        }
+      }
     } catch (err) {
       setError('Δεν μπόρεσα να φορτώσω τα δεδομένα καιρού');
       console.error('Weather loading error:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRefreshLocation = () => {
+    // Clear cache to force fresh location request
+    localStorage.removeItem('weather_cache');
+    loadWeatherData();
   };
 
   const getWeatherIcon = (condition: string, size: number = 24) => {
@@ -151,6 +172,29 @@ export const WeatherBanner = () => {
               </div>
             </div>
           </div>
+
+          {/* Location Denied Warning */}
+          {locationDenied && (
+            <Alert className="border-0 bg-blue-50 dark:bg-blue-900/20 mb-2">
+              <AlertDescription className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <MapPin size={16} className="text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm text-blue-700 dark:text-blue-300">
+                    Χρησιμοποιώ δεδομένα demo - Ενεργοποίησε την τοποθεσία για πραγματικό καιρό
+                  </span>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={handleRefreshLocation}
+                  className="ml-2 h-6 px-2 text-xs border-blue-200 hover:bg-blue-100"
+                >
+                  <RefreshCw size={12} className="mr-1" />
+                  Δοκίμασε ξανά
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Walk Recommendation */}
           <Alert className={`border-0 ${

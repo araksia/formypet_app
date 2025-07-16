@@ -15,10 +15,10 @@ interface WeatherCache {
 
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 const CACHE_KEY = 'weather_cache';
+const API_KEY = '8c8f4f5b7d0c8a5d4e6b3a2c9f1e8d7b'; // OpenWeatherMap API key
 
 export class WeatherService {
   private static instance: WeatherService;
-  private apiKey: string = 'demo'; // Will use demo data until API key is configured
 
   public static getInstance(): WeatherService {
     if (!WeatherService.instance) {
@@ -101,23 +101,43 @@ export class WeatherService {
         return cached.data;
       }
 
-      // For demo purposes, return demo data
-      if (this.apiKey === 'demo') {
-        const demoData = this.getDemoWeatherData();
-        this.setCachedWeather(demoData, 'Demo Location');
-        return demoData;
+      // Get user's current position
+      const position = await this.getCurrentPosition();
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+
+      // Fetch weather data from OpenWeatherMap API
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric&lang=el`
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Weather API error: ${response.status}`);
       }
 
-      // In production, this would make actual API calls
-      // const position = await this.getCurrentPosition();
-      // const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${position.coords.latitude}&lon=${position.coords.longitude}&appid=${this.apiKey}&units=metric&lang=el`);
-      // const data = await response.json();
-      // ... process real API data
+      const apiData = await response.json();
+      
+      // Map API response to our WeatherData interface
+      const weatherData: WeatherData = {
+        temperature: Math.round(apiData.main.temp),
+        condition: apiData.weather[0].main.toLowerCase(),
+        description: apiData.weather[0].description,
+        humidity: apiData.main.humidity,
+        windSpeed: Math.round(apiData.wind.speed * 3.6), // Convert m/s to km/h
+        icon: apiData.weather[0].icon
+      };
 
-      return this.getDemoWeatherData();
+      // Cache the result
+      this.setCachedWeather(weatherData, `${apiData.name}, ${apiData.sys.country}`);
+      
+      return weatherData;
     } catch (error) {
       console.error('Error fetching weather data:', error);
-      return this.getDemoWeatherData(); // Fallback to demo data
+      
+      // If geolocation fails or API is down, return demo data as fallback
+      const demoData = this.getDemoWeatherData();
+      this.setCachedWeather(demoData, 'Demo Location (Location access denied)');
+      return demoData;
     }
   }
 
@@ -128,7 +148,8 @@ export class WeatherService {
   } {
     const { temperature, condition } = weatherData;
 
-    if (condition === 'rain' || condition.includes('rain')) {
+    // Handle different rain conditions
+    if (condition === 'rain' || condition === 'drizzle' || condition === 'thunderstorm') {
       return {
         message: 'Βρέχει! Δεν είναι καλή ώρα για βόλτα',
         type: 'danger',
@@ -136,6 +157,16 @@ export class WeatherService {
       };
     }
 
+    // Handle snow conditions  
+    if (condition === 'snow') {
+      return {
+        message: 'Χιονίζει! Πρόσεχε στη βόλτα',
+        type: 'warning',
+        icon: 'thermometer-snowflake'
+      };
+    }
+
+    // Temperature-based recommendations
     if (temperature > 30) {
       return {
         message: 'Πολύ ζέστη! Περίμενε το απόγευμα για βόλτα',
