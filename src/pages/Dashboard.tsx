@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { WeatherBanner } from '@/components/WeatherBanner';
 import { Heart, Calendar, Euro, Plus, PawPrint, Star, Clock, User, TrendingUp, Award, MapPin, ChevronRight, Users, Activity, FileText, Stethoscope, Pill, Dog } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -235,8 +234,6 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Weather Banner */}
-        <WeatherBanner />
 
         {/* Quick Actions */}
         <div>
