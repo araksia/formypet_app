@@ -287,45 +287,6 @@ const SettingsPage = () => {
           </CardContent>
         </Card>
 
-        {/* App Preferences */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <SettingsIcon className="h-5 w-5 text-primary" />
-              Προτιμήσεις Εφαρμογής
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            <SettingItem
-              icon={settings.theme === 'dark' ? Moon : Sun}
-              title="Θέμα εφαρμογής"
-              description="Επιλέξτε το θέμα που προτιμάτε"
-            >
-              <Select value={settings.theme} onValueChange={(value) => handleSettingChange('theme', value)}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="light">Φωτεινό</SelectItem>
-                  <SelectItem value="dark">Σκοτεινό</SelectItem>
-                </SelectContent>
-              </Select>
-            </SettingItem>
-            <Separator />
-            <SettingItem
-              icon={settings.soundEnabled ? Volume2 : VolumeX}
-              title="Ήχοι εφαρμογής"
-              description="Ενεργοποίηση ήχων ειδοποιήσεων"
-            >
-              <Switch
-                checked={settings.soundEnabled}
-                onCheckedChange={(checked) => handleSettingChange('soundEnabled', checked)}
-              />
-            </SettingItem>
-          </CardContent>
-        </Card>
-
-
         {/* Support & Info */}
         <Card>
           <CardHeader>
