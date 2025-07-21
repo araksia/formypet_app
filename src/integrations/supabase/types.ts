@@ -101,6 +101,51 @@ export type Database = {
         }
         Relationships: []
       }
+      medical_records: {
+        Row: {
+          created_at: string
+          date: string
+          description: string | null
+          event_id: string | null
+          id: string
+          notes: string | null
+          pet_id: string
+          record_type: string
+          title: string
+          updated_at: string
+          user_id: string
+          veterinarian: string | null
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          description?: string | null
+          event_id?: string | null
+          id?: string
+          notes?: string | null
+          pet_id: string
+          record_type: string
+          title: string
+          updated_at?: string
+          user_id: string
+          veterinarian?: string | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          description?: string | null
+          event_id?: string | null
+          id?: string
+          notes?: string | null
+          pet_id?: string
+          record_type?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          veterinarian?: string | null
+        }
+        Relationships: []
+      }
       pet_family_members: {
         Row: {
           created_at: string

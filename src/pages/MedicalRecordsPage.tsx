@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Camera, Calendar, Stethoscope, Pill, Syringe, FileText, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,37 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/components/AuthProvider";
 
-// Mock data για ιατρικές εγγραφές
-const mockMedicalRecords = [
-  {
-    id: "1",
-    type: "vaccination",
-    title: "Εμβόλιο Λύσσας",
-    date: "2024-01-15",
-    veterinarian: "Δρ. Παπαδόπουλος",
-    description: "Ετήσιο εμβόλιο λύσσας - Επόμενη δόση: 15/01/2025",
-    notes: "Καμία αντίδραση",
-  },
-  {
-    id: "2", 
-    type: "checkup",
-    title: "Γενικός Έλεγχος",
-    date: "2023-12-10",
-    veterinarian: "Δρ. Γεωργίου",
-    description: "Τακτικός έλεγχος υγείας - Όλα φυσιολογικά",
-    notes: "Βάρος: 25kg, Πίεση: φυσιολογική",
-  },
-  {
-    id: "3",
-    type: "medication",
-    title: "Αντιβιοτική Αγωγή",
-    date: "2023-11-22",
-    veterinarian: "Δρ. Κωνσταντίνου",
-    description: "Amoxicillin 500mg - 2 φορές την ημέρα για 7 ημέρες",
-    notes: "Για λοίμωξη αυτιού",
-  },
-];
 
 const recordTypeIcons = {
   vaccination: Syringe,
@@ -64,7 +36,9 @@ const MedicalRecordsPage = () => {
   const { petId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [records, setRecords] = useState(mockMedicalRecords);
+  const { user } = useAuth();
+  const [records, setRecords] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -80,7 +54,46 @@ const MedicalRecordsPage = () => {
     notes: "",
   });
 
-  const handleAddRecord = () => {
+  useEffect(() => {
+    if (petId && user) {
+      fetchMedicalRecords();
+    }
+  }, [petId, user]);
+
+  const fetchMedicalRecords = async () => {
+    if (!petId || !user) return;
+
+    setLoading(true);
+    try {
+      console.log('🏥 Fetching medical records for pet:', petId);
+      
+      const { data, error } = await supabase
+        .from('medical_records')
+        .select('*')
+        .eq('pet_id', petId)
+        .order('date', { ascending: false });
+
+      if (error) {
+        console.error('Medical records error:', error);
+        throw error;
+      }
+
+      console.log('🏥 Medical records:', data);
+      setRecords(data || []);
+
+    } catch (error: any) {
+      console.error('Error fetching medical records:', error);
+      toast({
+        title: "Σφάλμα",
+        description: error.message || "Δεν ήταν δυνατή η φόρτωση των ιατρικών αρχείων",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddRecord = async () => {
     if (!newRecord.title || !newRecord.date || !newRecord.type) {
       toast({
         title: "Σφάλμα",
@@ -90,26 +103,63 @@ const MedicalRecordsPage = () => {
       return;
     }
 
-    const record = {
-      id: Date.now().toString(),
-      ...newRecord,
-    };
+    if (!petId || !user) {
+      toast({
+        title: "Σφάλμα",
+        description: "Δεν ήταν δυνατή η αποθήκευση της εγγραφής",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    setRecords([record, ...records]);
-    setNewRecord({
-      type: "",
-      title: "",
-      date: "",
-      veterinarian: "",
-      description: "",
-      notes: "",
-    });
-    setIsAddDialogOpen(false);
-    
-    toast({
-      title: "Επιτυχία",
-      description: "Η ιατρική εγγραφή προστέθηκε επιτυχώς",
-    });
+    try {
+      const recordData = {
+        pet_id: petId,
+        user_id: user.id,
+        record_type: newRecord.type,
+        title: newRecord.title,
+        date: newRecord.date,
+        veterinarian: newRecord.veterinarian || null,
+        description: newRecord.description || null,
+        notes: newRecord.notes || null,
+      };
+
+      const { data, error } = await supabase
+        .from('medical_records')
+        .insert(recordData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add to local state
+      setRecords([data, ...records]);
+      
+      // Reset form
+      setNewRecord({
+        type: "",
+        title: "",
+        date: "",
+        veterinarian: "",
+        description: "",
+        notes: "",
+      });
+      
+      setIsAddDialogOpen(false);
+      
+      toast({
+        title: "Επιτυχία",
+        description: "Η ιατρική εγγραφή προστέθηκε επιτυχώς",
+      });
+
+    } catch (error: any) {
+      console.error('Error adding medical record:', error);
+      toast({
+        title: "Σφάλμα",
+        description: error.message || "Υπήρξε πρόβλημα κατά την αποθήκευση",
+        variant: "destructive",
+      });
+    }
   };
 
   const startCamera = async () => {
@@ -451,7 +501,11 @@ const MedicalRecordsPage = () => {
 
         {/* Medical Records List */}
         <div className="space-y-4">
-          {records.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-8">
+              <p>Φόρτωση ιατρικών αρχείων...</p>
+            </div>
+          ) : records.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
                 <Stethoscope className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -478,7 +532,7 @@ const MedicalRecordsPage = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-full bg-primary/10">
-                        {renderRecordIcon(record.type)}
+                        {renderRecordIcon(record.record_type)}
                       </div>
                       <div>
                         <CardTitle className="text-lg">{record.title}</CardTitle>
@@ -497,7 +551,7 @@ const MedicalRecordsPage = () => {
                       </div>
                     </div>
                     <span className="text-xs px-2 py-1 rounded-full bg-secondary">
-                      {recordTypeLabels[record.type as keyof typeof recordTypeLabels]}
+                      {recordTypeLabels[record.record_type as keyof typeof recordTypeLabels]}
                     </span>
                   </div>
                 </CardHeader>
