@@ -70,11 +70,35 @@ const SettingsPage = () => {
     }
   }, [settings.theme]);
 
-  const handleSettingChange = (key: string, value: any) => {
+  const handleSettingChange = async (key: string, value: any) => {
+    if (key === 'pushNotifications' && value) {
+      // Request notification permission when enabling push notifications
+      if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          toast({
+            title: "Άρνηση άδειας",
+            description: "Οι push ειδοποιήσεις χρειάζονται άδεια από τον browser.",
+            variant: "destructive"
+          });
+          return;
+        }
+      } else {
+        toast({
+          title: "Μη υποστηριζόμενο",
+          description: "Ο browser σας δεν υποστηρίζει push ειδοποιήσεις.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+    
     setSettings(prev => ({ ...prev, [key]: value }));
     toast({
-      title: "Ρύθμιση ενημερώθηκε",
-      description: "Η αλλαγή αποθηκεύτηκε επιτυχώς.",
+      title: "Ρύθμιση ενημερώθηκε", 
+      description: key === 'pushNotifications' && value 
+        ? "Οι push ειδοποιήσεις ενεργοποιήθηκαν επιτυχώς."
+        : "Η αλλαγή αποθηκεύτηκε επιτυχώς.",
     });
   };
 
