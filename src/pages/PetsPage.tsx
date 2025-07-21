@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Calendar, FileText, Stethoscope, Share2, Users, Copy, Check, User } from 'lucide-react';
+import { Plus, Calendar, FileText, Stethoscope, Share2, Users, Copy, Check, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -274,7 +274,7 @@ const PetsPage = () => {
                               onClick={() => navigate(`/pet/${pet.id}`)}
                               title="Προφίλ κατοικιδίου"
                             >
-                              <User className="h-4 w-4" />
+                              <Info className="h-4 w-4" />
                             </Button>
                             <Button 
                               variant="ghost" 

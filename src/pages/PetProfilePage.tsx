@@ -1,224 +1,400 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Calendar, Heart, FileText, Edit, Pill, Syringe, Gift, Scissors, Stethoscope } from 'lucide-react';
+import { ArrowLeft, Calendar, Stethoscope, Euro, Edit, Share2, PawPrint, Heart, Weight, Clock, MapPin } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/components/AuthProvider';
 import { format } from 'date-fns';
 import { el } from 'date-fns/locale';
-
-const mockPetData = {
-  1: {
-    id: 1,
-    name: 'Μπάρμπι',
-    type: 'Σκύλος',
-    breed: 'Golden Retriever',
-    age: '3 χρόνια',
-    weight: '25.5 kg',
-    gender: 'Θηλυκό',
-    birthdate: '2021-03-15',
-    microchip: '123456789012345',
-    image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?w=400&h=400&fit=crop',
-    notes: 'Πολύ φιλική και παιχνιδιάρα. Της αρέσουν οι μπάλες.',
-    recentEvents: [
-      { id: 1, title: 'Εμβόλιο κορόνας', type: 'vaccination', date: new Date(2024, 10, 15) },
-      { id: 2, title: 'Φάρμακο για σκουλήκια', type: 'medication', date: new Date(2024, 11, 1) },
-      { id: 3, title: 'Γενέθλια', type: 'birthday', date: new Date(2024, 2, 15) },
-    ],
-    upcomingEvents: [
-      { id: 4, title: 'Εμβόλιο λύσσας', type: 'vaccination', date: new Date(2024, 11, 25) },
-      { id: 5, title: 'Grooming', type: 'grooming', date: new Date(2024, 11, 30) },
-    ]
-  }
-};
-
-const eventTypeIcons = {
-  medication: Pill,
-  vaccination: Syringe,
-  birthday: Gift,
-  grooming: Scissors,
-  checkup: Heart
-};
-
-const eventTypeColors = {
-  medication: 'bg-blue-500',
-  vaccination: 'bg-green-500',
-  birthday: 'bg-pink-500',
-  grooming: 'bg-purple-500',
-  checkup: 'bg-red-500'
-};
 
 const PetProfilePage = () => {
   const { petId } = useParams();
   const navigate = useNavigate();
-  
-  const pet = petId ? mockPetData[parseInt(petId) as keyof typeof mockPetData] : undefined;
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [pet, setPet] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [recentEvents, setRecentEvents] = useState<any[]>([]);
+  const [recentExpenses, setRecentExpenses] = useState<any[]>([]);
 
-  if (!pet) {
+  useEffect(() => {
+    if (petId && user) {
+      fetchPetData();
+    }
+  }, [petId, user]);
+
+  const fetchPetData = async () => {
+    if (!petId || !user) return;
+
+    setLoading(true);
+    try {
+      // Fetch pet details
+      const { data: petData, error: petError } = await supabase
+        .from('pets')
+        .select('*')
+        .eq('id', petId)
+        .single();
+
+      if (petError) throw petError;
+
+      // Check if user has access to this pet
+      const isOwner = petData.owner_id === user.id;
+      if (!isOwner) {
+        // Check if user is a family member
+        const { data: familyMember } = await supabase
+          .from('pet_family_members')
+          .select('*')
+          .eq('pet_id', petId)
+          .eq('user_id', user.id)
+          .eq('status', 'accepted')
+          .single();
+
+        if (!familyMember) {
+          toast({
+            title: "Μη εξουσιοδοτημένη πρόσβαση",
+            description: "Δεν έχετε πρόσβαση σε αυτό το κατοικίδιο",
+            variant: "destructive"
+          });
+          navigate('/pets');
+          return;
+        }
+      }
+
+      setPet(petData);
+
+      // Fetch recent events
+      const { data: eventsData } = await supabase
+        .from('events')
+        .select('*')
+        .eq('pet_id', petId)
+        .order('event_date', { ascending: false })
+        .limit(3);
+
+      setRecentEvents(eventsData || []);
+
+      // Fetch recent expenses
+      const { data: expensesData } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('pet_id', petId)
+        .order('expense_date', { ascending: false })
+        .limit(3);
+
+      setRecentExpenses(expensesData || []);
+
+    } catch (error: any) {
+      console.error('Error fetching pet data:', error);
+      toast({
+        title: "Σφάλμα",
+        description: error.message || "Δεν ήταν δυνατή η φόρτωση των στοιχείων",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getSpeciesEmoji = (species: string) => {
+    const emojiMap: { [key: string]: string } = {
+      'dog': '🐕',
+      'cat': '🐱', 
+      'rabbit': '🐰',
+      'bird': '🐦',
+      'fish': '🐠',
+      'hamster': '🐹',
+      'guinea-pig': '🐹',
+      'reptile': '🦎',
+      'other': '🐾'
+    };
+    return emojiMap[species] || '🐾';
+  };
+
+  const getSpeciesDisplayName = (species: string) => {
+    const nameMap: { [key: string]: string } = {
+      'dog': 'Σκύλος',
+      'cat': 'Γάτα',
+      'rabbit': 'Κουνέλι',
+      'bird': 'Πουλί',
+      'fish': 'Ψάρι',
+      'hamster': 'Χάμστερ',
+      'guinea-pig': 'Ινδικό Χοιρίδιο',
+      'reptile': 'Ερπετό',
+      'other': 'Άλλο'
+    };
+    return nameMap[species] || species;
+  };
+
+  const getEventTypeLabel = (type: string) => {
+    const types: { [key: string]: string } = {
+      'medication': 'Φάρμακο',
+      'vaccination': 'Εμβόλιο',
+      'checkup': 'Εξέταση',
+      'grooming': 'Grooming',
+      'birthday': 'Γενέθλια',
+      'feeding': 'Φαγητό',
+      'exercise': 'Άσκηση'
+    };
+    return types[type] || type;
+  };
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
-        <Header title="Κατοικίδιο δεν βρέθηκε" />
-        <div className="p-4 text-center">
-          <p>Το κατοικίδιο δεν βρέθηκε.</p>
-          <Button onClick={() => navigate('/pets')} className="mt-4">
-            Επιστροφή στα κατοικίδια
-          </Button>
+        <Header title="Προφίλ Κατοικιδίου" />
+        <div className="p-4 flex justify-center items-center h-32">
+          <p>Φόρτωση...</p>
         </div>
       </div>
     );
   }
 
-  const renderEventIcon = (type: string) => {
-    const IconComponent = eventTypeIcons[type as keyof typeof eventTypeIcons] || Heart;
-    return <IconComponent className="h-4 w-4" />;
-  };
+  if (!pet) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
+        <Header title="Προφίλ Κατοικιδίου" />
+        <div className="p-4 flex justify-center items-center h-32">
+          <p>Το κατοικίδιο δεν βρέθηκε</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
-      <Header title={pet.name} showNotifications={false} />
+      <Header title={pet.name} />
       
       <div className="p-4 space-y-6">
         <Button 
           variant="ghost" 
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/pets')}
           className="mb-4 p-0 h-auto"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Πίσω
+          Πίσω στα Κατοικίδια
         </Button>
 
         {/* Pet Profile Card */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex flex-col items-center text-center space-y-4">
-              <img 
-                src={pet.image} 
-                alt={pet.name}
-                className="w-32 h-32 rounded-full object-cover"
-              />
-              <div>
-                <h1 className="text-2xl font-bold">{pet.name}</h1>
-                <p className="text-muted-foreground">{pet.breed}</p>
-                <Badge variant="secondary" className="mt-2">{pet.type}</Badge>
+        <Card className="overflow-hidden">
+          <CardContent className="p-0">
+            <div className="relative">
+              {/* Cover Image / Color */}
+              <div className="h-32 bg-gradient-to-r from-primary to-primary/80 relative">
+                <div className="absolute inset-0 bg-black/20" />
+                <div className="absolute bottom-4 left-4 text-white">
+                  <div className="flex items-center gap-2">
+                    <span className="text-3xl">{getSpeciesEmoji(pet.species)}</span>
+                    <div>
+                      <h1 className="text-2xl font-bold">{pet.name}</h1>
+                      <p className="text-sm opacity-90">{getSpeciesDisplayName(pet.species)}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <Button variant="outline" className="w-full">
-                <Edit className="h-4 w-4 mr-2" />
-                Επεξεργασία
-              </Button>
+
+              {/* Pet Avatar */}
+              <div className="relative -mt-16 ml-4 mb-4">
+                <div className="w-24 h-24 rounded-full border-4 border-white overflow-hidden bg-white shadow-lg">
+                  {pet.avatar_url ? (
+                    <img 
+                      src={pet.avatar_url} 
+                      alt={pet.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                      <span className="text-2xl">{getSpeciesEmoji(pet.species)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Pet Details */}
+              <div className="px-4 pb-4">
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  {pet.breed && (
+                    <div className="flex items-center gap-2">
+                      <PawPrint className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Ράτσα</p>
+                        <p className="text-sm font-medium">{pet.breed}</p>
+                      </div>
+                    </div>
+                  )}
+                  {pet.age && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Ηλικία</p>
+                        <p className="text-sm font-medium">{pet.age} {pet.age === 1 ? 'χρόνος' : 'χρόνια'}</p>
+                      </div>
+                    </div>
+                  )}
+                  {pet.weight && (
+                    <div className="flex items-center gap-2">
+                      <Weight className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Βάρος</p>
+                        <p className="text-sm font-medium">{pet.weight}kg</p>
+                      </div>
+                    </div>
+                  )}
+                  {pet.gender && (
+                    <div className="flex items-center gap-2">
+                      <Heart className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Φύλο</p>
+                        <p className="text-sm font-medium">{pet.gender === 'male' ? 'Αρσενικό' : 'Θηλυκό'}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {pet.description && (
+                  <div className="mb-4">
+                    <p className="text-xs text-muted-foreground mb-1">Σημειώσεις</p>
+                    <p className="text-sm text-gray-700">{pet.description}</p>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="grid grid-cols-3 gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => navigate(`/calendar?petId=${pet.id}`)}
+                    className="flex items-center gap-2"
+                  >
+                    <Calendar className="h-4 w-4" />
+                    Ημερολόγιο
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => navigate(`/pet/${pet.id}/medical`)}
+                    className="flex items-center gap-2"
+                  >
+                    <Stethoscope className="h-4 w-4" />
+                    Ιατρικά
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => navigate('/expenses')}
+                    className="flex items-center gap-2"
+                  >
+                    <Euro className="h-4 w-4" />
+                    Έξοδα
+                  </Button>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Pet Details */}
+        {/* Recent Events */}
         <Card>
-          <CardHeader>
-            <CardTitle>Στοιχεία</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <CardTitle className="text-lg">Πρόσφατα Events</CardTitle>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => navigate(`/calendar?petId=${pet.id}`)}
+            >
+              Όλα
+            </Button>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Ηλικία</p>
-                <p className="font-medium">{pet.age}</p>
+          <CardContent>
+            {recentEvents.length > 0 ? (
+              <div className="space-y-3">
+                {recentEvents.map((event) => (
+                  <div key={event.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                      <Calendar className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{event.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {getEventTypeLabel(event.event_type)} • {format(new Date(event.event_date), 'dd MMM yyyy', { locale: el })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Βάρος</p>
-                <p className="font-medium">{pet.weight}</p>
+            ) : (
+              <p className="text-center text-muted-foreground py-4">
+                Δεν υπάρχουν πρόσφατα events
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Expenses */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <CardTitle className="text-lg">Πρόσφατα Έξοδα</CardTitle>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => navigate('/expenses')}
+            >
+              Όλα
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {recentExpenses.length > 0 ? (
+              <div className="space-y-3">
+                {recentExpenses.map((expense) => (
+                  <div key={expense.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                      <Euro className="h-4 w-4 text-green-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{expense.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {expense.category} • {format(new Date(expense.expense_date), 'dd MMM yyyy', { locale: el })}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-sm">€{expense.amount}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Φύλο</p>
-                <p className="font-medium">{pet.gender}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Γέννηση</p>
-                <p className="font-medium">{format(new Date(pet.birthdate), 'dd/MM/yyyy', { locale: el })}</p>
-              </div>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Microchip</p>
-              <p className="font-medium font-mono text-xs">{pet.microchip}</p>
-            </div>
-            {pet.notes && (
-              <div>
-                <p className="text-sm text-muted-foreground">Σημειώσεις</p>
-                <p className="text-sm">{pet.notes}</p>
-              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-4">
+                Δεν υπάρχουν πρόσφατα έξοδα
+              </p>
             )}
           </CardContent>
         </Card>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-3 gap-3">
-          <Button 
-            variant="outline" 
-            className="h-20 flex-col gap-2"
-            onClick={() => navigate('/calendar')}
-          >
-            <Calendar className="h-5 w-5" />
-            <span className="text-xs">Ημερολόγιο</span>
-          </Button>
-          <Button 
-            variant="outline" 
-            className="h-20 flex-col gap-2"
-            onClick={() => navigate('/add-event')}
-          >
-            <Heart className="h-5 w-5" />
-            <span className="text-xs">Νέο Event</span>
-          </Button>
-          <Button 
-            variant="outline" 
-            className="h-20 flex-col gap-2"
-            onClick={() => navigate(`/pet/${petId}/medical`)}
-          >
-            <Stethoscope className="h-5 w-5" />
-            <span className="text-xs">Ιατρικός Φάκελος</span>
-          </Button>
-        </div>
-
-        {/* Recent Events */}
         <Card>
           <CardHeader>
-            <CardTitle>Πρόσφατα Events</CardTitle>
+            <CardTitle className="text-lg">Γρήγορες Ενέργειες</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {pet.recentEvents.map(event => (
-                <div key={event.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                  <div className={`p-2 rounded-full ${eventTypeColors[event.type as keyof typeof eventTypeColors]} text-white`}>
-                    {renderEventIcon(event.type)}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium">{event.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {format(event.date, 'dd MMM yyyy', { locale: el })}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Upcoming Events */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Επερχόμενα Events</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {pet.upcomingEvents.map(event => (
-                <div key={event.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                  <div className={`p-2 rounded-full ${eventTypeColors[event.type as keyof typeof eventTypeColors]} text-white`}>
-                    {renderEventIcon(event.type)}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium">{event.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {format(event.date, 'dd MMM yyyy', { locale: el })}
-                    </p>
-                  </div>
-                </div>
-              ))}
+            <div className="grid grid-cols-2 gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/add-event')}
+                className="h-12 flex items-center gap-2"
+              >
+                <Calendar className="h-4 w-4" />
+                Νέο Event
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/add-expense')}
+                className="h-12 flex items-center gap-2"
+              >
+                <Euro className="h-4 w-4" />
+                Νέο Έξοδο
+              </Button>
             </div>
           </CardContent>
         </Card>
