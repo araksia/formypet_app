@@ -192,8 +192,7 @@ const AddExpensePage = () => {
           description: expense.description,
           expense_date: expense.date,
           is_recurring: expense.isRecurring,
-          recurring_frequency: expense.isRecurring ? expense.recurringFrequency : null,
-          receipt_url: receiptImage || null
+          recurring_frequency: expense.isRecurring ? expense.recurringFrequency : null
         });
 
       if (error) throw error;
@@ -236,105 +235,6 @@ const AddExpensePage = () => {
           </div>
         </div>
 
-        {/* Receipt Upload/Camera */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Camera className="h-5 w-5" />
-              Ανάλυση Απόδειξης
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="upload" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="upload">Ανέβασμα</TabsTrigger>
-                <TabsTrigger value="camera">Κάμερα</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="upload" className="space-y-4">
-                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
-                  <Upload className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
-                  <Label htmlFor="receipt-upload" className="cursor-pointer">
-                    <span className="text-primary hover:underline">
-                      Κάντε κλικ για επιλογή απόδειξης
-                    </span>
-                    <Input
-                      id="receipt-upload"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                    />
-                  </Label>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="camera" className="space-y-4">
-                {!isCameraActive && !receiptImage && (
-                  <div className="text-center space-y-4">
-                    <div className="border-2 border-dashed border-border rounded-lg p-6">
-                      <Camera className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                      <Button onClick={startCamera}>
-                        Ενεργοποίηση Κάμερας
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                
-                {isCameraActive && (
-                  <div className="space-y-4">
-                    <div className="relative bg-black rounded-lg overflow-hidden">
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        className="w-full h-64 object-cover"
-                      />
-                      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
-                        <Button
-                          onClick={capturePhoto}
-                          size="lg"
-                          className="rounded-full w-16 h-16"
-                        >
-                          <Camera className="h-6 w-6" />
-                        </Button>
-                        <Button
-                          onClick={stopCamera}
-                          variant="outline"
-                          size="lg"
-                          className="rounded-full w-16 h-16"
-                        >
-                          <X className="h-6 w-6" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                <canvas ref={canvasRef} className="hidden" />
-              </TabsContent>
-            </Tabs>
-
-            {receiptImage && (
-              <div className="mt-4">
-                <img
-                  src={receiptImage}
-                  alt="Receipt"
-                  className="w-32 h-32 object-cover rounded-lg border"
-                />
-              </div>
-            )}
-
-            {isProcessing && (
-              <Alert className="mt-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Ανάλυση απόδειξης σε εξέλιξη... Παρακαλώ περιμένετε.
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Expense Form */}
         <Card>
