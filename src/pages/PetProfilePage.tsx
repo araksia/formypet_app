@@ -4,7 +4,13 @@ import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Calendar, Stethoscope, Euro, Edit, Share2, PawPrint, Heart, Weight, Clock, MapPin } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Calendar, Stethoscope, Euro, Edit, Share2, PawPrint, Heart, Weight, Clock, MapPin, Camera, Upload } from 'lucide-react';
+import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
@@ -20,6 +26,18 @@ const PetProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [recentEvents, setRecentEvents] = useState<any[]>([]);
   const [recentExpenses, setRecentExpenses] = useState<any[]>([]);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editImage, setEditImage] = useState<string>('');
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    species: '',
+    breed: '',
+    gender: '',
+    age: '',
+    weight: '',
+    description: ''
+  });
 
   useEffect(() => {
     if (petId && user) {
@@ -110,6 +128,188 @@ const PetProfilePage = () => {
       // Don't navigate away, just show error
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openEditDialog = () => {
+    if (pet) {
+      setEditFormData({
+        name: pet.name || '',
+        species: pet.species || '',
+        breed: pet.breed || '',
+        gender: pet.gender || '',
+        age: pet.age?.toString() || '',
+        weight: pet.weight?.toString() || '',
+        description: pet.description || ''
+      });
+      setEditImage(pet.avatar_url || '');
+      setEditDialogOpen(true);
+    }
+  };
+
+  const handleEditInputChange = (field: string, value: string) => {
+    setEditFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleEditImageCapture = async () => {
+    try {
+      const image = await CapacitorCamera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+      });
+
+      if (image.dataUrl) {
+        setEditImage(image.dataUrl);
+        toast({
+          title: "📷 Φωτογραφία τραβήχτηκε!",
+          description: "Η φωτογραφία προστέθηκε επιτυχώς",
+        });
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      toast({
+        title: "❌ Σφάλμα κάμερας",
+        description: "Δεν ήταν δυνατή η χρήση της κάμερας",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleEditImageUpload = async () => {
+    try {
+      const image = await CapacitorCamera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Photos,
+      });
+
+      if (image.dataUrl) {
+        setEditImage(image.dataUrl);
+        toast({
+          title: "🖼️ Φωτογραφία επιλέχθηκε!",
+          description: "Η φωτογραφία προστέθηκε επιτυχώς",
+        });
+      }
+    } catch (error) {
+      console.error('Photo picker error:', error);
+      toast({
+        title: "❌ Σφάλμα επιλογής φωτογραφίας",
+        description: "Δεν ήταν δυνατή η επιλογή φωτογραφίας",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const uploadImageToSupabase = async (dataUrl: string): Promise<string | null> => {
+    try {
+      if (!user) return null;
+
+      // Convert data URL to blob
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      
+      // Generate unique filename
+      const fileName = `${user.id}/${Date.now()}_pet_image.jpg`;
+      
+      const { data, error } = await supabase.storage
+        .from('pet-images')
+        .upload(fileName, blob, {
+          contentType: 'image/jpeg',
+          upsert: false
+        });
+
+      if (error) throw error;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('pet-images')
+        .getPublicUrl(fileName);
+
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('Upload error:', error);
+      return null;
+    }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!editFormData.name || !editFormData.species) {
+      toast({
+        title: "Σφάλμα",
+        description: "Παρακαλώ συμπληρώστε τα υποχρεωτικά πεδία (Όνομα και Είδος)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setEditLoading(true);
+    
+    try {
+      if (!user || !pet) {
+        throw new Error('Δεν είστε συνδεδεμένος ή δεν βρέθηκε το κατοικίδιο.');
+      }
+
+      // Upload new image if changed
+      let avatarUrl = pet.avatar_url;
+      if (editImage && editImage !== pet.avatar_url) {
+        const uploadedUrl = await uploadImageToSupabase(editImage);
+        if (uploadedUrl) {
+          avatarUrl = uploadedUrl;
+        }
+      }
+
+      const updateData = {
+        name: editFormData.name,
+        species: editFormData.species,
+        breed: editFormData.breed || null,
+        gender: editFormData.gender || null,
+        age: editFormData.age ? parseInt(editFormData.age) : null,
+        weight: editFormData.weight ? parseFloat(editFormData.weight) : null,
+        description: editFormData.description || null,
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('pets')
+        .update(updateData)
+        .eq('id', pet.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      console.log('Pet updated successfully:', data);
+
+      // Update local pet state
+      setPet(data);
+      
+      toast({
+        title: "🎉 Επιτυχία!",
+        description: `Το κατοικίδιο "${editFormData.name}" ενημερώθηκε επιτυχώς!`,
+        duration: 4000
+      });
+
+      setEditDialogOpen(false);
+
+    } catch (error: any) {
+      console.error('Error updating pet:', error);
+      toast({
+        title: "❌ Σφάλμα",
+        description: error.message || "Υπήρξε πρόβλημα κατά την ενημέρωση του κατοικιδίου",
+        variant: "destructive",
+        duration: 5000
+      });
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -276,7 +476,166 @@ const PetProfilePage = () => {
                 )}
 
                 {/* Action Buttons */}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-2">
+                  <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={openEditDialog}
+                        className="flex items-center gap-2"
+                      >
+                        <Edit className="h-4 w-4" />
+                        Επεξεργασία
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Επεξεργασία {pet.name}</DialogTitle>
+                      </DialogHeader>
+                      <form onSubmit={handleEditSubmit} className="space-y-4">
+                        {/* Photo Section */}
+                        <div className="space-y-3">
+                          <Label>Φωτογραφία</Label>
+                          <div className="flex flex-col items-center gap-3">
+                            <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center overflow-hidden">
+                              {editImage ? (
+                                <img src={editImage} alt="Pet" className="w-full h-full object-cover" />
+                              ) : (
+                                <Camera className="h-6 w-6 text-muted-foreground" />
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 w-full">
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm"
+                                onClick={handleEditImageCapture}
+                              >
+                                <Camera className="h-4 w-4 mr-2" />
+                                Κάμερα
+                              </Button>
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm"
+                                onClick={handleEditImageUpload}
+                              >
+                                <Upload className="h-4 w-4 mr-2" />
+                                Γκαλερί
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Basic Info */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="edit-name">Όνομα *</Label>
+                            <Input 
+                              id="edit-name" 
+                              value={editFormData.name}
+                              onChange={(e) => handleEditInputChange('name', e.target.value)}
+                              required 
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-species">Είδος *</Label>
+                            <Select value={editFormData.species} onValueChange={(value) => handleEditInputChange('species', value)} required>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="dog">🐕 Σκύλος</SelectItem>
+                                <SelectItem value="cat">🐱 Γάτα</SelectItem>
+                                <SelectItem value="rabbit">🐰 Κουνέλι</SelectItem>
+                                <SelectItem value="bird">🐦 Πουλί</SelectItem>
+                                <SelectItem value="fish">🐠 Ψάρι</SelectItem>
+                                <SelectItem value="hamster">🐹 Χάμστερ</SelectItem>
+                                <SelectItem value="guinea-pig">🐹 Ινδικό Χοιρίδιο</SelectItem>
+                                <SelectItem value="reptile">🦎 Ερπετό</SelectItem>
+                                <SelectItem value="other">🐾 Άλλο</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="edit-breed">Ράτσα</Label>
+                            <Input 
+                              id="edit-breed" 
+                              value={editFormData.breed}
+                              onChange={(e) => handleEditInputChange('breed', e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-gender">Φύλο</Label>
+                            <Select value={editFormData.gender} onValueChange={(value) => handleEditInputChange('gender', value)}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="male">♂️ Αρσενικό</SelectItem>
+                                <SelectItem value="female">♀️ Θηλυκό</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="edit-age">Ηλικία (χρόνια)</Label>
+                            <Input 
+                              id="edit-age" 
+                              type="number" 
+                              min="0"
+                              value={editFormData.age}
+                              onChange={(e) => handleEditInputChange('age', e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-weight">Βάρος (kg)</Label>
+                            <Input 
+                              id="edit-weight" 
+                              type="number" 
+                              step="0.1" 
+                              min="0"
+                              value={editFormData.weight}
+                              onChange={(e) => handleEditInputChange('weight', e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="edit-description">Σημειώσεις</Label>
+                          <Textarea 
+                            id="edit-description" 
+                            value={editFormData.description}
+                            onChange={(e) => handleEditInputChange('description', e.target.value)}
+                          />
+                        </div>
+
+                        <div className="flex gap-2 pt-4">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => setEditDialogOpen(false)}
+                            className="flex-1"
+                          >
+                            Ακύρωση
+                          </Button>
+                          <Button 
+                            type="submit" 
+                            disabled={editLoading}
+                            className="flex-1"
+                          >
+                            {editLoading ? 'Αποθήκευση...' : 'Αποθήκευση'}
+                          </Button>
+                        </div>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
                   <Button 
                     variant="outline" 
                     size="sm"
