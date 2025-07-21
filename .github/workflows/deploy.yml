@@ -40,12 +40,12 @@ jobs:
       - name: Grant Gradlew Permission
         run: chmod +x android/gradlew
 
-      - name: Build unsigned APK
+      - name: Build AAB (App Bundle)
         working-directory: android
-        run: ./gradlew assembleRelease
+        run: ./gradlew bundleRelease
 
-      - name: Upload unsigned APK
+      - name: Upload unsigned AAB
         uses: actions/upload-artifact@v4
         with:
-          name: unsigned-apk
-          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          name: unsigned-aab
+          path: android/app/build/outputs/bundle/realease/app-release.aab 
