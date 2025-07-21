@@ -46,7 +46,7 @@ jobs:
              echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/my-release-key.jks
 
       - name: Build signed AAB
-        working-directory: android
+        working-directory: android/app
         env:
           JAVA_HOME: ${{ steps.setup-java.outputs.path }}
         run: |
