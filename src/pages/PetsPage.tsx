@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Calendar, FileText, Stethoscope, Share2, Users, Copy, Check, Info } from 'lucide-react';
+import { Plus, Stethoscope, Copy, Check, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -279,95 +279,11 @@ const PetsPage = () => {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8 hover:bg-green-50 hover:text-green-600"
-                              onClick={() => navigate(`/calendar?petId=${pet.id}`)}
-                              title="Ημερολόγιο"
-                            >
-                              <Calendar className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
                               className="h-8 w-8 hover:bg-purple-50 hover:text-purple-600"
                               onClick={() => navigate(`/pet/${pet.id}/medical`)}
                               title="Ιατρικά στοιχεία"
                             >
                               <Stethoscope className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <div className="flex gap-1">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-8 w-8 hover:bg-purple-50 hover:text-purple-600"
-                                  onClick={() => setSelectedPetForShare(pet.id)}
-                                  title="Μοίρασμα με άλλους"
-                                >
-                                  <Share2 className="h-4 w-4" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="sm:max-w-md">
-                                <DialogHeader>
-                                  <DialogTitle className="flex items-center gap-2">
-                                    <Share2 className="h-5 w-5" />
-                                    Μοίρασμα κατοικιδίου: {pet.name}
-                                  </DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                  <div>
-                                    <label className="text-sm font-medium">Email χρήστη</label>
-                                    <Input
-                                      type="email"
-                                      placeholder="π.χ. maria@example.com"
-                                      value={shareEmail}
-                                      onChange={(e) => setShareEmail(e.target.value)}
-                                      className="mt-1"
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <label className="text-sm font-medium">Pet ID (για χειροκίνητη πρόσκληση)</label>
-                                    <div className="flex gap-2">
-                                      <Input
-                                        value={pet.id}
-                                        readOnly
-                                        className="flex-1 text-xs"
-                                      />
-                                      <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={() => copyPetId(pet.id)}
-                                        className="shrink-0"
-                                      >
-                                        {copiedPetId === pet.id ? (
-                                          <Check className="h-4 w-4" />
-                                        ) : (
-                                          <Copy className="h-4 w-4" />
-                                        )}
-                                      </Button>
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      onClick={handleSharePet}
-                                      disabled={!shareEmail || shareLoading}
-                                      className="flex-1"
-                                    >
-                                      {shareLoading ? 'Αποστολή...' : 'Αποστολή Πρόσκλησης'}
-                                    </Button>
-                                  </div>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 hover:bg-orange-50 hover:text-orange-600"
-                              onClick={() => navigate('/add-event')}
-                              title="Προσθήκη εκδήλωσης"
-                            >
-                              <FileText className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
