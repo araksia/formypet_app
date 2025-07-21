@@ -71,35 +71,44 @@ const SettingsPage = () => {
   }, [settings.theme]);
 
   const handleSettingChange = async (key: string, value: any) => {
-    if (key === 'pushNotifications' && value) {
-      // Request notification permission when enabling push notifications
-      if ('Notification' in window) {
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
+    if (key === 'pushNotifications') {
+      if (value) {
+        // Request notification permission when enabling push notifications
+        if ('Notification' in window) {
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') {
+            toast({
+              title: "Άρνηση άδειας",
+              description: "Οι push ειδοποιήσεις χρειάζονται άδεια από τον browser.",
+              variant: "destructive"
+            });
+            return;
+          }
+        } else {
           toast({
-            title: "Άρνηση άδειας",
-            description: "Οι push ειδοποιήσεις χρειάζονται άδεια από τον browser.",
+            title: "Μη υποστηριζόμενο",
+            description: "Ο browser σας δεν υποστηρίζει push ειδοποιήσεις.",
             variant: "destructive"
           });
           return;
         }
       } else {
+        // When disabling push notifications
         toast({
-          title: "Μη υποστηριζόμενο",
-          description: "Ο browser σας δεν υποστηρίζει push ειδοποιήσεις.",
+          title: "Push ειδοποιήσεις απενεργοποιήθηκαν",
+          description: "Πρέπει να τις ενεργοποιήσετε για να λαμβάνετε ειδοποιήσεις.",
           variant: "destructive"
         });
-        return;
       }
     }
     
     setSettings(prev => ({ ...prev, [key]: value }));
-    toast({
-      title: "Ρύθμιση ενημερώθηκε", 
-      description: key === 'pushNotifications' && value 
-        ? "Οι push ειδοποιήσεις ενεργοποιήθηκαν επιτυχώς."
-        : "Η αλλαγή αποθηκεύτηκε επιτυχώς.",
-    });
+    if (key === 'pushNotifications' && value) {
+      toast({
+        title: "Ρύθμιση ενημερώθηκε",
+        description: "Οι push ειδοποιήσεις ενεργοποιήθηκαν επιτυχώς.",
+      });
+    }
   };
 
   const handleLogout = async () => {
@@ -273,17 +282,6 @@ const SettingsPage = () => {
               <Switch
                 checked={settings.pushNotifications}
                 onCheckedChange={(checked) => handleSettingChange('pushNotifications', checked)}
-              />
-            </SettingItem>
-            <Separator />
-            <SettingItem
-              icon={Bell}
-              title="Υπενθυμίσεις events"
-              description="Ειδοποιήσεις για επερχόμενα events"
-            >
-              <Switch
-                checked={settings.eventReminders}
-                onCheckedChange={(checked) => handleSettingChange('eventReminders', checked)}
               />
             </SettingItem>
           </CardContent>
