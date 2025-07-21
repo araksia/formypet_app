@@ -274,7 +274,7 @@ const PetsPage = () => {
                               onClick={() => navigate(`/pet/${pet.id}`)}
                               title="Προφίλ κατοικιδίου"
                             >
-                              <Info className="h-4 w-4" />
+                              <span className="text-lg">{getSpeciesEmoji(pet.species)}</span>
                             </Button>
                             <Button 
                               variant="ghost" 

@@ -32,6 +32,8 @@ const PetProfilePage = () => {
 
     setLoading(true);
     try {
+      console.log('🔍 Fetching pet data for ID:', petId, 'User:', user.id);
+      
       // Fetch pet details
       const { data: petData, error: petError } = await supabase
         .from('pets')
@@ -39,7 +41,16 @@ const PetProfilePage = () => {
         .eq('id', petId)
         .single();
 
-      if (petError) throw petError;
+      console.log('🐕 Pet data result:', { petData, petError });
+
+      if (petError) {
+        console.error('Pet error:', petError);
+        throw petError;
+      }
+
+      if (!petData) {
+        throw new Error('Το κατοικίδιο δεν βρέθηκε');
+      }
 
       // Check if user has access to this pet
       const isOwner = petData.owner_id === user.id;
@@ -51,7 +62,7 @@ const PetProfilePage = () => {
           .eq('pet_id', petId)
           .eq('user_id', user.id)
           .eq('status', 'accepted')
-          .single();
+          .maybeSingle();
 
         if (!familyMember) {
           toast({
@@ -64,6 +75,7 @@ const PetProfilePage = () => {
         }
       }
 
+      console.log('✅ Pet access granted, setting pet data');
       setPet(petData);
 
       // Fetch recent events
@@ -74,6 +86,7 @@ const PetProfilePage = () => {
         .order('event_date', { ascending: false })
         .limit(3);
 
+      console.log('📅 Events data:', eventsData);
       setRecentEvents(eventsData || []);
 
       // Fetch recent expenses
@@ -84,15 +97,17 @@ const PetProfilePage = () => {
         .order('expense_date', { ascending: false })
         .limit(3);
 
+      console.log('💰 Expenses data:', expensesData);
       setRecentExpenses(expensesData || []);
 
     } catch (error: any) {
-      console.error('Error fetching pet data:', error);
+      console.error('💥 Error fetching pet data:', error);
       toast({
         title: "Σφάλμα",
         description: error.message || "Δεν ήταν δυνατή η φόρτωση των στοιχείων",
         variant: "destructive"
       });
+      // Don't navigate away, just show error
     } finally {
       setLoading(false);
     }
