@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Heart, Calendar, FileText, Stethoscope, Share2, Users, Copy, Check } from 'lucide-react';
+import { Plus, Calendar, FileText, Stethoscope, Share2, Users, Copy, Check, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -270,17 +270,17 @@ const PetsPage = () => {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
+                              className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600"
                               onClick={() => navigate(`/pet/${pet.id}`)}
                               title="Προφίλ κατοικιδίου"
                             >
-                              <Heart className="h-4 w-4" />
+                              <User className="h-4 w-4" />
                             </Button>
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600"
-                              onClick={() => navigate('/calendar')}
+                              className="h-8 w-8 hover:bg-green-50 hover:text-green-600"
+                              onClick={() => navigate(`/calendar?petId=${pet.id}`)}
                               title="Ημερολόγιο"
                             >
                               <Calendar className="h-4 w-4" />
@@ -288,7 +288,7 @@ const PetsPage = () => {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8 hover:bg-green-50 hover:text-green-600"
+                              className="h-8 w-8 hover:bg-purple-50 hover:text-purple-600"
                               onClick={() => navigate(`/pet/${pet.id}/medical`)}
                               title="Ιατρικά στοιχεία"
                             >
