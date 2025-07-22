@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -107,7 +108,6 @@ const LoginPage = () => {
       setLoading(false);
     }
   };
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center p-4">
@@ -226,6 +226,16 @@ const LoginPage = () => {
               {loading ? 'Σύνδεση...' : 'Σύνδεση'}
             </Button>
           </form>
+
+          {/* Forgot Password Link */}
+          <div className="text-center">
+            <Link
+              to="/reset-password"
+              className="text-sm text-primary underline-offset-4 hover:underline"
+            >
+              Ξέχασα τον κωδικό μου
+            </Link>
+          </div>
 
           <div className="text-center text-sm">
             <span className="text-muted-foreground">Δεν έχετε λογαριασμό; </span>
