@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -108,44 +108,6 @@ const LoginPage = () => {
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.email || !formData.password) {
-      toast({
-        title: "Σφάλμα",
-        description: "Παρακαλώ συμπληρώστε όλα τα πεδία",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`
-        }
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Επιτυχία!",
-        description: "Λογαριασμός δημιουργήθηκε επιτυχώς! Μπορείτε τώρα να συνδεθείτε"
-      });
-    } catch (error: any) {
-      console.error('Error with sign up:', error);
-      toast({
-        title: "Σφάλμα",
-        description: error.message || "Υπήρξε πρόβλημα με την εγγραφή",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center p-4">
@@ -255,27 +217,25 @@ const LoginPage = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full h-12"
-              >
-                <LogIn className="h-4 w-4 mr-2" />
-                {loading ? 'Σύνδεση...' : 'Σύνδεση'}
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSignUp}
-                disabled={loading}
-                className="w-full h-12"
-              >
-                {loading ? 'Εγγραφή...' : 'Εγγραφή νέου λογαριασμού'}
-              </Button>
-            </div>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full h-12"
+            >
+              <LogIn className="h-4 w-4 mr-2" />
+              {loading ? 'Σύνδεση...' : 'Σύνδεση'}
+            </Button>
           </form>
+
+          <div className="text-center text-sm">
+            <span className="text-muted-foreground">Δεν έχετε λογαριασμό; </span>
+            <Link
+              to="/signup"
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              Εγγραφή
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>

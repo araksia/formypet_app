@@ -19,6 +19,7 @@ import AddFamilyMemberPage from "./pages/AddFamilyMemberPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 import LoginPage from "./pages/LoginPage";
+import { SignUpPage } from "./pages/SignUpPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
 import NotFound from "./pages/NotFound";
@@ -35,6 +36,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignUpPage />} />
             <Route path="/screenshots" element={<ScreenshotsPage />} />
             <Route path="/" element={
               <ProtectedRoute>
