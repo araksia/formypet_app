@@ -234,6 +234,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
+
         {/* Quick Actions */}
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -338,15 +339,17 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Google Ads Section */}
-        <Card className="border-0 shadow-sm bg-gray-50">
-          <CardContent className="p-4 text-center">
-            <div className="text-sm text-gray-500 mb-2">Διαφήμιση</div>
-            <div className="h-24 bg-white rounded-lg flex items-center justify-center border border-gray-200">
-              <span className="text-gray-400 text-sm">Google Ads Space</span>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Google Ads Section - Hidden until configured */}
+        {false && (
+          <Card className="border-0 shadow-sm bg-gray-50">
+            <CardContent className="p-4 text-center">
+              <div className="text-sm text-gray-500 mb-2">Διαφήμιση</div>
+              <div className="h-24 bg-white rounded-lg flex items-center justify-center border border-gray-200">
+                <span className="text-gray-400 text-sm">Google Ads Space</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

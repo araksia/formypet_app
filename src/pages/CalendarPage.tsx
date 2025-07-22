@@ -8,7 +8,7 @@ import Header from '@/components/Header';
 import { Plus, Pill, Heart, Gift, Scissors, Syringe, Utensils, Activity } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
 import { el } from 'date-fns/locale';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
 // Event types για icons και colors
@@ -40,29 +40,24 @@ const eventTypeColors = {
 
 const CalendarPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const petIdFilter = searchParams.get('petId');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
   const [events, setEvents] = useState<EventType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedPetName, setSelectedPetName] = useState<string>('');
 
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [petIdFilter]);
 
   const fetchEvents = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // First get events
-      const { data: eventsData, error: eventsError } = await supabase
-        .from('events')
-        .select('*')
-        .eq('user_id', user.id);
-
-      if (eventsError) throw eventsError;
-
-      // Then get pets for pet names
+      // First get pets for pet names
       const { data: petsData, error: petsError } = await supabase
         .from('pets')
         .select('id, name')
@@ -75,6 +70,26 @@ const CalendarPage = () => {
       petsData?.forEach(pet => {
         petNamesMap.set(pet.id, pet.name);
       });
+
+      // If filtering by petId, get the pet name
+      if (petIdFilter && petNamesMap.has(petIdFilter)) {
+        setSelectedPetName(petNamesMap.get(petIdFilter));
+      }
+
+      // Build events query with optional pet filter
+      let eventsQuery = supabase
+        .from('events')
+        .select('*')
+        .eq('user_id', user.id);
+
+      // Apply pet filter if provided
+      if (petIdFilter) {
+        eventsQuery = eventsQuery.eq('pet_id', petIdFilter);
+      }
+
+      const { data: eventsData, error: eventsError } = await eventsQuery;
+
+      if (eventsError) throw eventsError;
 
       const formattedEvents: EventType[] = (eventsData || []).map(event => ({
         id: event.id,
@@ -123,7 +138,7 @@ const CalendarPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
-      <Header title="Ημερολόγιο" />
+      <Header title={petIdFilter ? `Ημερολόγιο - ${selectedPetName}` : "Ημερολόγιο"} />
       
       <div className="p-4 space-y-6">
         {/* View Toggle */}

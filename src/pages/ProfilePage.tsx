@@ -136,17 +136,40 @@ const ProfilePage = () => {
     
     setSaving(true);
     try {
-      const { error } = await supabase
+      // First, check if profile exists
+      const { data: existingProfile } = await supabase
         .from('profiles')
-        .upsert({
-          user_id: user.id,
-          display_name: editData.display_name,
-          email: editData.email,
-          avatar_url: editData.avatar_url,
-          updated_at: new Date().toISOString()
-        });
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
 
-      if (error) throw error;
+      if (existingProfile) {
+        // Update existing profile
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            display_name: editData.display_name,
+            email: editData.email,
+            avatar_url: editData.avatar_url,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new profile
+        const { error } = await supabase
+          .from('profiles')
+          .insert({
+            user_id: user.id,
+            display_name: editData.display_name,
+            email: editData.email,
+            avatar_url: editData.avatar_url,
+            updated_at: new Date().toISOString()
+          });
+
+        if (error) throw error;
+      }
 
       setProfileData(editData);
       setIsEditing(false);
@@ -278,58 +301,6 @@ const ProfilePage = () => {
           </CardContent>
         </Card>
 
-        {/* Contact Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Στοιχεία Επικοινωνίας</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!isEditing ? (
-              <>
-                 <div className="flex items-center gap-3">
-                   <Mail className="h-5 w-5 text-muted-foreground" />
-                   <span>{profileData.email || 'Δεν έχει οριστεί'}</span>
-                 </div>
-                 <div className="flex items-center gap-3">
-                   <Phone className="h-5 w-5 text-muted-foreground" />
-                   <span>{profileData.phone || 'Δεν έχει οριστεί'}</span>
-                 </div>
-                 <div className="flex items-center gap-3">
-                   <MapPin className="h-5 w-5 text-muted-foreground" />
-                   <span>{profileData.location || 'Δεν έχει οριστεί'}</span>
-                 </div>
-              </>
-            ) : (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={editData.email}
-                    onChange={(e) => setEditData(prev => ({ ...prev, email: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Τηλέφωνο</Label>
-                  <Input
-                    id="phone"
-                    value={editData.phone}
-                    onChange={(e) => setEditData(prev => ({ ...prev, phone: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="location">Τοποθεσία</Label>
-                  <Input
-                    id="location"
-                    value={editData.location}
-                    onChange={(e) => setEditData(prev => ({ ...prev, location: e.target.value }))}
-                  />
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Stats */}
         <Card>

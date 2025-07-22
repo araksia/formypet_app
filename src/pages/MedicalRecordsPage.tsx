@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Camera, Calendar, Stethoscope, Pill, Syringe, FileText, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,37 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/components/AuthProvider";
 
-// Mock data για ιατρικές εγγραφές
-const mockMedicalRecords = [
-  {
-    id: "1",
-    type: "vaccination",
-    title: "Εμβόλιο Λύσσας",
-    date: "2024-01-15",
-    veterinarian: "Δρ. Παπαδόπουλος",
-    description: "Ετήσιο εμβόλιο λύσσας - Επόμενη δόση: 15/01/2025",
-    notes: "Καμία αντίδραση",
-  },
-  {
-    id: "2", 
-    type: "checkup",
-    title: "Γενικός Έλεγχος",
-    date: "2023-12-10",
-    veterinarian: "Δρ. Γεωργίου",
-    description: "Τακτικός έλεγχος υγείας - Όλα φυσιολογικά",
-    notes: "Βάρος: 25kg, Πίεση: φυσιολογική",
-  },
-  {
-    id: "3",
-    type: "medication",
-    title: "Αντιβιοτική Αγωγή",
-    date: "2023-11-22",
-    veterinarian: "Δρ. Κωνσταντίνου",
-    description: "Amoxicillin 500mg - 2 φορές την ημέρα για 7 ημέρες",
-    notes: "Για λοίμωξη αυτιού",
-  },
-];
 
 const recordTypeIcons = {
   vaccination: Syringe,
@@ -64,7 +36,9 @@ const MedicalRecordsPage = () => {
   const { petId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [records, setRecords] = useState(mockMedicalRecords);
+  const { user } = useAuth();
+  const [records, setRecords] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -80,7 +54,46 @@ const MedicalRecordsPage = () => {
     notes: "",
   });
 
-  const handleAddRecord = () => {
+  useEffect(() => {
+    if (petId && user) {
+      fetchMedicalRecords();
+    }
+  }, [petId, user]);
+
+  const fetchMedicalRecords = async () => {
+    if (!petId || !user) return;
+
+    setLoading(true);
+    try {
+      console.log('🏥 Fetching medical records for pet:', petId);
+      
+      const { data, error } = await supabase
+        .from('medical_records')
+        .select('*')
+        .eq('pet_id', petId)
+        .order('date', { ascending: false });
+
+      if (error) {
+        console.error('Medical records error:', error);
+        throw error;
+      }
+
+      console.log('🏥 Medical records:', data);
+      setRecords(data || []);
+
+    } catch (error: any) {
+      console.error('Error fetching medical records:', error);
+      toast({
+        title: "Σφάλμα",
+        description: error.message || "Δεν ήταν δυνατή η φόρτωση των ιατρικών αρχείων",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddRecord = async () => {
     if (!newRecord.title || !newRecord.date || !newRecord.type) {
       toast({
         title: "Σφάλμα",
@@ -90,26 +103,63 @@ const MedicalRecordsPage = () => {
       return;
     }
 
-    const record = {
-      id: Date.now().toString(),
-      ...newRecord,
-    };
+    if (!petId || !user) {
+      toast({
+        title: "Σφάλμα",
+        description: "Δεν ήταν δυνατή η αποθήκευση της εγγραφής",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    setRecords([record, ...records]);
-    setNewRecord({
-      type: "",
-      title: "",
-      date: "",
-      veterinarian: "",
-      description: "",
-      notes: "",
-    });
-    setIsAddDialogOpen(false);
-    
-    toast({
-      title: "Επιτυχία",
-      description: "Η ιατρική εγγραφή προστέθηκε επιτυχώς",
-    });
+    try {
+      const recordData = {
+        pet_id: petId,
+        user_id: user.id,
+        record_type: newRecord.type,
+        title: newRecord.title,
+        date: newRecord.date,
+        veterinarian: newRecord.veterinarian || null,
+        description: newRecord.description || null,
+        notes: newRecord.notes || null,
+      };
+
+      const { data, error } = await supabase
+        .from('medical_records')
+        .insert(recordData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add to local state
+      setRecords([data, ...records]);
+      
+      // Reset form
+      setNewRecord({
+        type: "",
+        title: "",
+        date: "",
+        veterinarian: "",
+        description: "",
+        notes: "",
+      });
+      
+      setIsAddDialogOpen(false);
+      
+      toast({
+        title: "Επιτυχία",
+        description: "Η ιατρική εγγραφή προστέθηκε επιτυχώς",
+      });
+
+    } catch (error: any) {
+      console.error('Error adding medical record:', error);
+      toast({
+        title: "Σφάλμα",
+        description: error.message || "Υπήρξε πρόβλημα κατά την αποθήκευση",
+        variant: "destructive",
+      });
+    }
   };
 
   const startCamera = async () => {
@@ -232,226 +282,15 @@ const MedicalRecordsPage = () => {
               <p className="text-muted-foreground">Ιατρικό ιστορικό κατοικιδίου</p>
             </div>
           </div>
-          
-          <div className="flex gap-2">
-            <Dialog open={isPhotoDialogOpen} onOpenChange={(open) => {
-              setIsPhotoDialogOpen(open);
-              if (!open) {
-                stopCamera();
-              }
-            }}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Camera className="h-4 w-4 mr-2" />
-                  Φωτογραφία Βιβλιαρίου
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Φωτογραφία Βιβλιαρίου</DialogTitle>
-                </DialogHeader>
-                <Tabs defaultValue="upload" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="upload">Ανέβασμα</TabsTrigger>
-                    <TabsTrigger value="camera">Κάμερα</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="upload" className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      Ανεβάστε φωτογραφία από το βιβλιάριο υγείας
-                    </p>
-                    <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
-                      <Upload className="h-8 w-8 mx-auto mb-4 text-muted-foreground" />
-                      <Label htmlFor="photo-upload" className="cursor-pointer">
-                        <span className="text-primary hover:underline">
-                          Κάντε κλικ για επιλογή φωτογραφίας
-                        </span>
-                        <Input
-                          id="photo-upload"
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handlePhotoUpload}
-                        />
-                      </Label>
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="camera" className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      Τραβήξτε φωτογραφία απευθείας από την κάμερα
-                    </p>
-                    
-                    {!isCameraActive && !capturedImage && (
-                      <div className="text-center space-y-4">
-                        <div className="border-2 border-dashed border-border rounded-lg p-8">
-                          <Camera className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                          <Button onClick={startCamera}>
-                            Ενεργοποίηση Κάμερας
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {isCameraActive && (
-                      <div className="space-y-4">
-                        <div className="relative bg-black rounded-lg overflow-hidden">
-                          <video
-                            ref={videoRef}
-                            autoPlay
-                            playsInline
-                            className="w-full h-64 object-cover"
-                          />
-                          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
-                            <Button
-                              onClick={capturePhoto}
-                              size="lg"
-                              className="rounded-full w-16 h-16"
-                            >
-                              <Camera className="h-6 w-6" />
-                            </Button>
-                            <Button
-                              onClick={stopCamera}
-                              variant="outline"
-                              size="lg"
-                              className="rounded-full w-16 h-16"
-                            >
-                              <X className="h-6 w-6" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {capturedImage && (
-                      <div className="space-y-4">
-                        <div className="text-center">
-                          <img
-                            src={capturedImage}
-                            alt="Captured"
-                            className="w-full h-64 object-cover rounded-lg"
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => processImage(capturedImage)}
-                            className="flex-1"
-                          >
-                            Ανάλυση Φωτογραφίας
-                          </Button>
-                          <Button
-                            onClick={() => {
-                              setCapturedImage(null);
-                              startCamera();
-                            }}
-                            variant="outline"
-                            className="flex-1"
-                          >
-                            Νέα Φωτογραφία
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <canvas ref={canvasRef} className="hidden" />
-                  </TabsContent>
-                </Tabs>
-              </DialogContent>
-            </Dialog>
-
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Νέα Εγγραφή
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Νέα Ιατρική Εγγραφή</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="record-type">Τύπος Εγγραφής *</Label>
-                    <Select value={newRecord.type} onValueChange={(value) => setNewRecord({...newRecord, type: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Επιλέξτε τύπο" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(recordTypeLabels).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>{label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="record-title">Τίτλος *</Label>
-                    <Input
-                      id="record-title"
-                      value={newRecord.title}
-                      onChange={(e) => setNewRecord({...newRecord, title: e.target.value})}
-                      placeholder="π.χ. Εμβόλιο Λύσσας"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="record-date">Ημερομηνία *</Label>
-                    <Input
-                      id="record-date"
-                      type="date"
-                      value={newRecord.date}
-                      onChange={(e) => setNewRecord({...newRecord, date: e.target.value})}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="record-vet">Κτηνίατρος</Label>
-                    <Input
-                      id="record-vet"
-                      value={newRecord.veterinarian}
-                      onChange={(e) => setNewRecord({...newRecord, veterinarian: e.target.value})}
-                      placeholder="π.χ. Δρ. Παπαδόπουλος"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="record-description">Περιγραφή</Label>
-                    <Textarea
-                      id="record-description"
-                      value={newRecord.description}
-                      onChange={(e) => setNewRecord({...newRecord, description: e.target.value})}
-                      placeholder="Περιγραφή της ιατρικής πράξης..."
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="record-notes">Σημειώσεις</Label>
-                    <Textarea
-                      id="record-notes"
-                      value={newRecord.notes}
-                      onChange={(e) => setNewRecord({...newRecord, notes: e.target.value})}
-                      placeholder="Επιπλέον σημειώσεις..."
-                    />
-                  </div>
-                  
-                  <div className="flex gap-2 pt-4">
-                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1">
-                      Ακύρωση
-                    </Button>
-                    <Button onClick={handleAddRecord} className="flex-1">
-                      Προσθήκη
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
         </div>
 
         {/* Medical Records List */}
         <div className="space-y-4">
-          {records.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-8">
+              <p>Φόρτωση ιατρικών αρχείων...</p>
+            </div>
+          ) : records.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
                 <Stethoscope className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -478,7 +317,7 @@ const MedicalRecordsPage = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-full bg-primary/10">
-                        {renderRecordIcon(record.type)}
+                        {renderRecordIcon(record.record_type)}
                       </div>
                       <div>
                         <CardTitle className="text-lg">{record.title}</CardTitle>
@@ -497,7 +336,7 @@ const MedicalRecordsPage = () => {
                       </div>
                     </div>
                     <span className="text-xs px-2 py-1 rounded-full bg-secondary">
-                      {recordTypeLabels[record.type as keyof typeof recordTypeLabels]}
+                      {recordTypeLabels[record.record_type as keyof typeof recordTypeLabels]}
                     </span>
                   </div>
                 </CardHeader>
