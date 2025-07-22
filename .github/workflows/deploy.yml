@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android AAB
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: Build Android Release
+    name: Build Signed AAB
     runs-on: ubuntu-latest
 
     steps:
@@ -32,29 +32,38 @@ jobs:
         run: npx cap sync android
 
       - name: Set up Java 21
+        id: setup-java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Grant Gradlew Permission
+      - name: Grant Gradlew permission
         run: chmod +x android/gradlew
 
       - name: Decode keystore from GitHub secret
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/my-release-key.jks
+          KEYSTORE_PATH="${{ github.workspace }}/android/app/my-release-key.jks"
+          echo "Creating keystore at: $KEYSTORE_PATH"
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > "$KEYSTORE_PATH"
 
-      - name: Build signed APK
-        working-directory: android
+      - name: Verify file exists
         run: |
-          ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file=my-release-key.jks \
-            -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
-            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
-            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+          ls -l "${{ github.workspace }}/android/app/"
 
-      - name: Upload signed APK
+      - name: Build signed AAB
+        working-directory: android
+        env:
+          JAVA_HOME: ${{ steps.setup-java.outputs.path }}
+        run: |
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file="${{ github.workspace }}/android/app/my-release-key.jks" \
+            -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
+            -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
+            -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
+
+      - name: Upload signed AAB
         uses: actions/upload-artifact@v4
         with:
-          name: signed-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: signed-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
