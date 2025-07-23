@@ -10,10 +10,14 @@ import {
   BarChart3,
   AlertTriangle,
   Download,
-  ArrowLeft
+  ArrowLeft,
+  Edit2,
+  Check,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -120,7 +124,22 @@ const ExpensesPage = () => {
 
   // Υπολογισμοί
   const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const monthlyBudget = 200; // Mock budget
+  const [monthlyBudget, setMonthlyBudget] = useState(100);
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [budgetInput, setBudgetInput] = useState(monthlyBudget.toString());
+  
+  const handleBudgetSave = () => {
+    const newBudget = parseFloat(budgetInput);
+    if (!isNaN(newBudget) && newBudget > 0) {
+      setMonthlyBudget(newBudget);
+      setIsEditingBudget(false);
+    }
+  };
+
+  const handleBudgetCancel = () => {
+    setBudgetInput(monthlyBudget.toString());
+    setIsEditingBudget(false);
+  };
   const budgetUsed = (totalExpenses / monthlyBudget) * 100;
   const isOverBudget = totalExpenses > monthlyBudget;
 
@@ -235,6 +254,75 @@ const ExpensesPage = () => {
             </AlertDescription>
           </Alert>
         )}
+        {/* Budget Card */}
+        <Card>
+          <CardHeader className="pb-2 sm:pb-4">
+            <CardTitle className="text-sm sm:text-base flex items-center justify-between">
+              <span>Μηνιαίος Προυπολογισμός</span>
+              {!isEditingBudget && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditingBudget(true)}
+                >
+                  <Edit2 className="h-4 w-4" />
+                </Button>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  {isEditingBudget ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={budgetInput}
+                        onChange={(e) => setBudgetInput(e.target.value)}
+                        className="w-24"
+                        step="0.01"
+                      />
+                      <span className="text-sm">€</span>
+                      <Button size="sm" onClick={handleBudgetSave}>
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={handleBudgetCancel}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-2xl font-bold">{monthlyBudget}€</div>
+                  )}
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-semibold">{totalExpenses.toFixed(2)}€</div>
+                  <div className="text-sm text-muted-foreground">Έξοδα αυτόν τον μήνα</div>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Χρήση προυπολογισμού</span>
+                  <span>{budgetUsed.toFixed(1)}%</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full transition-all ${
+                      isOverBudget ? 'bg-destructive' : 'bg-primary'
+                    }`}
+                    style={{ width: `${Math.min(budgetUsed, 100)}%` }}
+                  />
+                </div>
+                {isOverBudget && (
+                  <div className="text-sm text-destructive">
+                    Υπέρβαση κατά {(totalExpenses - monthlyBudget).toFixed(2)}€
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Overview Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">

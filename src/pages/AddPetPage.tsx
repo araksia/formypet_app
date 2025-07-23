@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Camera, ArrowLeft } from 'lucide-react';
+import { Camera, ArrowLeft, Upload, Image } from 'lucide-react';
+import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { useNavigate } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,9 +30,88 @@ const AddPetPage = () => {
     description: ''
   });
 
-  const handleImageCapture = () => {
-    // Placeholder for camera functionality
-    console.log('Camera functionality will be implemented with Capacitor');
+  const handleImageCapture = async () => {
+    try {
+      const image = await CapacitorCamera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+      });
+
+      if (image.dataUrl) {
+        setPetImage(image.dataUrl);
+        toast({
+          title: "📷 Φωτογραφία τραβήχτηκε!",
+          description: "Η φωτογραφία προστέθηκε επιτυχώς",
+        });
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      toast({
+        title: "❌ Σφάλμα κάμερας",
+        description: "Δεν ήταν δυνατή η χρήση της κάμερας",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleImageUpload = async () => {
+    try {
+      const image = await CapacitorCamera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Photos,
+      });
+
+      if (image.dataUrl) {
+        setPetImage(image.dataUrl);
+        toast({
+          title: "🖼️ Φωτογραφία επιλέχθηκε!",
+          description: "Η φωτογραφία προστέθηκε επιτυχώς",
+        });
+      }
+    } catch (error) {
+      console.error('Photo picker error:', error);
+      toast({
+        title: "❌ Σφάλμα επιλογής φωτογραφίας",
+        description: "Δεν ήταν δυνατή η επιλογή φωτογραφίας",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const uploadImageToSupabase = async (dataUrl: string): Promise<string | null> => {
+    try {
+      if (!user) return null;
+
+      // Convert data URL to blob
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      
+      // Generate unique filename
+      const fileName = `${user.id}/${Date.now()}_pet_image.jpg`;
+      
+      const { data, error } = await supabase.storage
+        .from('pet-images')
+        .upload(fileName, blob, {
+          contentType: 'image/jpeg',
+          upsert: false
+        });
+
+      if (error) throw error;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('pet-images')
+        .getPublicUrl(fileName);
+
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('Upload error:', error);
+      return null;
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -57,6 +137,18 @@ const AddPetPage = () => {
         throw new Error('Δεν είστε συνδεδεμένος. Παρακαλώ κάντε login.');
       }
 
+      // Upload image to Supabase Storage if exists
+      let avatarUrl = null;
+      if (petImage) {
+        avatarUrl = await uploadImageToSupabase(petImage);
+        if (!avatarUrl) {
+          toast({
+            title: "⚠️ Προειδοποίηση",
+            description: "Η φωτογραφία δε μπόρεσε να αποθηκευτεί, αλλά το κατοικίδιο θα προστεθεί χωρίς φωτογραφία",
+          });
+        }
+      }
+
       console.log('💾 Saving pet with data for user:', user.id, {
         name: formData.name,
         species: formData.species,
@@ -65,7 +157,7 @@ const AddPetPage = () => {
         age: formData.age ? parseInt(formData.age) : null,
         weight: formData.weight ? parseFloat(formData.weight) : null,
         description: formData.description || null,
-        avatar_url: petImage || null,
+        avatar_url: avatarUrl,
         owner_id: user.id
       });
 
@@ -79,7 +171,7 @@ const AddPetPage = () => {
           age: formData.age ? parseInt(formData.age) : null,
           weight: formData.weight ? parseFloat(formData.weight) : null,
           description: formData.description || null,
-          avatar_url: petImage || null,
+          avatar_url: avatarUrl,
           owner_id: user.id
         })
         .select();
@@ -144,15 +236,26 @@ const AddPetPage = () => {
                     <Camera className="h-8 w-8 text-muted-foreground" />
                   )}
                 </div>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={handleImageCapture}
-                  className="w-full"
-                >
-                  <Camera className="h-4 w-4 mr-2" />
-                  Τράβηξε Φωτογραφία
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={handleImageCapture}
+                    className="w-full"
+                  >
+                    <Camera className="h-4 w-4 mr-2" />
+                    Κάμερα
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={handleImageUpload}
+                    className="w-full"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Γκαλερί
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

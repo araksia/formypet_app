@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -52,28 +53,6 @@ const LoginPage = () => {
     }
   };
 
-  const handleFacebookLogin = async () => {
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'facebook',
-        options: {
-          redirectTo: `${window.location.origin}/`
-        }
-      });
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error with Facebook login:', error);
-      toast({
-        title: "Σφάλμα",
-        description: "Υπήρξε πρόβλημα με την σύνδεση μέσω Facebook",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,45 +80,6 @@ const LoginPage = () => {
       toast({
         title: "Σφάλμα",
         description: error.message || "Υπήρξε πρόβλημα με την σύνδεση",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.email || !formData.password) {
-      toast({
-        title: "Σφάλμα",
-        description: "Παρακαλώ συμπληρώστε όλα τα πεδία",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`
-        }
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Επιτυχία!",
-        description: "Λογαριασμός δημιουργήθηκε επιτυχώς! Μπορείτε τώρα να συνδεθείτε"
-      });
-    } catch (error: any) {
-      console.error('Error with sign up:', error);
-      toast({
-        title: "Σφάλμα",
-        description: error.message || "Υπήρξε πρόβλημα με την εγγραφή",
         variant: "destructive"
       });
     } finally {
@@ -189,16 +129,6 @@ const LoginPage = () => {
               {loading ? 'Σύνδεση...' : 'Σύνδεση με Google'}
             </Button>
 
-            <Button
-              onClick={handleFacebookLogin}
-              disabled={loading}
-              className="w-full h-12 flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-              </svg>
-              {loading ? 'Σύνδεση...' : 'Σύνδεση με Facebook'}
-            </Button>
           </div>
 
           <div className="relative">
@@ -255,27 +185,35 @@ const LoginPage = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full h-12"
-              >
-                <LogIn className="h-4 w-4 mr-2" />
-                {loading ? 'Σύνδεση...' : 'Σύνδεση'}
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSignUp}
-                disabled={loading}
-                className="w-full h-12"
-              >
-                {loading ? 'Εγγραφή...' : 'Εγγραφή νέου λογαριασμού'}
-              </Button>
-            </div>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full h-12"
+            >
+              <LogIn className="h-4 w-4 mr-2" />
+              {loading ? 'Σύνδεση...' : 'Σύνδεση'}
+            </Button>
           </form>
+
+          {/* Forgot Password Link */}
+          <div className="text-center">
+            <Link
+              to="/reset-password"
+              className="text-sm text-primary underline-offset-4 hover:underline"
+            >
+              Ξέχασα τον κωδικό μου
+            </Link>
+          </div>
+
+          <div className="text-center text-sm">
+            <span className="text-muted-foreground">Δεν έχετε λογαριασμό; </span>
+            <Link
+              to="/signup"
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              Εγγραφή
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>
