@@ -219,23 +219,14 @@ const MedicalRecordsPage = () => {
   };
 
   const processImage = (imageData: string) => {
-    // Mock OCR result
-    const mockExtractedData = {
-      type: "vaccination",
-      title: "Εμβόλιο DHPP",
-      date: format(new Date(), "yyyy-MM-dd"),
-      veterinarian: "Δρ. Παπαδόπουλος",
-      description: "Εμβόλιο DHPP (Σκυλολυσσία, Ηπατίτιδα, Παρβοϊός, Παραγρίππη)",
-      notes: "Εξάγεται από φωτογραφία βιβλιαρίου",
-    };
-    
-    setNewRecord(mockExtractedData);
+    // OCR feature - currently disabled
     setIsPhotoDialogOpen(false);
     setIsAddDialogOpen(true);
     
     toast({
-      title: "Επιτυχής Ανάλυση",
-      description: "Οι πληροφορίες εξήχθησαν από τη φωτογραφία",
+      title: "Λειτουργία OCR",
+      description: "Η αυτόματη εξαγωγή δεδομένων θα προστεθεί σύντομα. Παρακαλώ συμπληρώστε τα στοιχεία χειροκίνητα.",
+      variant: "default",
     });
   };
 

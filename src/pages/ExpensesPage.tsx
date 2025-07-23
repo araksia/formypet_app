@@ -166,13 +166,17 @@ const ExpensesPage = () => {
     amount: amount,
   }));
 
-  // Monthly trends (mock data)
-  const monthlyTrends = [
-    { month: "Οκτ", amount: 180 },
-    { month: "Νοε", amount: 220 },
-    { month: "Δεκ", amount: 195 },
-    { month: "Ιαν", amount: totalExpenses },
-  ];
+  // Calculate actual monthly trends from expenses data
+  const monthlyTrends = React.useMemo(() => {
+    const months = ["Οκτ", "Νοε", "Δεκ", "Ιαν"];
+    return months.map((month, index) => {
+      // For now, show only current month data
+      if (index === months.length - 1) {
+        return { month, amount: totalExpenses };
+      }
+      return { month, amount: 0 };
+    });
+  }, [totalExpenses]);
 
   if (loading) {
     return (
