@@ -122,8 +122,34 @@ const ExpensesPage = () => {
     }
   };
 
-  // Υπολογισμοί
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  // Φιλτράρισμα εξόδων
+  const filteredExpenses = React.useMemo(() => {
+    let filtered = [...expenses];
+    
+    // Φίλτρο κατοικιδίου
+    if (selectedPet !== "all") {
+      filtered = filtered.filter(expense => expense.petId === selectedPet);
+    }
+    
+    // Φίλτρο χρονικής περιόδου
+    const now = new Date();
+    
+    if (selectedPeriod === "week") {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      filtered = filtered.filter(expense => new Date(expense.date) >= weekAgo);
+    } else if (selectedPeriod === "month") {
+      const monthAgo = new Date(now.getFullYear(), now.getMonth(), 1);
+      filtered = filtered.filter(expense => new Date(expense.date) >= monthAgo);
+    } else if (selectedPeriod === "year") {
+      const yearAgo = new Date(now.getFullYear(), 0, 1);
+      filtered = filtered.filter(expense => new Date(expense.date) >= yearAgo);
+    }
+    
+    return filtered;
+  }, [expenses, selectedPet, selectedPeriod]);
+
+  // Υπολογισμοί βασισμένοι στα φιλτραρισμένα έξοδα
+  const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
   const [monthlyBudget, setMonthlyBudget] = useState(100);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState(monthlyBudget.toString());
@@ -143,9 +169,9 @@ const ExpensesPage = () => {
   const budgetUsed = (totalExpenses / monthlyBudget) * 100;
   const isOverBudget = totalExpenses > monthlyBudget;
 
-  // Category breakdown για pie chart
+  // Category breakdown για pie chart (φιλτραρισμένα δεδομένα)
   const categoryData = Object.entries(
-    expenses.reduce((acc, expense) => {
+    filteredExpenses.reduce((acc, expense) => {
       acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
       return acc;
     }, {} as Record<string, number>)
@@ -155,9 +181,9 @@ const ExpensesPage = () => {
     color: categoryColors[category as keyof typeof categoryColors] || "#999999",
   }));
 
-  // Pet comparison data
+  // Pet comparison data (φιλτραρισμένα δεδομένα)
   const petData = Object.entries(
-    expenses.reduce((acc, expense) => {
+    filteredExpenses.reduce((acc, expense) => {
       acc[expense.petName] = (acc[expense.petName] || 0) + expense.amount;
       return acc;
     }, {} as Record<string, number>)
@@ -354,7 +380,7 @@ const ExpensesPage = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <BarChart3 className="h-4 w-4 text-muted-foreground mb-1 sm:mb-0" />
               <div className="text-left sm:text-right">
-                <div className="text-lg sm:text-xl font-bold">{(expenses.length > 0 ? totalExpenses / expenses.length : 0).toFixed(0)}€</div>
+                <div className="text-lg sm:text-xl font-bold">{(filteredExpenses.length > 0 ? totalExpenses / filteredExpenses.length : 0).toFixed(0)}€</div>
                 <div className="text-xs text-muted-foreground">Μέσος όρος</div>
               </div>
             </div>
@@ -364,7 +390,7 @@ const ExpensesPage = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <Calendar className="h-4 w-4 text-muted-foreground mb-1 sm:mb-0" />
               <div className="text-left sm:text-right">
-                <div className="text-lg sm:text-xl font-bold">{expenses.length}</div>
+                <div className="text-lg sm:text-xl font-bold">{filteredExpenses.length}</div>
                 <div className="text-xs text-muted-foreground">Έξοδα</div>
               </div>
             </div>
@@ -428,7 +454,7 @@ const ExpensesPage = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2 sm:space-y-3 max-h-64 sm:max-h-80 overflow-y-auto">
-              {expenses.length > 0 ? expenses.map((expense) => (
+              {filteredExpenses.length > 0 ? filteredExpenses.map((expense) => (
                 <div key={expense.id} className="flex items-center justify-between p-2 sm:p-3 bg-muted/50 rounded-md">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div className="p-1 sm:p-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: `${categoryColors[expense.category as keyof typeof categoryColors]}20` }}>
