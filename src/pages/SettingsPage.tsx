@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { 
   User, 
   Bell, 
@@ -36,6 +37,7 @@ const SettingsPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const { sendTestNotification } = usePushNotifications();
   
   const [settings, setSettings] = useState({
     // Notifications
@@ -73,42 +75,17 @@ const SettingsPage = () => {
   const handleSettingChange = async (key: string, value: any) => {
     if (key === 'pushNotifications') {
       if (value) {
-        // Request notification permission when enabling push notifications
-        if ('Notification' in window) {
-          const permission = await Notification.requestPermission();
-          if (permission !== 'granted') {
-            toast({
-              title: "Άρνηση άδειας",
-              description: "Οι push ειδοποιήσεις χρειάζονται άδεια από τον browser.",
-              variant: "destructive"
-            });
-            return;
-          }
-        } else {
-          toast({
-            title: "Μη υποστηριζόμενο",
-            description: "Ο browser σας δεν υποστηρίζει push ειδοποιήσεις.",
-            variant: "destructive"
-          });
-          return;
-        }
+        // Send a test notification and initialize push notifications
+        sendTestNotification();
       } else {
-        // When disabling push notifications
         toast({
           title: "Push ειδοποιήσεις απενεργοποιήθηκαν",
-          description: "Πρέπει να τις ενεργοποιήσετε για να λαμβάνετε ειδοποιήσεις.",
-          variant: "destructive"
+          description: "Δεν θα λαμβάνετε πλέον push ειδοποιήσεις.",
         });
       }
     }
     
     setSettings(prev => ({ ...prev, [key]: value }));
-    if (key === 'pushNotifications' && value) {
-      toast({
-        title: "Ρύθμιση ενημερώθηκε",
-        description: "Οι push ειδοποιήσεις ενεργοποιήθηκαν επιτυχώς.",
-      });
-    }
   };
 
   const handleLogout = async () => {
