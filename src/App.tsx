@@ -16,6 +16,7 @@ import PetProfilePage from "./pages/PetProfilePage";
 import MedicalRecordsPage from "./pages/MedicalRecordsPage";
 import ExpensesPage from "./pages/ExpensesPage";
 import AddExpensePage from "./pages/AddExpensePage";
+import AcceptInvitationPage from "./pages/AcceptInvitationPage";
 import AddFamilyMemberPage from "./pages/AddFamilyMemberPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
@@ -40,6 +41,7 @@ const AppContent = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignUpPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
           <Route path="/screenshots" element={<ScreenshotsPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsPage />} />
