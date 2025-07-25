@@ -44,11 +44,13 @@ const AddFamilyMemberPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      console.log('Fetching pets for user:', user.id);
       const { data: pets, error } = await supabase
         .from('pets')
         .select('id, name, species')
         .eq('owner_id', user.id);
 
+      console.log('Pets data:', pets, 'Error:', error);
       if (error) throw error;
       setPets(pets || []);
     } catch (error) {
