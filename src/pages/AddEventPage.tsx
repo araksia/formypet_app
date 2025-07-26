@@ -36,6 +36,7 @@ const AddEventPage = () => {
   const [petId, setPetId] = useState('');
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
+  const [period, setPeriod] = useState('');
   const [recurring, setRecurring] = useState('none');
   const [pets, setPets] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -94,6 +95,7 @@ const AddEventPage = () => {
           event_date: eventDateTime.toISOString(),
           event_time: selectedTime || null,
           recurring,
+          period: period || null,
           notes: notes || null
         });
 
@@ -242,9 +244,20 @@ const AddEventPage = () => {
                     <SelectItem value="daily">Καθημερινά</SelectItem>
                     <SelectItem value="weekly">Εβδομαδιαία</SelectItem>
                     <SelectItem value="monthly">Μηνιαία</SelectItem>
+                    <SelectItem value="6months">6 μήνες</SelectItem>
                     <SelectItem value="yearly">Ετήσια</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="period">Περίοδος</Label>
+                <Input 
+                  id="period" 
+                  value={period}
+                  onChange={(e) => setPeriod(e.target.value)}
+                  placeholder="π.χ. 3 ημέρες, 1 εβδομάδα..."
+                />
               </div>
 
               <div>
