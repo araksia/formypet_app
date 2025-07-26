@@ -22,6 +22,7 @@ export type Database = {
           event_type: string
           id: string
           notes: string | null
+          period: string | null
           pet_id: string
           recurring: string | null
           title: string
@@ -35,6 +36,7 @@ export type Database = {
           event_type: string
           id?: string
           notes?: string | null
+          period?: string | null
           pet_id: string
           recurring?: string | null
           title: string
@@ -48,6 +50,7 @@ export type Database = {
           event_type?: string
           id?: string
           notes?: string | null
+          period?: string | null
           pet_id?: string
           recurring?: string | null
           title?: string
