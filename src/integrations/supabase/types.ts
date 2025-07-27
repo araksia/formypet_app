@@ -22,6 +22,7 @@ export type Database = {
           event_type: string
           id: string
           notes: string | null
+          period: string | null
           pet_id: string
           recurring: string | null
           title: string
@@ -35,6 +36,7 @@ export type Database = {
           event_type: string
           id?: string
           notes?: string | null
+          period?: string | null
           pet_id: string
           recurring?: string | null
           title: string
@@ -48,6 +50,7 @@ export type Database = {
           event_type?: string
           id?: string
           notes?: string | null
+          period?: string | null
           pet_id?: string
           recurring?: string | null
           title?: string
@@ -98,6 +101,48 @@ export type Database = {
           recurring_frequency?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      family_invitations: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          invited_by: string
+          invited_email: string
+          message: string | null
+          pet_id: string
+          role: string
+          status: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          invited_by: string
+          invited_email: string
+          message?: string | null
+          pet_id: string
+          role?: string
+          status?: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          invited_email?: string
+          message?: string | null
+          pet_id?: string
+          role?: string
+          status?: string
+          token?: string
+          updated_at?: string
         }
         Relationships: []
       }

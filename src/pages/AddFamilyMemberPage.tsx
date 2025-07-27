@@ -44,11 +44,13 @@ const AddFamilyMemberPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      console.log('Fetching pets for user:', user.id);
       const { data: pets, error } = await supabase
         .from('pets')
         .select('id, name, species')
         .eq('owner_id', user.id);
 
+      console.log('Pets data:', pets, 'Error:', error);
       if (error) throw error;
       setPets(pets || []);
     } catch (error) {
@@ -79,60 +81,43 @@ const AddFamilyMemberPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Δεν είστε συνδεδεμένος');
 
-      // First, check if user exists in profiles or create invitation
-      let { data: invitedUser } = await supabase
+      // Get user profile for display name
+      const { data: profile } = await supabase
         .from('profiles')
-        .select('user_id')
-        .eq('email', formData.email)
+        .select('display_name')
+        .eq('user_id', user.id)
         .single();
 
-      if (!invitedUser) {
-        // For now, we'll create a placeholder. In a real app, you'd send an email invitation
-        toast({
-          title: "Πρόσκληση στάλθηκε",
-          description: `Η πρόσκληση στάλθηκε στο ${formData.email}. Θα λάβουν email με οδηγίες.`,
-        });
-        navigate('/');
-        return;
-      }
-
-      // Check if user is already a family member
-      const { data: existingMember } = await supabase
-        .from('pet_family_members')
-        .select('id')
-        .eq('pet_id', formData.petId)
-        .eq('user_id', invitedUser.user_id)
+      // Get pet name
+      const { data: pet } = await supabase
+        .from('pets')
+        .select('name')
+        .eq('id', formData.petId)
         .single();
 
-      if (existingMember) {
-        toast({
-          title: "Ήδη μέλος",
-          description: "Αυτός ο χρήστης είναι ήδη μέλος της οικογένειας αυτού του κατοικίδιου.",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (!pet) throw new Error('Κατοικίδιο δεν βρέθηκε');
 
-      // Add family member
-      const { error } = await supabase
-        .from('pet_family_members')
-        .insert({
-          pet_id: formData.petId,
-          user_id: invitedUser.user_id,
+      // Call edge function to send invitation email
+      const { data, error } = await supabase.functions.invoke('send-family-invitation', {
+        body: {
+          invitedEmail: formData.email,
+          petId: formData.petId,
+          petName: pet.name,
+          inviterName: profile?.display_name || user.email || 'Χρήστης',
           role: formData.role,
-          invited_by: user.id,
-          permissions: formData.permissions
-        });
+          message: formData.message
+        }
+      });
 
       if (error) throw error;
 
       toast({
-        title: "Επιτυχία!",
-        description: "Το μέλος προστέθηκε επιτυχώς στην οικογένεια.",
+        title: "Πρόσκληση στάλθηκε!",
+        description: `Η πρόσκληση στάλθηκε στο ${formData.email}. Θα λάβουν email με οδηγίες.`,
       });
-
       navigate('/');
     } catch (error: any) {
+
       console.error('Error adding family member:', error);
       toast({
         title: "Σφάλμα",

@@ -25,6 +25,7 @@ const eventTypes = [
   { value: 'birthday', label: '🎁 Γενέθλια', icon: Gift, color: 'bg-pink-500' },
   { value: 'feeding', label: '🍽️ Φαγητό', icon: Utensils, color: 'bg-orange-500' },
   { value: 'exercise', label: '🏃 Άσκηση', icon: Activity, color: 'bg-emerald-500' },
+  { value: 'period', label: '🌸 Περίοδος', icon: Heart, color: 'bg-rose-500' },
 ];
 
 const AddEventPage = () => {
@@ -242,6 +243,7 @@ const AddEventPage = () => {
                     <SelectItem value="daily">Καθημερινά</SelectItem>
                     <SelectItem value="weekly">Εβδομαδιαία</SelectItem>
                     <SelectItem value="monthly">Μηνιαία</SelectItem>
+                    <SelectItem value="6months">6 μήνες</SelectItem>
                     <SelectItem value="yearly">Ετήσια</SelectItem>
                   </SelectContent>
                 </Select>

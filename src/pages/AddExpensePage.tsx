@@ -144,26 +144,14 @@ const AddExpensePage = () => {
       description: "Εξάγονται πληροφορίες από την απόδειξη...",
     });
 
-    // Προσομοίωση OCR
-    setTimeout(() => {
-      const mockExtractedData = {
-        amount: "45.50",
-        description: "Royal Canin Adult 15kg",
-        category: "food",
-      };
-      
-      setExpense(prev => ({
-        ...prev,
-        ...mockExtractedData
-      }));
-      
-      setIsProcessing(false);
-      
-      toast({
-        title: "Επιτυχής Ανάλυση",
-        description: "Οι πληροφορίες εξήχθησαν από την απόδειξη",
-      });
-    }, 2000);
+    // OCR feature - currently disabled
+    setIsProcessing(false);
+    
+    toast({
+      title: "Λειτουργία OCR",
+      description: "Η αυτόματη εξαγωγή δεδομένων θα προστεθεί σύντομα. Παρακαλώ συμπληρώστε τα στοιχεία χειροκίνητα.",
+      variant: "default",
+    });
   };
 
   const handleSubmit = async () => {
