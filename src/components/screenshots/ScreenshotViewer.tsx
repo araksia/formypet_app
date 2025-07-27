@@ -4,11 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import PhoneScreenshot from './PhoneScreenshot';
 import PhonePetsScreenshot from './PhonePetsScreenshot';
+import CalendarScreenshot from './CalendarScreenshot';
+import AddPetScreenshot from './AddPetScreenshot';
+import ExpensesScreenshot from './ExpensesScreenshot';
+import SettingsScreenshot from './SettingsScreenshot';
+import MedicalRecordsScreenshot from './MedicalRecordsScreenshot';
 import Tablet7Screenshot from './Tablet7Screenshot';
 import Tablet10Screenshot from './Tablet10Screenshot';
 
 const ScreenshotViewer = () => {
-  const [currentView, setCurrentView] = useState<'phone-dashboard' | 'phone-pets' | 'tablet-7' | 'tablet-10'>('phone-dashboard');
+  const [currentView, setCurrentView] = useState<'phone-dashboard' | 'phone-pets' | 'phone-calendar' | 'phone-add-pet' | 'phone-expenses' | 'phone-settings' | 'phone-medical' | 'tablet-7' | 'tablet-10'>('phone-dashboard');
 
   const downloadPNG = (elementId: string, filename: string) => {
     const element = document.getElementById(elementId);
@@ -45,6 +50,36 @@ const ScreenshotViewer = () => {
             <PhonePetsScreenshot />
           </div>
         );
+      case 'phone-calendar':
+        return (
+          <div id="phone-calendar-screenshot" className="inline-block">
+            <CalendarScreenshot />
+          </div>
+        );
+      case 'phone-add-pet':
+        return (
+          <div id="phone-add-pet-screenshot" className="inline-block">
+            <AddPetScreenshot />
+          </div>
+        );
+      case 'phone-expenses':
+        return (
+          <div id="phone-expenses-screenshot" className="inline-block">
+            <ExpensesScreenshot />
+          </div>
+        );
+      case 'phone-settings':
+        return (
+          <div id="phone-settings-screenshot" className="inline-block">
+            <SettingsScreenshot />
+          </div>
+        );
+      case 'phone-medical':
+        return (
+          <div id="phone-medical-screenshot" className="inline-block">
+            <MedicalRecordsScreenshot />
+          </div>
+        );
       case 'tablet-7':
         return (
           <div id="tablet-7-screenshot" className="inline-block">
@@ -68,6 +103,16 @@ const ScreenshotViewer = () => {
         return 'formypet-phone-dashboard.png';
       case 'phone-pets':
         return 'formypet-phone-pets.png';
+      case 'phone-calendar':
+        return 'formypet-phone-calendar.png';
+      case 'phone-add-pet':
+        return 'formypet-phone-add-pet.png';
+      case 'phone-expenses':
+        return 'formypet-phone-expenses.png';
+      case 'phone-settings':
+        return 'formypet-phone-settings.png';
+      case 'phone-medical':
+        return 'formypet-phone-medical.png';
       case 'tablet-7':
         return 'formypet-tablet-7inch.png';
       case 'tablet-10':
@@ -85,28 +130,67 @@ const ScreenshotViewer = () => {
           <p className="text-gray-600 mb-6">Στιγμιότυπα οθόνης για κινητό και tablet</p>
           
           {/* View Selector */}
-          <div className="flex flex-wrap justify-center gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6 max-w-4xl mx-auto">
             <Button
               variant={currentView === 'phone-dashboard' ? 'default' : 'outline'}
               onClick={() => setCurrentView('phone-dashboard')}
+              className="text-sm"
             >
-              📱 Phone Dashboard
+              📱 Dashboard
             </Button>
             <Button
               variant={currentView === 'phone-pets' ? 'default' : 'outline'}
               onClick={() => setCurrentView('phone-pets')}
+              className="text-sm"
             >
-              📱 Phone Pets
+              🐕 Pets
+            </Button>
+            <Button
+              variant={currentView === 'phone-calendar' ? 'default' : 'outline'}
+              onClick={() => setCurrentView('phone-calendar')}
+              className="text-sm"
+            >
+              📅 Calendar
+            </Button>
+            <Button
+              variant={currentView === 'phone-add-pet' ? 'default' : 'outline'}
+              onClick={() => setCurrentView('phone-add-pet')}
+              className="text-sm"
+            >
+              ➕ Add Pet
+            </Button>
+            <Button
+              variant={currentView === 'phone-expenses' ? 'default' : 'outline'}
+              onClick={() => setCurrentView('phone-expenses')}
+              className="text-sm"
+            >
+              💰 Expenses
+            </Button>
+            <Button
+              variant={currentView === 'phone-settings' ? 'default' : 'outline'}
+              onClick={() => setCurrentView('phone-settings')}
+              className="text-sm"
+            >
+              ⚙️ Settings
+            </Button>
+            <Button
+              variant={currentView === 'phone-medical' ? 'default' : 'outline'}
+              onClick={() => setCurrentView('phone-medical')}
+              className="text-sm"
+            >
+              🏥 Medical
             </Button>
             <Button
               variant={currentView === 'tablet-7' ? 'default' : 'outline'}
               onClick={() => setCurrentView('tablet-7')}
+              className="text-sm"
             >
               📲 Tablet 7"
             </Button>
             <Button
               variant={currentView === 'tablet-10' ? 'default' : 'outline'}
               onClick={() => setCurrentView('tablet-10')}
+              className="text-sm"
             >
               📲 Tablet 10"
             </Button>
@@ -132,9 +216,21 @@ const ScreenshotViewer = () => {
         </div>
 
         {/* Info */}
-        <div className="text-center mt-8 text-sm text-gray-500">
+        <div className="text-center mt-8 text-sm text-gray-500 space-y-2">
           <p>Κάντε κλικ στο κουμπί "Download PNG" για να κατεβάσετε το στιγμιότυπο οθόνης</p>
-          <p>Διαστάσεις: Phone (375x812px), Tablet 7" (768x1024px), Tablet 10" (1024x768px)</p>
+          <p>📱 <strong>Phone Screenshots:</strong> 375x812px (iPhone 13/14/15)</p>
+          <p>📲 <strong>Tablet Screenshots:</strong> 7" (768x1024px), 10" (1024x768px)</p>
+          <p>🎯 <strong>App Store Ready:</strong> Όλα τα screenshots είναι σε App Store διαστάσεις</p>
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg max-w-2xl mx-auto">
+            <h4 className="font-semibold text-blue-900 mb-2">📋 App Store Requirements:</h4>
+            <ul className="text-left text-blue-700 space-y-1">
+              <li>• iPhone 6.7": 1290x2796px</li>
+              <li>• iPhone 6.5": 1242x2688px</li>
+              <li>• iPad Pro 12.9": 2048x2732px</li>
+              <li>• iPad Pro 11": 1668x2388px</li>
+            </ul>
+            <p className="text-xs text-blue-600 mt-2">Τα screenshots θα κλιμακωθούν αυτόματα για τις απαιτούμενες διαστάσεις</p>
+          </div>
         </div>
       </div>
     </div>
