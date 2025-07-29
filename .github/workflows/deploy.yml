@@ -10,12 +10,13 @@ jobs:
     name: Build Signed AAB
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: formypet_app
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
-      - name: Set working directory
-        run: cd formypet_app
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -23,18 +24,15 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        working-directory: formypet_app
         run: npm ci
 
       - name: Build Vite app
-        working-directory: formypet_app
         run: npm run build
 
       - name: Install Capacitor CLI
         run: npm install --global @capacitor/cli
 
       - name: Sync Capacitor
-        working-directory: formypet_app
         run: npx cap sync android
 
       - name: Set up Java 21
@@ -45,14 +43,14 @@ jobs:
           java-version: '21'
 
       - name: Grant Gradlew permission
-        run: chmod +x formypet_app/android/gradlew
+        run: chmod +x android/gradlew
 
       - name: Decode keystore from GitHub secret
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > formypet_app/android/app/my-release-key.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/my-release-key.jks
 
       - name: Verify keystore exists
-        run: ls -l formypet_app/android/app/my-release-key.jks
+        run: ls -l android/app/my-release-key.jks
 
       - name: Build signed AAB
         working-directory: formypet_app/android
