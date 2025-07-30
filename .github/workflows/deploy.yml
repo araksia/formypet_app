@@ -43,9 +43,8 @@ jobs:
 
       - name: Decode keystore from GitHub secret
         run: |
-          KEYSTORE_PATH="${{ github.workspace }}/android/app/my-release-key.jks"
-          echo "Creating keystore at: $KEYSTORE_PATH"
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > "$KEYSTORE_PATH"
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/my-release-key.jks
+
 
       - name: Clean Android build
         working-directory: android
@@ -55,13 +54,17 @@ jobs:
         run: |
           ls -l "${{ github.workspace }}/android/app/"
 
+      - name: Verify keystore exists
+        run: ls -l android/app/my-release-key.jks
+
+
       - name: Build signed AAB
         working-directory: android
         env:
           JAVA_HOME: ${{ steps.setup-java.outputs.path }}
         run: |
           ./gradlew bundleRelease \
-            -Pandroid.injected.signing.store.file="${{ github.workspace }}/android/app/my-release-key.jks" \
+            -Pandroid.injected.signing.store.file=app/my-release-key.jks \
             -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
             -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
             -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
