@@ -45,8 +45,18 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/my-release-key.jks
 
+
+      - name: Clean Android build
+        working-directory: android
+        run: ./gradlew clean
+
+      - name: Verify file exists
+        run: |
+          ls -l "${{ github.workspace }}/android/app/"
+
       - name: Verify keystore exists
         run: ls -l android/app/my-release-key.jks
+
 
       - name: Build signed AAB
         working-directory: android
