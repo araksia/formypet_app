@@ -48,7 +48,10 @@ jobs:
 
       - name: Clean Android build
         working-directory: android
-        run: ./gradlew clean
+        run: |
+          ./gradlew clean
+          rm -rf build/
+          rm -rf app/build/
 
       - name: Verify file exists
         run: |
