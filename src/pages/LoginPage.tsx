@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import forMyPetLogo from '@/assets/formypet-logo.png';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -92,7 +93,7 @@ const LoginPage = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
           <img 
-            src="/lovable-uploads/e33fce6b-baa6-4fdb-b245-796702e4b22d.png" 
+            src={forMyPetLogo} 
             alt="For my pet logo" 
             className="h-16 w-16 mx-auto"
           />
