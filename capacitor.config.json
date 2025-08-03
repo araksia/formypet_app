@@ -21,7 +21,7 @@
     },
     "PushNotifications": {
       "presentationOptions": ["badge", "sound", "alert"],
-      "useFcm": false
+      "useFcm": true
     },
     "SplashScreen": {
       "launchShowDuration": 2000,
