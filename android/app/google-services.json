@@ -1,51 +1,13 @@
 {
   "project_info": {
-    "project_number": "409062141910",
-    "project_id": "formypet-42a17",
-    "storage_bucket": "formypet-42a17.firebasestorage.app"
+    "project_number": "520729257375",
+    "project_id": "formype-f2a94",
+    "storage_bucket": "formype-f2a94.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:409062141910:android:9005afd8a8bdab38193e77",
-        "android_client_info": {
-          "package_name": "com.araksya.formypet"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDVsrmDCw7I34agucNBrNNTbMewYIhnVvU"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:409062141910:android:8e5ee894a39e9828193e77",
-        "android_client_info": {
-          "package_name": "com.formypet"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyDVsrmDCw7I34agucNBrNNTbMewYIhnVvU"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:409062141910:android:44a5bb4b81601a65193e77",
+        "mobilesdk_app_id": "1:520729257375:android:15a2c96f48db1e84e549aa",
         "android_client_info": {
           "package_name": "gr.formypet.app"
         }
@@ -53,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDVsrmDCw7I34agucNBrNNTbMewYIhnVvU"
+          "current_key": "AIzaSyAvfWQH_F7ugnMUbCoVn5QHBkTDuY8p-8Y"
         }
       ],
       "services": {
