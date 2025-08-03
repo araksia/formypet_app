@@ -71,3 +71,5 @@ allprojects {
         targetCompatibility = JavaVersion.VERSION_17
     }
 }
+
+apply plugin: 'com.google.gms.google-services'
