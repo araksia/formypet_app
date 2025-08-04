@@ -14,34 +14,10 @@ export const usePushNotifications = () => {
 
     const initializePushNotifications = async () => {
       try {
-        // Request permission to use push notifications
-        const permStatus = await PushNotifications.requestPermissions();
-        
-        if (permStatus.receive === 'granted') {
-          // Register with Apple / Google to receive push via APNS/FCM
-          await PushNotifications.register();
-          
-          console.log('Push notifications registered successfully');
-          
-          toast({
-            title: "Ειδοποιήσεις ενεργοποιήθηκαν",
-            description: "Θα λαμβάνετε push notifications για τα events των κατοικιδίων σας.",
-          });
-        } else {
-          console.warn('Push notification permission denied');
-          toast({
-            title: "Άρνηση αδειών",
-            description: "Δεν θα λαμβάνετε push notifications.",
-            variant: "destructive"
-          });
-        }
+        // Μόνο setup των listeners, όχι αυτόματη αίτηση permissions
+        console.log('Push notifications initialized (listeners only)');
       } catch (error) {
         console.error('Error initializing push notifications:', error);
-        toast({
-          title: "Σφάλμα ειδοποιήσεων",
-          description: "Υπήρξε πρόβλημα με την ενεργοποίηση των push notifications.",
-          variant: "destructive"
-        });
       }
     };
 
@@ -108,5 +84,43 @@ export const usePushNotifications = () => {
     });
   };
 
-  return { sendTestNotification };
+  const enablePushNotifications = async () => {
+    if (!Capacitor.isNativePlatform()) {
+      toast({
+        title: "Test ειδοποίηση",
+        description: "Οι push notifications είναι διαθέσιμες μόνο στη mobile εφαρμογή.",
+      });
+      return;
+    }
+
+    try {
+      const permStatus = await PushNotifications.requestPermissions();
+      
+      if (permStatus.receive === 'granted') {
+        await PushNotifications.register();
+        
+        console.log('Push notifications registered successfully');
+        
+        toast({
+          title: "Ειδοποιήσεις ενεργοποιήθηκαν",
+          description: "Θα λαμβάνετε push notifications για τα events των κατοικιδίων σας.",
+        });
+      } else {
+        toast({
+          title: "Άρνηση αδειών",
+          description: "Παρακαλώ ενεργοποιήστε τις ειδοποιήσεις από τις ρυθμίσεις του τηλεφώνου.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error enabling push notifications:', error);
+      toast({
+        title: "Σφάλμα ειδοποιήσεων",
+        description: "Υπήρξε πρόβλημα με την ενεργοποίηση των push notifications.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  return { sendTestNotification, enablePushNotifications };
 };

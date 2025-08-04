@@ -37,7 +37,7 @@ const SettingsPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const { sendTestNotification } = usePushNotifications();
+  const { sendTestNotification, enablePushNotifications } = usePushNotifications();
   
   const [settings, setSettings] = useState({
     // Notifications
@@ -75,8 +75,8 @@ const SettingsPage = () => {
   const handleSettingChange = async (key: string, value: any) => {
     if (key === 'pushNotifications') {
       if (value) {
-        // Send a test notification and initialize push notifications
-        sendTestNotification();
+        // Χρήση της νέας enablePushNotifications λειτουργίας
+        await enablePushNotifications();
       } else {
         toast({
           title: "Push ειδοποιήσεις απενεργοποιήθηκαν",
