@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import forMyPetLogo from '@/assets/formypet-logo.png';
+// import forMyPetLogo from '@/assets/formypet-logo.png';
 
 const ResetPasswordPage = () => {
   const { toast } = useToast();
@@ -70,7 +70,7 @@ const ResetPasswordPage = () => {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center space-y-2">
             <img 
-              src={forMyPetLogo} 
+              src="/lovable-uploads/584817ec-4bac-4790-9f6a-4ee9103f1bbf.png" 
               alt="For my pet logo" 
               className="h-16 w-16 mx-auto"
             />
@@ -110,7 +110,7 @@ const ResetPasswordPage = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
           <img 
-            src={forMyPetLogo} 
+            src="/lovable-uploads/584817ec-4bac-4790-9f6a-4ee9103f1bbf.png" 
             alt="For my pet logo" 
             className="h-16 w-16 mx-auto"
           />
