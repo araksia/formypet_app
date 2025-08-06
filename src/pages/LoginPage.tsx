@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useNavigate, Link } from 'react-router-dom';
@@ -15,6 +16,7 @@ const LoginPage = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -29,6 +31,16 @@ const LoginPage = () => {
       }
     };
     checkUser();
+
+    // Load saved credentials
+    const savedEmail = localStorage.getItem('formypet_email');
+    const savedPassword = localStorage.getItem('formypet_password');
+    const savedRemember = localStorage.getItem('formypet_remember') === 'true';
+    
+    if (savedRemember && savedEmail && savedPassword) {
+      setFormData({ email: savedEmail, password: savedPassword });
+      setRememberMe(true);
+    }
   }, [navigate]);
 
   const handleGoogleLogin = async () => {
@@ -74,6 +86,17 @@ const LoginPage = () => {
       });
 
       if (error) throw error;
+
+      // Save credentials if remember me is checked
+      if (rememberMe) {
+        localStorage.setItem('formypet_email', formData.email);
+        localStorage.setItem('formypet_password', formData.password);
+        localStorage.setItem('formypet_remember', 'true');
+      } else {
+        localStorage.removeItem('formypet_email');
+        localStorage.removeItem('formypet_password');
+        localStorage.removeItem('formypet_remember');
+      }
 
       navigate('/');
     } catch (error: any) {
@@ -184,6 +207,18 @@ const LoginPage = () => {
                   )}
                 </Button>
               </div>
+            </div>
+
+            {/* Remember Me Checkbox */}
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="remember" 
+                checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+              />
+              <Label htmlFor="remember" className="text-sm">
+                Θυμήσου με
+              </Label>
             </div>
 
             <Button
