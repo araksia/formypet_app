@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format, isToday, isTomorrow } from 'date-fns';
 import { el } from 'date-fns/locale';
-// import forMyPetLogo from '@/assets/formypet-logo.png';
+import forMyPetLogo from '@/assets/formypet-logo.png';
 
 interface HeaderProps {
   title: string;
@@ -229,7 +229,7 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full overflow-hidden">
             <img 
-              src="/lovable-uploads/584817ec-4bac-4790-9f6a-4ee9103f1bbf.png" 
+              src={forMyPetLogo} 
               alt="For my pet Logo"
               className="w-full h-full object-cover"
             />
