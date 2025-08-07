@@ -55,17 +55,7 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
   };
 
   const getGreeting = () => {
-    const hour = new Date().getHours();
-    
-    if (hour >= 5 && hour < 12) {
-      return 'Καλημέρα!';
-    } else if (hour >= 12 && hour < 18) {
-      return 'Καλό απόγευμα!';
-    } else if (hour >= 18 && hour < 22) {
-      return 'Καλησπέρα!';
-    } else {
-      return 'Καληνύχτα!';
-    }
+    return 'Γεια σου!';
   };
 
   useEffect(() => {
