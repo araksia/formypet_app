@@ -97,3 +97,23 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Walking paws animation for splash screen */
+@keyframes walking-paws {
+  0%, 20% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-10px) rotate(5deg);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.animate-walking-paws {
+  animation: walking-paws 1.5s ease-in-out infinite;
+}
