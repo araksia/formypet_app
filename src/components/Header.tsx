@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format, isToday, isTomorrow } from 'date-fns';
 import { el } from 'date-fns/locale';
-// import forMyPetLogo from '@/assets/formypet-logo.png';
+import forMyPetLogo from '@/assets/formypet-logo.png';
 
 interface HeaderProps {
   title: string;
@@ -55,17 +55,7 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
   };
 
   const getGreeting = () => {
-    const hour = new Date().getHours();
-    
-    if (hour >= 5 && hour < 12) {
-      return 'Καλημέρα!';
-    } else if (hour >= 12 && hour < 18) {
-      return 'Καλό απόγευμα!';
-    } else if (hour >= 18 && hour < 22) {
-      return 'Καλησπέρα!';
-    } else {
-      return 'Καληνύχτα!';
-    }
+    return 'Γεια σου!';
   };
 
   useEffect(() => {
@@ -229,7 +219,7 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full overflow-hidden">
             <img 
-              src="/lovable-uploads/584817ec-4bac-4790-9f6a-4ee9103f1bbf.png" 
+              src="/lovable-uploads/cdeb7e37-956e-4df1-a666-ec55f7ac208b.png" 
               alt="For my pet Logo"
               className="w-full h-full object-cover"
             />
