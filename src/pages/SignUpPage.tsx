@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/components/AuthProvider";
 import { Eye, EyeOff } from "lucide-react";
 
 export const SignUpPage = () => {
@@ -18,6 +19,7 @@ export const SignUpPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signInWithGoogle } = useAuth();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,20 +99,8 @@ export const SignUpPage = () => {
   const handleGoogleSignUp = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: window.location.origin,
-        },
-      });
-
-      if (error) {
-        toast({
-          title: "Σφάλμα",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
+      await signInWithGoogle();
+      navigate('/');
     } catch (error: any) {
       toast({
         title: "Σφάλμα",
