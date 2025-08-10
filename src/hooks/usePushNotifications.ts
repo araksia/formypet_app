@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export const usePushNotifications = () => {
   const { toast } = useToast();
@@ -22,10 +23,36 @@ export const usePushNotifications = () => {
     };
 
     // On success, we should be able to receive notifications
-    PushNotifications.addListener('registration', (token) => {
+    PushNotifications.addListener('registration', async (token) => {
       console.log('Push registration success, token: ' + token.value);
-      // Here you would typically send the token to your backend server
-      // to store it and send push notifications later
+      
+      // Save token to database
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error } = await supabase
+            .from('push_notification_tokens')
+            .upsert(
+              { 
+                user_id: user.id, 
+                token: token.value,
+                platform: Capacitor.getPlatform()
+              },
+              { 
+                onConflict: 'user_id,token',
+                ignoreDuplicates: false 
+              }
+            );
+          
+          if (error) {
+            console.error('Failed to save notification token:', error);
+          } else {
+            console.log('Notification token saved successfully');
+          }
+        }
+      } catch (error) {
+        console.error('Error saving notification token:', error);
+      }
     });
 
     // Some issue with our setup and push will not work
