@@ -30,19 +30,12 @@ export const usePushNotifications = () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          const { error } = await supabase
-            .from('push_notification_tokens')
-            .upsert(
-              { 
-                user_id: user.id, 
-                token: token.value,
-                platform: Capacitor.getPlatform()
-              },
-              { 
-                onConflict: 'user_id,token',
-                ignoreDuplicates: false 
-              }
-            );
+          // Use rpc or direct SQL call since table isn't in types yet
+          const { error } = await supabase.rpc('save_push_token', {
+            p_user_id: user.id,
+            p_token: token.value,
+            p_platform: Capacitor.getPlatform()
+          });
           
           if (error) {
             console.error('Failed to save notification token:', error);
