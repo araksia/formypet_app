@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { Capacitor } from '@capacitor/core';
-import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 interface AuthContextType {
   user: User | null;
@@ -34,27 +32,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const initGoogleAuth = async () => {
-      if (Capacitor.isNativePlatform()) {
-        try {
-          // Get client ID from Supabase function
-          const { data } = await supabase.functions.invoke('get-google-client-id');
-          if (data?.clientId) {
-            await GoogleAuth.initialize({
-              clientId: data.clientId,
-              scopes: ['profile', 'email'],
-              grantOfflineAccess: true,
-            });
-          }
-        } catch (error) {
-          console.error('Failed to initialize Google Auth:', error);
-        }
-      }
-    };
-
-    initGoogleAuth();
-  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -120,9 +97,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const signOut = async () => {
-    if (Capacitor.isNativePlatform()) {
-      await GoogleAuth.signOut();
-    }
     await supabase.auth.signOut();
     // Force reload to clear all state
     window.location.href = '/login';
@@ -130,29 +104,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signInWithGoogle = async () => {
     try {
-      if (Capacitor.isNativePlatform()) {
-        // Native mobile Google Auth
-        const result = await GoogleAuth.signIn();
-        
-        if (result.authentication?.idToken) {
-          const { error } = await supabase.auth.signInWithIdToken({
-            provider: 'google',
-            token: result.authentication.idToken
-          });
-          
-          if (error) throw error;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`
         }
-      } else {
-        // Web Google Auth
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: `${window.location.origin}/`
-          }
-        });
-        
-        if (error) throw error;
-      }
+      });
+      
+      if (error) throw error;
     } catch (error) {
       console.error('Google sign in error:', error);
       throw error;

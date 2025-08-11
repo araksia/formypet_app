@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export const usePushNotifications = () => {
   const { toast } = useToast();
@@ -22,10 +23,13 @@ export const usePushNotifications = () => {
     };
 
     // On success, we should be able to receive notifications
-    PushNotifications.addListener('registration', (token) => {
+    PushNotifications.addListener('registration', async (token) => {
       console.log('Push registration success, token: ' + token.value);
-      // Here you would typically send the token to your backend server
-      // to store it and send push notifications later
+      
+      // TODO: Save token to database when types are updated
+      // The push_notification_tokens table and save_push_token RPC function 
+      // exist but aren't in the TypeScript types yet
+      console.log('Notification token received, will be saved once types are updated');
     });
 
     // Some issue with our setup and push will not work

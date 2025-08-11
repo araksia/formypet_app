@@ -33,11 +33,6 @@
       "backgroundColor": "#ffffffff",
       "androidScaleType": "CENTER_CROP",
       "showSpinner": false
-    },
-    "GoogleAuth": {
-      "scopes": ["profile", "email"],
-      "serverClientId": "520729257375-CLIENT_ID_WILL_BE_LOADED_DYNAMICALLY",
-      "forceCodeForRefreshToken": true
     }
   }
 }
