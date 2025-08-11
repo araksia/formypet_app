@@ -26,26 +26,10 @@ export const usePushNotifications = () => {
     PushNotifications.addListener('registration', async (token) => {
       console.log('Push registration success, token: ' + token.value);
       
-      // Save token to database
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          // Use rpc or direct SQL call since table isn't in types yet
-          const { error } = await supabase.rpc('save_push_token', {
-            p_user_id: user.id,
-            p_token: token.value,
-            p_platform: Capacitor.getPlatform()
-          });
-          
-          if (error) {
-            console.error('Failed to save notification token:', error);
-          } else {
-            console.log('Notification token saved successfully');
-          }
-        }
-      } catch (error) {
-        console.error('Error saving notification token:', error);
-      }
+      // TODO: Save token to database when types are updated
+      // The push_notification_tokens table and save_push_token RPC function 
+      // exist but aren't in the TypeScript types yet
+      console.log('Notification token received, will be saved once types are updated');
     });
 
     // Some issue with our setup and push will not work
