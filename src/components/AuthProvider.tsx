@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
-import { Capacitor } from '@capacitor/core';
 
 interface AuthContextType {
   user: User | null;
@@ -37,15 +35,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     let mounted = true;
-
-    // Initialize Google Auth for native platforms
-    if (Capacitor.isNativePlatform()) {
-      GoogleAuth.initialize({
-        clientId: '520729257375-lgjd8hgfm1u0k1b1lhhfkm1kkq8l8l8s.apps.googleusercontent.com',
-        scopes: ['profile', 'email'],
-        grantOfflineAccess: true,
-      });
-    }
 
     // Get initial session with timeout
     const getSession = async () => {
@@ -115,31 +104,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signInWithGoogle = async () => {
     try {
-      if (Capacitor.isNativePlatform()) {
-        // Native mobile platform - use Capacitor Google Auth
-        const result = await GoogleAuth.signIn();
-        
-        if (result.authentication?.idToken) {
-          const { error } = await supabase.auth.signInWithIdToken({
-            provider: 'google',
-            token: result.authentication.idToken,
-          });
-          
-          if (error) throw error;
-        } else {
-          throw new Error('No ID token received from Google');
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         }
-      } else {
-        // Web platform - use OAuth flow
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: `${window.location.origin}/`
-          }
-        });
-        
-        if (error) throw error;
-      }
+      });
+      
+      if (error) throw error;
     } catch (error) {
       console.error('Google sign in error:', error);
       throw error;
