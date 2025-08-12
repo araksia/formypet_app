@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { AuthProvider } from "./components/AuthProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -35,7 +35,7 @@ const AppContent = () => {
   usePushNotifications();
   
   return (
-    <BrowserRouter>
+    <HashRouter>
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -124,7 +124,7 @@ const AppContent = () => {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 };
 
