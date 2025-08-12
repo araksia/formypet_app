@@ -324,6 +324,39 @@ export type Database = {
         }
         Relationships: []
       }
+      push_notification_tokens: {
+        Row: {
+          created_at: string
+          device_info: Json | null
+          id: string
+          is_active: boolean
+          platform: string
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          is_active?: boolean
+          platform?: string
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          is_active?: boolean
+          platform?: string
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -332,6 +365,14 @@ export type Database = {
       is_pet_owner: {
         Args: { pet_id_param: string }
         Returns: boolean
+      }
+      save_push_token: {
+        Args: {
+          token_value: string
+          platform_value?: string
+          device_info_value?: Json
+        }
+        Returns: string
       }
       user_can_invite_to_pet: {
         Args: { pet_id_param: string }
