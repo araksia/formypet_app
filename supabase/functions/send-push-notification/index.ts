@@ -226,6 +226,44 @@ serve(async (req) => {
       );
     }
 
+    // Save push notification token
+    if (action === 'save_token') {
+      const { token, platform, user_id } = params;
+      
+      // Initialize Supabase client
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // Save or update the token
+      const { error } = await supabase.from('push_notification_tokens').upsert({
+        user_id,
+        token,
+        platform,
+        is_active: true,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'token'
+      });
+
+      if (error) {
+        console.error('Error saving token:', error);
+        throw error;
+      }
+
+      // Deactivate other tokens for this user
+      await supabase
+        .from('push_notification_tokens')
+        .update({ is_active: false })
+        .eq('user_id', user_id)
+        .neq('token', token);
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Token saved successfully' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     throw new Error('Invalid action');
 
   } catch (error) {
