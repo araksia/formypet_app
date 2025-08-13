@@ -1,0 +1,14 @@
+{
+  "assets": {
+    "iconPath": "public/app-icon.png",
+    "splashPath": "public/splash-paws.png"
+  },
+  "ios": {
+    "iconPath": "public/app-icon.png"
+  },
+  "android": {
+    "iconPath": "public/app-icon.png",
+    "adaptiveIconForeground": "public/app-icon.png",
+    "adaptiveIconBackground": "#ffffff"
+  }
+}

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
+
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useNavigate, Link } from 'react-router-dom';
@@ -18,7 +18,7 @@ const LoginPage = () => {
   const { signInWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -34,14 +34,10 @@ const LoginPage = () => {
     };
     checkUser();
 
-    // Load saved credentials
+    // Load saved email only (security: never store passwords)
     const savedEmail = localStorage.getItem('formypet_email');
-    const savedPassword = localStorage.getItem('formypet_password');
-    const savedRemember = localStorage.getItem('formypet_remember') === 'true';
-    
-    if (savedRemember && savedEmail && savedPassword) {
-      setFormData({ email: savedEmail, password: savedPassword });
-      setRememberMe(true);
+    if (savedEmail) {
+      setFormData(prev => ({ ...prev, email: savedEmail }));
     }
   }, [navigate]);
 
@@ -83,16 +79,12 @@ const LoginPage = () => {
 
       if (error) throw error;
 
-      // Save credentials if remember me is checked
-      if (rememberMe) {
-        localStorage.setItem('formypet_email', formData.email);
-        localStorage.setItem('formypet_password', formData.password);
-        localStorage.setItem('formypet_remember', 'true');
-      } else {
-        localStorage.removeItem('formypet_email');
-        localStorage.removeItem('formypet_password');
-        localStorage.removeItem('formypet_remember');
-      }
+      // Save only email for convenience (security: never store passwords)
+      localStorage.setItem('formypet_email', formData.email);
+      
+      // Clean up any previously stored passwords
+      localStorage.removeItem('formypet_password');
+      localStorage.removeItem('formypet_remember');
 
       navigate('/');
     } catch (error: any) {
@@ -205,17 +197,6 @@ const LoginPage = () => {
               </div>
             </div>
 
-            {/* Remember Me Checkbox */}
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="remember" 
-                checked={rememberMe}
-                onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-              />
-              <Label htmlFor="remember" className="text-sm">
-                Θυμήσου με
-              </Label>
-            </div>
 
             <Button
               type="submit"
