@@ -4,6 +4,13 @@
   "appName": "ForMyPet",
   "webDir": "dist",
   "bundledWebRuntime": false,
+  "resources": {
+    "icon": {
+      "source": "public/app-icon.png",
+      "foreground": "public/app-icon.png",
+      "background": "#ffffff"
+    }
+  },
   "ios": {
     "scheme": "ForMyPet",
     "path": "ios"
