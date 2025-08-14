@@ -15,8 +15,18 @@ export const usePushNotifications = () => {
 
     const initializePushNotifications = async () => {
       try {
-        // Μόνο setup των listeners, όχι αυτόματη αίτηση permissions
-        console.log('Push notifications initialized (listeners only)');
+        console.log('Initializing push notifications...');
+        
+        // Αυτόματη αίτηση permissions όταν ανοίγει η εφαρμογή
+        const permStatus = await PushNotifications.requestPermissions();
+        console.log('Permission status:', permStatus);
+        
+        if (permStatus.receive === 'granted') {
+          await PushNotifications.register();
+          console.log('Push notifications registered successfully');
+        } else {
+          console.log('Push notification permissions denied');
+        }
       } catch (error) {
         console.error('Error initializing push notifications:', error);
       }
@@ -111,11 +121,26 @@ export const usePushNotifications = () => {
     }
 
     try {
+      // Έλεγχος τρέχουσας κατάστασης permissions
+      const currentStatus = await PushNotifications.checkPermissions();
+      console.log('Current permission status:', currentStatus);
+      
+      if (currentStatus.receive === 'granted') {
+        // Αν έχουμε ήδη permissions, κάνε register
+        await PushNotifications.register();
+        toast({
+          title: "Ειδοποιήσεις ενεργοποιήθηκαν",
+          description: "Θα λαμβάνετε push notifications για τα events των κατοικιδίων σας.",
+        });
+        return;
+      }
+      
+      // Αίτηση permissions αν δεν έχουμε
       const permStatus = await PushNotifications.requestPermissions();
+      console.log('Requested permission status:', permStatus);
       
       if (permStatus.receive === 'granted') {
         await PushNotifications.register();
-        
         console.log('Push notifications registered successfully');
         
         toast({
