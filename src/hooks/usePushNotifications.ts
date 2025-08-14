@@ -8,6 +8,10 @@ export const usePushNotifications = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log('usePushNotifications useEffect started');
+    console.log('Platform:', Capacitor.getPlatform());
+    console.log('isNativePlatform:', Capacitor.isNativePlatform());
+    
     if (!Capacitor.isNativePlatform()) {
       console.log('Push notifications not available on web platform');
       return;
