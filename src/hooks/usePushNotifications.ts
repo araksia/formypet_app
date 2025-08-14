@@ -13,13 +13,7 @@ export const usePushNotifications = () => {
     console.log('isNativePlatform:', Capacitor.isNativePlatform());
     
     if (!Capacitor.isNativePlatform()) {
-      console.log('Push notifications not available on web platform - but will simulate for testing');
-      
-      // Για testing στο web, θα εμφανίσουμε ένα toast
-      toast({
-        title: "Test Mode",
-        description: "Push notifications είναι σε test mode (web). Στο mobile θα λειτουργούν κανονικά.",
-      });
+      console.log('Push notifications not available on web platform');
       return;
     }
 

@@ -29,10 +29,7 @@ serve(async (req) => {
     // Find events that should trigger notifications in the next 5 minutes
     const { data: events, error: eventsError } = await supabase
       .from('events')
-      .select(`
-        *,
-        pets(name)
-      `)
+      .select('*')
       .gte('event_date', now.toISOString())
       .lte('event_date', fiveMinutesFromNow.toISOString());
 
@@ -53,7 +50,7 @@ serve(async (req) => {
     const results = [];
     for (const event of events) {
       try {
-        console.log(`Processing event: ${event.title} for ${event.pets?.name}`);
+        console.log(`Processing event: ${event.title} (ID: ${event.id})`);
         
         // Call the send-push-notification function
         const response = await supabase.functions.invoke('send-push-notification', {
