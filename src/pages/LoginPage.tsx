@@ -44,16 +44,32 @@ const LoginPage = () => {
   const handleGoogleLogin = async () => {
     setLoading(true);
     try {
-      await signInWithGoogle();
-      navigate('/');
-    } catch (error) {
+      console.log('Starting Google login...');
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        }
+      });
+      
+      if (error) {
+        console.error('Google OAuth error:', error);
+        throw error;
+      }
+      
+      console.log('Google OAuth initiated successfully');
+      // Don't navigate here - let the OAuth redirect handle it
+    } catch (error: any) {
       console.error('Error with Google login:', error);
       toast({
         title: "Σφάλμα",
-        description: "Υπήρξε πρόβλημα με την σύνδεση μέσω Google",
+        description: error.message || "Υπήρξε πρόβλημα με την σύνδεση μέσω Google",
         variant: "destructive"
       });
-    } finally {
       setLoading(false);
     }
   };
@@ -72,12 +88,19 @@ const LoginPage = () => {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log('Starting email login for:', formData.email);
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Email login error:', error);
+        throw error;
+      }
+
+      console.log('Email login successful for:', data.user?.email);
 
       // Save only email for convenience (security: never store passwords)
       localStorage.setItem('formypet_email', formData.email);
@@ -86,7 +109,10 @@ const LoginPage = () => {
       localStorage.removeItem('formypet_password');
       localStorage.removeItem('formypet_remember');
 
-      navigate('/');
+      // Wait a moment for auth state to update, then navigate
+      setTimeout(() => {
+        navigate('/');
+      }, 100);
     } catch (error: any) {
       console.error('Error with email login:', error);
       toast({
