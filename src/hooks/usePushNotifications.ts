@@ -21,15 +21,26 @@ export const usePushNotifications = () => {
       try {
         console.log('Initializing push notifications...');
         
-        // Αυτόματη αίτηση permissions όταν ανοίγει η εφαρμογή
-        const permStatus = await PushNotifications.requestPermissions();
-        console.log('Permission status:', permStatus);
+        // Έλεγχος τρέχουσας κατάστασης permissions πρώτα
+        const currentStatus = await PushNotifications.checkPermissions();
+        console.log('Current permission status:', currentStatus);
         
-        if (permStatus.receive === 'granted') {
-          await PushNotifications.register();
-          console.log('Push notifications registered successfully');
+        if (currentStatus.receive !== 'granted') {
+          // Αίτηση permissions μόνο αν δεν τα έχουμε ήδη
+          const permStatus = await PushNotifications.requestPermissions();
+          console.log('Requested permission status:', permStatus);
+          
+          if (permStatus.receive === 'granted') {
+            await PushNotifications.register();
+            console.log('Push notifications registered successfully after permission grant');
+          } else {
+            console.log('Push notification permissions denied');
+            return;
+          }
         } else {
-          console.log('Push notification permissions denied');
+          // Αν έχουμε ήδη permissions, κάνε register
+          await PushNotifications.register();
+          console.log('Push notifications registered successfully with existing permissions');
         }
       } catch (error) {
         console.error('Error initializing push notifications:', error);
