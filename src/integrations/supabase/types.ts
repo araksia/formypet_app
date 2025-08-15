@@ -362,6 +362,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_next_event_occurrence: {
+        Args: { base_date: string; event_time: string; recurring_type: string }
+        Returns: string
+      }
+      create_recurring_event_instance: {
+        Args: { next_occurrence: string; original_event_id: string }
+        Returns: string
+      }
       is_pet_owner: {
         Args: { pet_id_param: string }
         Returns: boolean
