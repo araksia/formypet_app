@@ -37,11 +37,30 @@ const generateJWT = async (serviceAccount: any) => {
   
   const message = `${headerB64}.${payloadB64}`;
   
-  // Import the private key
-  const privateKeyPem = serviceAccount.private_key;
+  // Import the private key - fix PEM format parsing
+  let privateKeyPem = serviceAccount.private_key;
+  
+  // Replace escaped newlines and ensure proper PEM format
+  privateKeyPem = privateKeyPem.replace(/\\n/g, '\n');
+  
+  // Extract the base64 content between the PEM headers
+  const pemHeader = '-----BEGIN PRIVATE KEY-----';
+  const pemFooter = '-----END PRIVATE KEY-----';
+  const startIndex = privateKeyPem.indexOf(pemHeader) + pemHeader.length;
+  const endIndex = privateKeyPem.indexOf(pemFooter);
+  
+  if (startIndex === -1 + pemHeader.length || endIndex === -1) {
+    throw new Error('Invalid PEM format for private key');
+  }
+  
+  const base64Key = privateKeyPem.substring(startIndex, endIndex).replace(/\s/g, '');
+  
+  // Convert base64 to binary
+  const binaryKey = Uint8Array.from(atob(base64Key), c => c.charCodeAt(0));
+  
   const privateKey = await crypto.subtle.importKey(
     "pkcs8",
-    new TextEncoder().encode(privateKeyPem.replace(/\\n/g, '\n')),
+    binaryKey,
     {
       name: "RSASSA-PKCS1-v1_5",
       hash: "SHA-256",
