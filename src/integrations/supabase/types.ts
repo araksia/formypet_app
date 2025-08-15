@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -362,15 +362,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_next_event_occurrence: {
+        Args: { base_date: string; event_time: string; recurring_type: string }
+        Returns: string
+      }
+      create_recurring_event_instance: {
+        Args: { next_occurrence: string; original_event_id: string }
+        Returns: string
+      }
       is_pet_owner: {
         Args: { pet_id_param: string }
         Returns: boolean
       }
       save_push_token: {
         Args: {
-          token_value: string
-          platform_value?: string
           device_info_value?: Json
+          platform_value?: string
+          token_value: string
         }
         Returns: string
       }

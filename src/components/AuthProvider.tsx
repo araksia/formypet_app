@@ -36,34 +36,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     let mounted = true;
 
-    // Get initial session with timeout
-    const getSession = async () => {
-      try {
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout')), 10000)
-        );
-        
-        const sessionPromise = supabase.auth.getSession();
-        
-        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
-        
-        if (mounted) {
-          setUser(session?.user ?? null);
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Session error:', error);
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    getSession();
-
-    // Listen for auth changes - no async operations inside
+    // Set up auth state listener FIRST (this is critical)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email);
+        
         if (mounted) {
           setUser(session?.user ?? null);
           setLoading(false);
@@ -73,6 +50,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (event === 'SIGNED_IN' && session?.user) {
           setTimeout(async () => {
             try {
+              console.log('Updating profile for user:', session.user.email);
               await supabase
                 .from('profiles')
                 .upsert({
@@ -89,6 +67,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       }
     );
+
+    // THEN check for existing session (no timeout needed)
+    const getSession = async () => {
+      try {
+        console.log('Checking for existing session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Session error:', error);
+        } else {
+          console.log('Existing session found:', session?.user?.email || 'none');
+        }
+        
+        if (mounted) {
+          setUser(session?.user ?? null);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Session check error:', error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    getSession();
 
     return () => {
       mounted = false;
