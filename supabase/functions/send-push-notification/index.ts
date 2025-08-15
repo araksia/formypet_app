@@ -155,6 +155,8 @@ serve(async (req) => {
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseKey);
 
+      console.log(`Looking for event with ID: ${eventId}`);
+
       // Get event details
       const { data: event, error: eventError } = await supabase
         .from('events')
@@ -163,9 +165,17 @@ serve(async (req) => {
           pets(name)
         `)
         .eq('id', eventId)
-        .single();
+        .maybeSingle();
 
-      if (eventError || !event) {
+      console.log(`Event query result:`, { event, eventError });
+
+      if (eventError) {
+        console.error('Event query error:', eventError);
+        throw new Error(`Event query failed: ${eventError.message}`);
+      }
+
+      if (!event) {
+        console.error('Event not found for ID:', eventId);
         throw new Error('Event not found');
       }
 

@@ -27,17 +27,18 @@ serve(async (req) => {
     console.log(`Checking events between ${now.toISOString()} and ${fiveMinutesFromNow.toISOString()}`);
 
     // Find events that should trigger notifications in the next 5 minutes
+    // We need to combine event_date and event_time to get the full timestamp
     const { data: events, error: eventsError } = await supabase
       .from('events')
       .select('*')
-      .gte('event_date', now.toISOString())
-      .lte('event_date', fiveMinutesFromNow.toISOString());
+      .gte('event_date', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()) // Events from last 24 hours
+      .lte('event_date', new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()); // Events in next 24 hours
 
     if (eventsError) {
       throw new Error(`Failed to fetch events: ${eventsError.message}`);
     }
 
-    console.log(`Found ${events?.length || 0} events to process`);
+    console.log(`Found ${events?.length || 0} potential events to process`);
 
     if (!events || events.length === 0) {
       return new Response(
@@ -46,9 +47,41 @@ serve(async (req) => {
       );
     }
 
+    // Filter events that need notifications in the next 5 minutes
+    const eventsToNotify = events.filter(event => {
+      // Combine event_date and event_time to get full timestamp
+      const eventDate = new Date(event.event_date);
+      const eventTimeStr = event.event_time || '00:00:00';
+      
+      // Parse the time and add it to the date
+      const timeParts = eventTimeStr.split(':');
+      const hours = parseInt(timeParts[0], 10);
+      const minutes = parseInt(timeParts[1], 10);
+      const seconds = parseInt(timeParts[2] || '0', 10);
+      
+      const fullEventTime = new Date(eventDate);
+      fullEventTime.setUTCHours(hours, minutes, seconds, 0);
+      
+      // Check if notification should be sent (5 minutes before event)
+      const notificationTime = new Date(fullEventTime.getTime() - 5 * 60 * 1000);
+      
+      console.log(`Event "${event.title}": full time ${fullEventTime.toISOString()}, notification time ${notificationTime.toISOString()}, current time ${now.toISOString()}`);
+      
+      return notificationTime <= now && now < fullEventTime && fullEventTime > now;
+    });
+
+    console.log(`Found ${eventsToNotify.length} events that need notifications now`);
+
+    if (eventsToNotify.length === 0) {
+      return new Response(
+        JSON.stringify({ message: 'No events need notifications at this time' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Send notifications for each event
     const results = [];
-    for (const event of events) {
+    for (const event of eventsToNotify) {
       try {
         console.log(`Processing event: ${event.title} (ID: ${event.id})`);
         

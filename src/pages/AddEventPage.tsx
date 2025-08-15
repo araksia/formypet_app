@@ -78,12 +78,27 @@ const AddEventPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user found');
 
-      // Combine date and time
-      const eventDateTime = new Date(selectedDate);
-      if (selectedTime) {
-        const [hours, minutes] = selectedTime.split(':');
-        eventDateTime.setHours(parseInt(hours), parseInt(minutes));
-      }
+      // Create the event date properly for Greek timezone
+      // The selectedDate is in local time, selectedTime is local time
+      const eventDate = new Date(selectedDate);
+      const [hours, minutes] = selectedTime.split(':').map(Number);
+      
+      // Set the time in local timezone first
+      eventDate.setHours(hours, minutes, 0, 0);
+      
+      // Convert to UTC for storage
+      const eventDateUTC = new Date(eventDate.getTime());
+      
+      // Store the time as UTC time components for the scheduler
+      const utcHours = eventDateUTC.getUTCHours();
+      const utcMinutes = eventDateUTC.getUTCMinutes();
+      const eventTimeUTC = `${utcHours.toString().padStart(2, '0')}:${utcMinutes.toString().padStart(2, '0')}:00`;
+
+      console.log('Event creation:', {
+        localDateTime: eventDate.toLocaleString('el-GR'),
+        utcDateTime: eventDateUTC.toISOString(),
+        eventTimeUTC
+      });
 
       const { error } = await supabase
         .from('events')
@@ -92,8 +107,8 @@ const AddEventPage = () => {
           event_type: eventType,
           pet_id: petId,
           user_id: user.id,
-          event_date: eventDateTime.toISOString(),
-          event_time: selectedTime || null,
+          event_date: eventDateUTC.toISOString(),
+          event_time: eventTimeUTC, // Store UTC time for consistent scheduling
           recurring,
           notes: notes || null
         });
