@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -368,9 +368,9 @@ export type Database = {
       }
       save_push_token: {
         Args: {
-          token_value: string
-          platform_value?: string
           device_info_value?: Json
+          platform_value?: string
+          token_value: string
         }
         Returns: string
       }
