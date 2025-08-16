@@ -3,7 +3,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { AuthProvider } from "./components/AuthProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -30,10 +29,7 @@ import ScreenshotsPage from "./pages/ScreenshotsPage";
 
 const queryClient = new QueryClient();
 
-const AppContent = () => {
-  // Initialize push notifications
-  usePushNotifications();
-  
+const AppContent = () => {  
   return (
     <BrowserRouter>
       <AuthProvider>

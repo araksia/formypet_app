@@ -126,15 +126,28 @@ const Dashboard = () => {
         return acc;
       }, {} as { [key: string]: string }) || {};
 
-      const formattedEvents = events.map(event => ({
-        id: event.id,
-        type: getEventTypeLabel(event.event_type),
-        pet: petNameMap[event.pet_id] || 'Άγνωστο',
-        date: format(new Date(event.event_date), 'dd MMM', { locale: el }),
-        time: event.event_time || '00:00',
-        icon: getEventIcon(event.event_type),
-        urgent: isAfter(new Date(), new Date(event.event_date))
-      }));
+      const formattedEvents = events.map(event => {
+        // Format time properly for Greek users
+        let formattedTime = 'Όλη μέρα';
+        if (event.event_time) {
+          const [hours, minutes] = event.event_time.split(':');
+          const hour = parseInt(hours);
+          const isPM = hour >= 12;
+          const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+          const period = isPM ? 'μ.μ.' : 'π.μ.';
+          formattedTime = `${displayHour}:${minutes} ${period}`;
+        }
+
+        return {
+          id: event.id,
+          type: getEventTypeLabel(event.event_type),
+          pet: petNameMap[event.pet_id] || 'Άγνωστο',
+          date: format(new Date(event.event_date), 'dd MMM', { locale: el }),
+          time: formattedTime,
+          icon: getEventIcon(event.event_type),
+          urgent: isAfter(new Date(), new Date(event.event_date))
+        };
+      });
 
       console.log('📋 Formatted events:', formattedEvents);
       setUpcomingEvents(formattedEvents);

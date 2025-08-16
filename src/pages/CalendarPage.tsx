@@ -186,12 +186,14 @@ const CalendarPage = () => {
           }
 
           if (event.event_time) {
-            // Convert UTC time to local time for display
+            // Format time properly for Greek users
             const [hours, minutes] = event.event_time.split(':');
-            const utcDate = new Date();
-            utcDate.setUTCHours(parseInt(hours), parseInt(minutes), 0, 0);
-            const localTime = format(utcDate, 'HH:mm', { locale: el });
-            timeMessage += ` στις ${localTime}`;
+            const hour = parseInt(hours);
+            const isPM = hour >= 12;
+            const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+            const period = isPM ? 'μ.μ.' : 'π.μ.';
+            const formattedTime = `${displayHour}:${minutes} ${period}`;
+            timeMessage += ` στις ${formattedTime}`;
           }
 
           const petName = petMap.get(event.pet_id) || 'κατοικίδιό σας';

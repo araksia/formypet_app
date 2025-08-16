@@ -52,18 +52,20 @@ export const usePushNotifications = () => {
       console.log('Push registration success, token: ' + token.value);
       
       try {
-        // Use the edge function to save push token since TypeScript types aren't updated yet
+        // Use the save_push_token database function
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          await supabase.functions.invoke('send-push-notification', {
-            body: {
-              action: 'save_token',
-              token: token.value,
-              platform: 'mobile',
-              user_id: user.id
-            }
+          const { data, error } = await supabase.rpc('save_push_token', {
+            token_value: token.value,
+            platform_value: 'mobile',
+            device_info_value: {}
           });
-          console.log('Push token saved to database');
+          
+          if (error) {
+            console.error('Error saving push token:', error);
+          } else {
+            console.log('Push token saved to database:', data);
+          }
         }
       } catch (error) {
         console.error('Error saving push token:', error);
