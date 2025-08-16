@@ -91,10 +91,20 @@ const Dashboard = () => {
 
       console.log('🔍 Loading events between:', today.toISOString(), 'and', nextMonth.toISOString());
 
+      // Get upcoming events with pet information using join
       const { data: events, error } = await supabase
         .from('events')
-        .select('id, title, event_type, event_date, event_time, pet_id')
-        .eq('user_id', user!.id)
+        .select(`
+          id, 
+          title, 
+          event_type, 
+          event_date, 
+          event_time, 
+          pet_id,
+          pets (
+            name
+          )
+        `)
         .gte('event_date', today.toISOString().split('T')[0]) // Use date only
         .lte('event_date', nextMonth.toISOString().split('T')[0])
         .order('event_date', { ascending: true })
@@ -112,22 +122,8 @@ const Dashboard = () => {
 
       console.log('✅ Found', events.length, 'events');
 
-      // Get pet names for the events
-      const petIds = events.map(event => event.pet_id);
-      const { data: pets, error: petsError } = await supabase
-        .from('pets')
-        .select('id, name')
-        .in('id', petIds);
-
-      if (petsError) throw petsError;
-
-      const petNameMap = pets?.reduce((acc, pet) => {
-        acc[pet.id] = pet.name;
-        return acc;
-      }, {} as { [key: string]: string }) || {};
-
       const formattedEvents = events.map(event => {
-        // Format time properly for Greek users
+        // The event_time is now stored as local time, so we can use it directly
         let formattedTime = 'Όλη μέρα';
         if (event.event_time) {
           const [hours, minutes] = event.event_time.split(':');
@@ -141,7 +137,7 @@ const Dashboard = () => {
         return {
           id: event.id,
           type: getEventTypeLabel(event.event_type),
-          pet: petNameMap[event.pet_id] || 'Άγνωστο',
+          pet: event.pets?.name || 'Άγνωστο',
           date: format(new Date(event.event_date), 'dd MMM', { locale: el }),
           time: formattedTime,
           icon: getEventIcon(event.event_type),

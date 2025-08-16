@@ -116,7 +116,6 @@ const sendFCMNotification = async (token: string, title: string, body: string, d
       android: {
         priority: "high",
         notification: {
-          priority: "high",
           default_sound: true,
         }
       },
