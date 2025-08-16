@@ -67,6 +67,11 @@ serve(async (req) => {
 
     // Filter events that need notifications in the next 5 minutes
     const eventsToNotify = events.filter(event => {
+      // Skip if notification already sent
+      if (event.notification_sent) {
+        return false;
+      }
+      
       // Since event_date is now timestamp without time zone and contains full datetime,
       // we just use it directly - no need to combine with event_time
       const fullEventTime = new Date(event.event_date);
@@ -137,6 +142,12 @@ serve(async (req) => {
         if (response.error) {
           throw new Error(response.error.message);
         }
+
+        // Mark notification as sent
+        await supabase
+          .from('events')
+          .update({ notification_sent: true })
+          .eq('id', event.id);
 
         results.push({
           eventId: event.id,
