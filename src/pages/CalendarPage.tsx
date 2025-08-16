@@ -186,7 +186,12 @@ const CalendarPage = () => {
           }
 
           if (event.event_time) {
-            timeMessage += ` στις ${event.event_time}`;
+            // Convert UTC time to local time for display
+            const [hours, minutes] = event.event_time.split(':');
+            const utcDate = new Date();
+            utcDate.setUTCHours(parseInt(hours), parseInt(minutes), 0, 0);
+            const localTime = format(utcDate, 'HH:mm', { locale: el });
+            timeMessage += ` στις ${localTime}`;
           }
 
           const petName = petMap.get(event.pet_id) || 'κατοικίδιό σας';
