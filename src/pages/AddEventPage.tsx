@@ -97,16 +97,44 @@ const AddEventPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
+      // Get pets directly owned by user
+      const { data: ownedPets, error: ownedError } = await supabase
         .from('pets')
         .select('id, name, species')
         .eq('owner_id', user.id);
 
-      if (error) throw error;
-      setPets(data || []);
+      if (ownedError) throw ownedError;
+
+      setPets(ownedPets || []);
     } catch (error) {
       console.error('Error fetching pets:', error);
     }
+  };
+
+  const calculateNextOccurrence = (currentDate: Date, recurringType: string): Date | null => {
+    const nextDate = new Date(currentDate);
+    
+    switch (recurringType) {
+      case 'daily':
+        nextDate.setDate(nextDate.getDate() + 1);
+        break;
+      case 'weekly':
+        nextDate.setDate(nextDate.getDate() + 7);
+        break;
+      case 'monthly':
+        nextDate.setMonth(nextDate.getMonth() + 1);
+        break;
+      case '6months':
+        nextDate.setMonth(nextDate.getMonth() + 6);
+        break;
+      case 'yearly':
+        nextDate.setFullYear(nextDate.getFullYear() + 1);
+        break;
+      default:
+        return null;
+    }
+    
+    return nextDate;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -170,20 +198,42 @@ const AddEventPage = () => {
         });
       } else {
         // Create new event
+        const eventData = {
+          title,
+          event_type: eventType,
+          pet_id: petId,
+          user_id: user.id,
+          event_date: eventDateUTC.toISOString(),
+          event_time: eventTimeUTC,
+          recurring,
+          notes: notes || null
+        };
+
         const { error } = await supabase
           .from('events')
-          .insert({
-            title,
-            event_type: eventType,
-            pet_id: petId,
-            user_id: user.id,
-            event_date: eventDateUTC.toISOString(),
-            event_time: eventTimeUTC,
-            recurring,
-            notes: notes || null
-          });
+          .insert(eventData);
 
         if (error) throw error;
+
+        // If recurring, create the next instance as well
+        if (recurring !== 'none') {
+          const nextOccurrence = calculateNextOccurrence(eventDateUTC, recurring);
+          if (nextOccurrence) {
+            const nextEventData = {
+              ...eventData,
+              event_date: nextOccurrence.toISOString(),
+              event_time: `${nextOccurrence.getUTCHours().toString().padStart(2, '0')}:${nextOccurrence.getUTCMinutes().toString().padStart(2, '0')}:00`
+            };
+            
+            const { error: nextError } = await supabase
+              .from('events')
+              .insert(nextEventData);
+              
+            if (nextError) {
+              console.error('Error creating next recurring event:', nextError);
+            }
+          }
+        }
 
         toast({
           title: "Επιτυχία!",
