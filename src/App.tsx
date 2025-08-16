@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./components/AuthProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
+import { useAnalytics } from "./hooks/useAnalytics";
 import Dashboard from "./pages/Dashboard";
 import PetsPage from "./pages/PetsPage";
 import AddPetPage from "./pages/AddPetPage";
@@ -29,7 +30,10 @@ import ScreenshotsPage from "./pages/ScreenshotsPage";
 
 const queryClient = new QueryClient();
 
-const AppContent = () => {  
+const AppContent = () => {
+  // Initialize analytics
+  useAnalytics();
+  
   return (
     <BrowserRouter>
       <AuthProvider>

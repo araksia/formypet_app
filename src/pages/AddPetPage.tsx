@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,11 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
+import { useAnalytics, analyticsEvents } from '@/hooks/useAnalytics';
 
 const AddPetPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { trackEvent, trackScreenView } = useAnalytics();
   const [petImage, setPetImage] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -29,6 +31,11 @@ const AddPetPage = () => {
     weight: '',
     description: ''
   });
+
+  // Track screen view
+  useEffect(() => {
+    trackScreenView('Add Pet');
+  }, [trackScreenView]);
 
   const handleImageCapture = async () => {
     try {
@@ -182,6 +189,14 @@ const AddPetPage = () => {
       }
 
       console.log('Pet saved successfully:', data);
+
+      // Track pet added event
+      trackEvent(analyticsEvents.PET_ADDED, {
+        species: formData.species,
+        has_breed: !!formData.breed,
+        has_image: !!petImage,
+        user_id: user.id
+      });
 
       toast({
         title: "🎉 Επιτυχία!",
