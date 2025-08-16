@@ -123,7 +123,7 @@ const Dashboard = () => {
       console.log('✅ Found', events.length, 'events');
 
       const formattedEvents = events.map(event => {
-        // Format time properly for Greek users
+        // The event_time is now stored as local time, so we can use it directly
         let formattedTime = 'Όλη μέρα';
         if (event.event_time) {
           const [hours, minutes] = event.event_time.split(':');

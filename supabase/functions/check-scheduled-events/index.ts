@@ -71,14 +71,16 @@ serve(async (req) => {
       const eventDate = new Date(event.event_date);
       const eventTimeStr = event.event_time || '00:00:00';
       
-      // Parse the time and add it to the date
+      // Parse the time - now stored as local time (Europe/Athens)
       const timeParts = eventTimeStr.split(':');
       const hours = parseInt(timeParts[0], 10);
       const minutes = parseInt(timeParts[1], 10);
       const seconds = parseInt(timeParts[2] || '0', 10);
       
+      // Create local datetime and convert to proper timezone
       const fullEventTime = new Date(eventDate);
-      fullEventTime.setUTCHours(hours, minutes, seconds, 0);
+      // Since event_time is stored as local time, set it directly
+      fullEventTime.setHours(hours, minutes, seconds, 0);
       
       // Check if notification should be sent (5 minutes before event)
       const notificationTime = new Date(fullEventTime.getTime() - 5 * 60 * 1000);
@@ -102,7 +104,8 @@ serve(async (req) => {
         const seconds = parseInt(timeParts[2] || '0', 10);
         
         const fullEventTime = new Date(eventDate);
-        fullEventTime.setUTCHours(hours, minutes, seconds, 0);
+        // Since event_time is stored as local time, set it directly
+        fullEventTime.setHours(hours, minutes, seconds, 0);
         
         // If this recurring event has passed, create the next instance
         if (fullEventTime < now) {

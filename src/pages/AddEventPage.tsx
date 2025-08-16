@@ -73,13 +73,11 @@ const AddEventPage = () => {
         const eventDate = new Date(event.event_date);
         setSelectedDate(eventDate);
         
-        // Convert UTC time back to local time for display
+        // Convert stored time back to local time for editing
         if (event.event_time) {
+          // The event_time is stored as local hours:minutes
           const [hours, minutes] = event.event_time.split(':');
-          const utcDate = new Date();
-          utcDate.setUTCHours(parseInt(hours), parseInt(minutes), 0, 0);
-          const localTime = format(utcDate, 'HH:mm');
-          setSelectedTime(localTime);
+          setSelectedTime(`${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`);
         }
       }
     } catch (error) {
@@ -156,23 +154,31 @@ const AddEventPage = () => {
       // Create the event date properly for Greek timezone
       // The selectedDate is in local time, selectedTime is local time
       const eventDate = new Date(selectedDate);
-      const [hours, minutes] = selectedTime.split(':').map(Number);
       
-      // Set the time in local timezone first
-      eventDate.setHours(hours, minutes, 0, 0);
+      if (selectedTime) {
+        const [hours, minutes] = selectedTime.split(':').map(Number);
+        // Set the time in local timezone
+        eventDate.setHours(hours, minutes, 0, 0);
+      } else {
+        // If no time specified, set to noon local time
+        eventDate.setHours(12, 0, 0, 0);
+      }
       
-      // Convert to UTC for storage
-      const eventDateUTC = new Date(eventDate.getTime());
+      // For storage, we keep the local datetime but store it as ISO string
+      // The backend will handle timezone conversions for notifications
+      const eventDateISO = eventDate.toISOString();
       
-      // Store the time as UTC time components for the scheduler
-      const utcHours = eventDateUTC.getUTCHours();
-      const utcMinutes = eventDateUTC.getUTCMinutes();
-      const eventTimeUTC = `${utcHours.toString().padStart(2, '0')}:${utcMinutes.toString().padStart(2, '0')}:00`;
+      // For the event_time field, store the LOCAL time components
+      // This ensures the user sees the same time they entered
+      const localHours = eventDate.getHours();
+      const localMinutes = eventDate.getMinutes();
+      const eventTimeLocal = selectedTime ? `${localHours.toString().padStart(2, '0')}:${localMinutes.toString().padStart(2, '0')}:00` : null;
 
       console.log('Event creation:', {
-        localDateTime: eventDate.toLocaleString('el-GR'),
-        utcDateTime: eventDateUTC.toISOString(),
-        eventTimeUTC
+        selectedTime,
+        localDateTime: eventDate.toLocaleString('el-GR', { timeZone: 'Europe/Athens' }),
+        storedISO: eventDateISO,
+        storedTime: eventTimeLocal
       });
 
       if (isEditMode && editEventId) {
@@ -183,8 +189,8 @@ const AddEventPage = () => {
             title,
             event_type: eventType,
             pet_id: petId,
-            event_date: eventDateUTC.toISOString(),
-            event_time: eventTimeUTC,
+            event_date: eventDateISO,
+            event_time: eventTimeLocal,
             recurring,
             notes: notes || null
           })
@@ -203,8 +209,8 @@ const AddEventPage = () => {
           event_type: eventType,
           pet_id: petId,
           user_id: user.id,
-          event_date: eventDateUTC.toISOString(),
-          event_time: eventTimeUTC,
+          event_date: eventDateISO,
+          event_time: eventTimeLocal,
           recurring,
           notes: notes || null
         };
@@ -217,12 +223,16 @@ const AddEventPage = () => {
 
         // If recurring, create the next instance as well
         if (recurring !== 'none') {
-          const nextOccurrence = calculateNextOccurrence(eventDateUTC, recurring);
+          const nextOccurrence = calculateNextOccurrence(eventDate, recurring);
           if (nextOccurrence) {
+            const nextLocalHours = nextOccurrence.getHours();
+            const nextLocalMinutes = nextOccurrence.getMinutes();
+            const nextEventTimeLocal = selectedTime ? `${nextLocalHours.toString().padStart(2, '0')}:${nextLocalMinutes.toString().padStart(2, '0')}:00` : null;
+            
             const nextEventData = {
               ...eventData,
               event_date: nextOccurrence.toISOString(),
-              event_time: `${nextOccurrence.getUTCHours().toString().padStart(2, '0')}:${nextOccurrence.getUTCMinutes().toString().padStart(2, '0')}:00`
+              event_time: nextEventTimeLocal
             };
             
             const { error: nextError } = await supabase
