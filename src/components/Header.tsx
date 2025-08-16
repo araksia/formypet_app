@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Bell, User, Users, Calendar, Heart, Clock, LogOut } from 'lucide-react';
+import { Bell, User, Users, Calendar, Heart, Clock, LogOut, Edit2, Trash2, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
@@ -203,6 +203,78 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
     setUnreadCount(0);
   };
 
+  const handleEditNotification = async (notification: Notification) => {
+    if (notification.type === 'upcoming_event') {
+      // Navigate to edit event page
+      navigate(`/add-event?edit=${notification.id}`);
+    } else if (notification.type === 'family_invite') {
+      // Accept the family invitation
+      try {
+        const { error } = await supabase
+          .from('pet_family_members')
+          .update({ status: 'accepted' })
+          .eq('id', notification.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Επιτυχία",
+          description: "Αποδεχτήκατε την πρόσκληση επιτυχώς"
+        });
+        
+        loadNotifications(); // Reload notifications
+      } catch (error) {
+        console.error('Error accepting invitation:', error);
+        toast({
+          title: "Σφάλμα",
+          description: "Υπήρξε πρόβλημα κατά την αποδοχή της πρόσκλησης",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const handleDeleteNotification = async (notification: Notification) => {
+    try {
+      if (notification.type === 'upcoming_event') {
+        // Delete the event
+        const { error } = await supabase
+          .from('events')
+          .delete()
+          .eq('id', notification.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Επιτυχία",
+          description: "Η εκδήλωση διαγράφηκε επιτυχώς"
+        });
+      } else if (notification.type === 'family_invite') {
+        // Decline/delete the family invitation
+        const { error } = await supabase
+          .from('pet_family_members')
+          .delete()
+          .eq('id', notification.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Επιτυχία",
+          description: "Η πρόσκληση απορρίφθηκε επιτυχώς"
+        });
+      }
+      
+      loadNotifications(); // Reload notifications
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Υπήρξε πρόβλημα κατά τη διαγραφή",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getNotificationBadgeColor = (type: Notification['type']) => {
     switch (type) {
       case 'family_invite': return 'bg-blue-500';
@@ -270,8 +342,11 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
                     return (
                       <DropdownMenuItem
                         key={notification.id}
-                        className={`p-4 cursor-pointer ${!notification.read ? 'bg-muted/30' : ''}`}
-                        onClick={() => markAsRead(notification.id)}
+                        className={`p-4 cursor-default ${!notification.read ? 'bg-muted/30' : ''}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
                       >
                         <div className="flex gap-3 w-full">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${getNotificationBadgeColor(notification.type)}`}>
@@ -280,9 +355,45 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
                           <div className="flex-1 space-y-1">
                             <div className="flex items-start justify-between">
                               <h4 className="font-medium text-sm leading-tight">{notification.title}</h4>
-                              {!notification.read && (
-                                <div className="w-2 h-2 bg-primary rounded-full mt-1 flex-shrink-0" />
-                              )}
+                              <div className="flex items-center gap-1">
+                                {!notification.read && (
+                                  <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
+                                )}
+                                <div className="flex gap-1 ml-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 hover:bg-green-100 hover:text-green-600"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditNotification(notification);
+                                    }}
+                                    title={notification.type === 'family_invite' ? 'Αποδοχή' : 'Επεξεργασία'}
+                                  >
+                                    {notification.type === 'family_invite' ? (
+                                      <Check className="h-3 w-3" />
+                                    ) : (
+                                      <Edit2 className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 hover:bg-red-100 hover:text-red-600"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteNotification(notification);
+                                    }}
+                                    title={notification.type === 'family_invite' ? 'Απόρριψη' : 'Διαγραφή'}
+                                  >
+                                    {notification.type === 'family_invite' ? (
+                                      <X className="h-3 w-3" />
+                                    ) : (
+                                      <Trash2 className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
                             </div>
                             <p className="text-xs text-muted-foreground leading-relaxed">
                               {notification.message}
