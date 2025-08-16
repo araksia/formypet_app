@@ -57,7 +57,7 @@ const CalendarPage = () => {
   const [searchParams] = useSearchParams();
   const petIdFilter = searchParams.get('petId');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [viewMode, setViewMode] = useState<'calendar' | 'list' | 'notifications'>('calendar');
+  const [viewMode, setViewMode] = useState<'calendar' | 'notifications'>('calendar');
   const [events, setEvents] = useState<EventType[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,16 +127,9 @@ const CalendarPage = () => {
     }
   };
 
-  // Filter events για την επιλεγμένη ημερομηνία
-  const selectedDateEvents = selectedDate 
-    ? events.filter(event => isSameDay(event.date, selectedDate))
-    : [];
-
-  // Get upcoming events (επόμενες 7 ημέρες)
-  const upcomingEvents = events
-    .filter(event => event.date >= new Date())
-    .sort((a, b) => a.date.getTime() - b.date.getTime())
-    .slice(0, 5);
+  // Filter events για την επιλεγμένη ημερομηνία (μόνο για σήμερα)
+  const today = new Date();
+  const todayEvents = events.filter(event => isToday(event.date));
 
   const loadNotifications = async () => {
     if (!user) return;
@@ -145,7 +138,7 @@ const CalendarPage = () => {
       console.log('🔔 Loading notifications for user:', user.id);
       const realNotifications: Notification[] = [];
 
-      // Load all events (past, present, future)
+      // Load all events (past, present, future) - sorted by date descending (newest first)
       const { data: events, error: eventsError } = await supabase
         .from('events')
         .select(`
@@ -254,8 +247,22 @@ const CalendarPage = () => {
         });
       }
 
-      console.log('🔔 Final notifications:', realNotifications);
-      setNotifications(realNotifications);
+      // Sort notifications: upcoming events first, then family invites, then past events
+      const sortedNotifications = realNotifications.sort((a, b) => {
+        if (a.type === 'family_invite' && b.type !== 'family_invite') return -1;
+        if (b.type === 'family_invite' && a.type !== 'family_invite') return 1;
+        if (a.type === 'upcoming_event' && b.type === 'past_event') return -1;
+        if (b.type === 'upcoming_event' && a.type === 'past_event') return 1;
+        
+        // For same types, sort by date
+        if (a.eventDate && b.eventDate) {
+          return b.eventDate.getTime() - a.eventDate.getTime();
+        }
+        return 0;
+      });
+
+      console.log('🔔 Final notifications:', sortedNotifications);
+      setNotifications(sortedNotifications);
     } catch (error) {
       console.error('Error loading notifications:', error);
       setNotifications([]);
@@ -371,10 +378,9 @@ const CalendarPage = () => {
       
       <div className="p-4 space-y-6">
         {/* Tabs */}
-        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'calendar' | 'list' | 'notifications')}>
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as 'calendar' | 'notifications')}>
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="calendar">Ημερολόγιο</TabsTrigger>
-            <TabsTrigger value="list">Λίστα</TabsTrigger>
             <TabsTrigger value="notifications">Ειδοποιήσεις</TabsTrigger>
           </TabsList>
 
@@ -402,73 +408,39 @@ const CalendarPage = () => {
               </CardContent>
             </Card>
 
-            {/* Events για επιλεγμένη ημερομηνία */}
-            {selectedDate && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">
-                    Events για {format(selectedDate, 'dd MMMM yyyy', { locale: el })}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {selectedDateEvents.length > 0 ? (
-                    <div className="space-y-3">
-                      {selectedDateEvents.map(event => (
-                        <div key={event.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                          <div className={`p-2 rounded-full ${eventTypeColors[event.event_type as keyof typeof eventTypeColors]} text-white`}>
-                            {renderEventIcon(event.event_type)}
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium">{event.title}</p>
-                            <p className="text-sm text-muted-foreground">{event.petName}</p>
-                          </div>
-                          <Badge variant="secondary">
-                            {event.recurring === 'daily' && 'Καθημερινά'}
-                            {event.recurring === 'weekly' && 'Εβδομαδιαία'}
-                            {event.recurring === 'monthly' && 'Μηνιαία'}
-                            {event.recurring === 'yearly' && 'Ετήσια'}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground text-center py-4">
-                      Δεν υπάρχουν events για αυτή την ημερομηνία
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="list">
+            {/* Events μόνο για σήμερα */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Επερχόμενα Events</CardTitle>
+                <CardTitle className="text-lg">
+                  Events για σήμερα ({format(today, 'dd MMMM yyyy', { locale: el })})
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {upcomingEvents.map(event => (
-                    <div key={event.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                      <div className={`p-2 rounded-full ${eventTypeColors[event.event_type as keyof typeof eventTypeColors]} text-white`}>
-                        {renderEventIcon(event.event_type)}
+                {todayEvents.length > 0 ? (
+                  <div className="space-y-3">
+                    {todayEvents.map(event => (
+                      <div key={event.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                        <div className={`p-2 rounded-full ${eventTypeColors[event.event_type as keyof typeof eventTypeColors]} text-white`}>
+                          {renderEventIcon(event.event_type)}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium">{event.title}</p>
+                          <p className="text-sm text-muted-foreground">{event.petName}</p>
+                        </div>
+                        <Badge variant="secondary">
+                          {event.recurring === 'daily' && 'Καθημερινά'}
+                          {event.recurring === 'weekly' && 'Εβδομαδιαία'}
+                          {event.recurring === 'monthly' && 'Μηνιαία'}
+                          {event.recurring === 'yearly' && 'Ετήσια'}
+                        </Badge>
                       </div>
-                      <div className="flex-1">
-                        <p className="font-medium">{event.title}</p>
-                        <p className="text-sm text-muted-foreground">{event.petName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(event.date, 'dd MMMM yyyy', { locale: el })}
-                        </p>
-                      </div>
-                      <Badge variant="secondary">
-                        {event.recurring === 'daily' && 'Καθημερινά'}
-                        {event.recurring === 'weekly' && 'Εβδομαδιαία'}
-                        {event.recurring === 'monthly' && 'Μηνιαία'}
-                        {event.recurring === 'yearly' && 'Ετήσια'}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">
+                    Δεν υπάρχουν events για σήμερα
+                  </p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
