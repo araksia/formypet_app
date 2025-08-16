@@ -9,6 +9,10 @@
       "source": "public/app-icon.png",
       "foreground": "public/app-icon.png",
       "background": "#ffffff"
+    },
+    "splash": {
+      "source": "public/splash-paws.png",
+      "backgroundColor": "#ffffff"
     }
   },
   "ios": {
@@ -31,11 +35,15 @@
       "useFcm": true
     },
     "SplashScreen": {
-      "launchShowDuration": 2000,
+      "launchShowDuration": 3000,
       "launchAutoHide": true,
-      "backgroundColor": "#ffffffff",
+      "backgroundColor": "#ffffff",
       "androidScaleType": "CENTER_CROP",
-      "showSpinner": false
+      "showSpinner": false,
+      "spinnerColor": "#999999",
+      "iosSpinnerStyle": "small",
+      "splashFullScreen": true,
+      "splashImmersive": true
     },
     "Browser": {
       "windowName": "_system"
