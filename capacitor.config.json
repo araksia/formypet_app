@@ -27,8 +27,8 @@
       "permissions": ["camera", "photos"]
     },
     "LocalNotifications": {
-      "smallIcon": "ic_stat_icon_config_sample",
-      "iconColor": "#488AFF"
+      "smallIcon": "notification-icon",
+      "iconColor": "#4ADE80"
     },
     "PushNotifications": {
       "presentationOptions": ["badge", "sound", "alert"],
