@@ -54,7 +54,15 @@ export const usePushNotifications = () => {
       try {
         // Use the save_push_token database function
         const { data: { user } } = await supabase.auth.getUser();
+        console.log('Current user:', user);
+        
         if (user) {
+          console.log('Calling save_push_token with:', {
+            token_value: token.value,
+            platform_value: 'mobile',
+            device_info_value: {}
+          });
+          
           const { data, error } = await supabase.rpc('save_push_token', {
             token_value: token.value,
             platform_value: 'mobile',
@@ -63,12 +71,33 @@ export const usePushNotifications = () => {
           
           if (error) {
             console.error('Error saving push token:', error);
+            toast({
+              title: "Σφάλμα αποθήκευσης token",
+              description: `Δεν μπόρεσε να αποθηκευτεί το push token: ${error.message}`,
+              variant: "destructive"
+            });
           } else {
-            console.log('Push token saved to database:', data);
+            console.log('Push token saved to database successfully:', data);
+            toast({
+              title: "Token αποθηκεύτηκε",
+              description: "Το push notification token αποθηκεύτηκε επιτυχώς",
+            });
           }
+        } else {
+          console.error('No authenticated user found');
+          toast({
+            title: "Σφάλμα",
+            description: "Δεν βρέθηκε συνδεδεμένος χρήστης",
+            variant: "destructive"
+          });
         }
       } catch (error) {
         console.error('Error saving push token:', error);
+        toast({
+          title: "Σφάλμα",
+          description: `Γενικό σφάλμα: ${error.message}`,
+          variant: "destructive"
+        });
       }
     });
 
