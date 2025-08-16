@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Pill, Syringe, Heart, Scissors, Gift, Utensils, Activity } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -31,6 +31,10 @@ const eventTypes = [
 const AddEventPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const editEventId = searchParams.get('edit');
+  const isEditMode = !!editEventId;
+  
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState('');
   const [eventType, setEventType] = useState('');
@@ -43,7 +47,50 @@ const AddEventPage = () => {
 
   useEffect(() => {
     fetchUserPets();
-  }, []);
+    if (isEditMode && editEventId) {
+      loadEventData(editEventId);
+    }
+  }, [isEditMode, editEventId]);
+
+  const loadEventData = async (eventId: string) => {
+    try {
+      const { data: event, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .single();
+
+      if (error) throw error;
+
+      if (event) {
+        setTitle(event.title);
+        setEventType(event.event_type);
+        setPetId(event.pet_id);
+        setRecurring(event.recurring || 'none');
+        setNotes(event.notes || '');
+        
+        // Parse the stored UTC date and time back to local
+        const eventDate = new Date(event.event_date);
+        setSelectedDate(eventDate);
+        
+        // Convert UTC time back to local time for display
+        if (event.event_time) {
+          const [hours, minutes] = event.event_time.split(':');
+          const utcDate = new Date();
+          utcDate.setUTCHours(parseInt(hours), parseInt(minutes), 0, 0);
+          const localTime = format(utcDate, 'HH:mm');
+          setSelectedTime(localTime);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading event data:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Δεν μπόρεσα να φορτώσω τα δεδομένα του event",
+        variant: "destructive"
+      });
+    }
+  };
 
   const fetchUserPets = async () => {
     try {
@@ -100,25 +147,49 @@ const AddEventPage = () => {
         eventTimeUTC
       });
 
-      const { error } = await supabase
-        .from('events')
-        .insert({
-          title,
-          event_type: eventType,
-          pet_id: petId,
-          user_id: user.id,
-          event_date: eventDateUTC.toISOString(),
-          event_time: eventTimeUTC, // Store UTC time for consistent scheduling
-          recurring,
-          notes: notes || null
+      if (isEditMode && editEventId) {
+        // Update existing event
+        const { error } = await supabase
+          .from('events')
+          .update({
+            title,
+            event_type: eventType,
+            pet_id: petId,
+            event_date: eventDateUTC.toISOString(),
+            event_time: eventTimeUTC,
+            recurring,
+            notes: notes || null
+          })
+          .eq('id', editEventId);
+
+        if (error) throw error;
+
+        toast({
+          title: "Επιτυχία!",
+          description: "Το event ενημερώθηκε επιτυχώς"
         });
+      } else {
+        // Create new event
+        const { error } = await supabase
+          .from('events')
+          .insert({
+            title,
+            event_type: eventType,
+            pet_id: petId,
+            user_id: user.id,
+            event_date: eventDateUTC.toISOString(),
+            event_time: eventTimeUTC,
+            recurring,
+            notes: notes || null
+          });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast({
-        title: "Επιτυχία!",
-        description: "Το event προστέθηκε επιτυχώς"
-      });
+        toast({
+          title: "Επιτυχία!",
+          description: "Το event προστέθηκε επιτυχώς"
+        });
+      }
 
       navigate('/calendar');
     } catch (error) {
@@ -135,7 +206,7 @@ const AddEventPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
-      <Header title="Προσθήκη Event" showNotifications={false} />
+      <Header title={isEditMode ? "Επεξεργασία Event" : "Προσθήκη Event"} showNotifications={false} />
       
       <div className="p-4">
         <Button 
@@ -278,7 +349,7 @@ const AddEventPage = () => {
 
           {/* Submit Button */}
           <Button type="submit" className="w-full h-12" disabled={loading}>
-            {loading ? 'Αποθήκευση...' : 'Αποθήκευση Event'}
+            {loading ? 'Αποθήκευση...' : (isEditMode ? 'Ενημέρωση Event' : 'Αποθήκευση Event')}
           </Button>
         </form>
       </div>
