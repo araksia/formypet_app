@@ -142,10 +142,11 @@ const CalendarPage = () => {
     if (!user) return;
 
     try {
+      console.log('🔔 Loading notifications for user:', user.id);
       const realNotifications: Notification[] = [];
 
       // Load all events (past, present, future)
-      const { data: events } = await supabase
+      const { data: events, error: eventsError } = await supabase
         .from('events')
         .select(`
           id,
@@ -158,13 +159,17 @@ const CalendarPage = () => {
         .eq('user_id', user.id)
         .order('event_date', { ascending: false });
 
+      console.log('🔔 Events loaded:', events, 'Error:', eventsError);
+
       if (events && events.length > 0) {
         // Get pet names separately
         const petIds = [...new Set(events.map(e => e.pet_id))];
-        const { data: pets } = await supabase
+        const { data: pets, error: petsError } = await supabase
           .from('pets')
           .select('id, name')
           .in('id', petIds);
+
+        console.log('🔔 Pets loaded:', pets, 'Error:', petsError);
 
         const petMap = new Map(pets?.map(p => [p.id, p.name]) || []);
 
@@ -207,7 +212,7 @@ const CalendarPage = () => {
       }
 
       // Load pending family invites
-      const { data: invites } = await supabase
+      const { data: invites, error: invitesError } = await supabase
         .from('pet_family_members')
         .select(`
           id,
@@ -217,6 +222,8 @@ const CalendarPage = () => {
         `)
         .eq('user_id', user.id)
         .eq('status', 'pending');
+
+      console.log('🔔 Invites loaded:', invites, 'Error:', invitesError);
 
       if (invites && invites.length > 0) {
         // Get pet and profile names separately
@@ -247,6 +254,7 @@ const CalendarPage = () => {
         });
       }
 
+      console.log('🔔 Final notifications:', realNotifications);
       setNotifications(realNotifications);
     } catch (error) {
       console.error('Error loading notifications:', error);
