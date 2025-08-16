@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useAnalytics, analyticsEvents } from '@/hooks/useAnalytics';
 
 interface AuthContextType {
   user: User | null;
@@ -30,6 +31,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const { trackEvent, setUserId } = useAnalytics();
 
   // Initialize push notifications when user is authenticated
   usePushNotifications();
@@ -49,6 +51,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         // Defer profile update to avoid deadlock
         if (event === 'SIGNED_IN' && session?.user) {
+          // Track login event
+          trackEvent(analyticsEvents.USER_LOGIN, {
+            method: 'email',
+            user_id: session.user.id
+          });
+          
+          // Set analytics user ID
+          setUserId(session.user.id);
+          
           setTimeout(async () => {
             try {
               console.log('Updating profile for user:', session.user.email);
@@ -102,6 +113,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const signOut = async () => {
+    // Track logout event
+    if (user) {
+      trackEvent(analyticsEvents.USER_LOGOUT, {
+        user_id: user.id
+      });
+    }
+    
     await supabase.auth.signOut();
     // Force reload to clear all state
     window.location.href = '/login';

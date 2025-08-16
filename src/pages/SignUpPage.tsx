@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff } from "lucide-react";
+import { useAnalytics, analyticsEvents } from "@/hooks/useAnalytics";
 
 export const SignUpPage = () => {
   const [email, setEmail] = useState("");
@@ -18,6 +19,12 @@ export const SignUpPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { trackEvent, trackScreenView } = useAnalytics();
+
+  // Track screen view
+  useEffect(() => {
+    trackScreenView('Sign Up');
+  }, [trackScreenView]);
   
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -80,6 +87,12 @@ export const SignUpPage = () => {
         toast({
           title: "Επιτυχής εγγραφή!",
           description: "Ο λογαριασμός σας δημιουργήθηκε επιτυχώς.",
+        });
+
+        // Track signup event
+        trackEvent(analyticsEvents.USER_SIGNUP, {
+          method: 'email',
+          user_id: data.user.id
         });
 
         navigate("/");
