@@ -21,8 +21,8 @@ serve(async (req) => {
     const now = new Date();
     console.log(`Current time: ${now.toISOString()}`);
     
-    // Convert to Greek time (UTC+2)
-    const greekTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    // Convert to Greek time (UTC+3 for summer time)
+    const greekTime = new Date(now.getTime() + 3 * 60 * 60 * 1000);
     console.log(`Greek time: ${greekTime.toISOString()}`);
 
     // Get events that need notifications (5 minutes before event time)
