@@ -168,7 +168,10 @@ const AddExpensePage = () => {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
+      if (!user) {
+        window.location.href = '/login';
+        return;
+      }
 
       const { error } = await supabase
         .from('expenses')

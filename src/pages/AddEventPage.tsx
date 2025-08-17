@@ -149,7 +149,10 @@ const AddEventPage = () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
+      if (!user) {
+        window.location.href = '/login';
+        return;
+      }
 
       // Create the event date properly - store the exact user input without timezone conversion
       const eventDate = new Date(selectedDate);
