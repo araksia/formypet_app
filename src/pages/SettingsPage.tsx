@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { supabase } from '@/integrations/supabase/client';
 import { 
   User, 
   Bell, 
@@ -142,32 +141,6 @@ const SettingsPage = () => {
     }
   };
 
-  const handleTestNotification = async () => {
-    try {
-      toast({
-        title: "Αποστολή test ειδοποίησης...",
-      });
-
-      const { data, error } = await supabase.functions.invoke('test-immediate-notification');
-      
-      if (error) {
-        throw error;
-      }
-
-      toast({
-        title: "Test ειδοποίηση στάλθηκε!",
-        description: "Ελέγξτε τη συσκευή σας για την ειδοποίηση.",
-      });
-    } catch (error) {
-      console.error('Test notification error:', error);
-      toast({
-        title: "Σφάλμα",
-        description: "Υπήρξε πρόβλημα με την αποστολή του test notification.",
-        variant: "destructive"
-      });
-    }
-  };
-
   const SettingItem = ({ 
     icon: Icon, 
     title, 
@@ -287,20 +260,6 @@ const SettingsPage = () => {
                 checked={settings.pushNotifications}
                 onCheckedChange={(checked) => handleSettingChange('pushNotifications', checked)}
               />
-            </SettingItem>
-            <Separator />
-            <SettingItem
-              icon={Bell}
-              title="Test ειδοποίηση"
-              description="Στείλε δοκιμαστική ειδοποίηση τώρα"
-            >
-              <Button 
-                onClick={handleTestNotification}
-                variant="outline"
-                size="sm"
-              >
-                Στείλε Test
-              </Button>
             </SettingItem>
           </CardContent>
         </Card>
