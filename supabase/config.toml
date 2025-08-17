@@ -1,1 +1,49 @@
 project_id = "vbwhtwocpobplearoooq"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[functions.check-scheduled-events]
+verify_jwt = false
+
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.send-family-invitation]
+verify_jwt = false
+
+[functions.test-simple]
+verify_jwt = false
+
+[functions.test-notifications]
+verify_jwt = false
+
+[functions.create-test-event]
+verify_jwt = false
+
+[functions.reset-notifications]
+verify_jwt = false
+
+[functions.test-push-simple]
+verify_jwt = false
+
+[functions.debug-notifications]
+verify_jwt = false
+
+[functions.force-notification]
+verify_jwt = false
+
+[functions.create-future-event]
+verify_jwt = false
+
+[functions.test-notification-now]
+verify_jwt = false
