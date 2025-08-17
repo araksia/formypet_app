@@ -67,20 +67,14 @@ serve(async (req) => {
 
     // Filter events that need notifications in the next 5 minutes
     const eventsToNotify = events.filter(event => {
-      // Combine event_date and event_time to get full timestamp
-      const eventDate = new Date(event.event_date);
-      const eventTimeStr = event.event_time || '00:00:00';
+      // Skip if notification already sent
+      if (event.notification_sent) {
+        return false;
+      }
       
-      // Parse the time - now stored as local time (Europe/Athens)
-      const timeParts = eventTimeStr.split(':');
-      const hours = parseInt(timeParts[0], 10);
-      const minutes = parseInt(timeParts[1], 10);
-      const seconds = parseInt(timeParts[2] || '0', 10);
-      
-      // Create local datetime and convert to proper timezone
-      const fullEventTime = new Date(eventDate);
-      // Since event_time is stored as local time, set it directly
-      fullEventTime.setHours(hours, minutes, seconds, 0);
+      // Since event_date is now timestamp without time zone and contains full datetime,
+      // we just use it directly - no need to combine with event_time
+      const fullEventTime = new Date(event.event_date);
       
       // Check if notification should be sent (5 minutes before event)
       const notificationTime = new Date(fullEventTime.getTime() - 5 * 60 * 1000);
@@ -95,17 +89,9 @@ serve(async (req) => {
     // Process recurring events - create next instances for events that have passed
     for (const event of events) {
       if (event.recurring && event.recurring !== 'none') {
-        const eventDate = new Date(event.event_date);
-        const eventTimeStr = event.event_time || '00:00:00';
-        
-        const timeParts = eventTimeStr.split(':');
-        const hours = parseInt(timeParts[0], 10);
-        const minutes = parseInt(timeParts[1], 10);
-        const seconds = parseInt(timeParts[2] || '0', 10);
-        
-        const fullEventTime = new Date(eventDate);
-        // Since event_time is stored as local time, set it directly
-        fullEventTime.setHours(hours, minutes, seconds, 0);
+        // Since event_date is now timestamp without time zone and contains full datetime,
+        // we just use it directly
+        const fullEventTime = new Date(event.event_date);
         
         // If this recurring event has passed, create the next instance
         if (fullEventTime < now) {
@@ -156,6 +142,12 @@ serve(async (req) => {
         if (response.error) {
           throw new Error(response.error.message);
         }
+
+        // Mark notification as sent
+        await supabase
+          .from('events')
+          .update({ notification_sent: true })
+          .eq('id', event.id);
 
         results.push({
           eventId: event.id,

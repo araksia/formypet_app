@@ -149,35 +149,40 @@ const AddEventPage = () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
+      if (!user) {
+        window.location.href = '/login';
+        return;
+      }
 
-      // Create the event date properly for Greek timezone
-      // The selectedDate is in local time, selectedTime is local time
+      // Create the event date properly - store the exact user input without timezone conversion
       const eventDate = new Date(selectedDate);
       
       if (selectedTime) {
         const [hours, minutes] = selectedTime.split(':').map(Number);
-        // Set the time in local timezone
         eventDate.setHours(hours, minutes, 0, 0);
       } else {
         // If no time specified, set to noon local time
         eventDate.setHours(12, 0, 0, 0);
       }
       
-      // For storage, we keep the local datetime but store it as ISO string
-      // The backend will handle timezone conversions for notifications
-      const eventDateISO = eventDate.toISOString();
+      // Store date in local timezone format to avoid UTC conversion issues
+      // Format: YYYY-MM-DD HH:MM:SS
+      const year = eventDate.getFullYear();
+      const month = (eventDate.getMonth() + 1).toString().padStart(2, '0');
+      const day = eventDate.getDate().toString().padStart(2, '0');
+      const hours = eventDate.getHours().toString().padStart(2, '0');
+      const minutes = eventDate.getMinutes().toString().padStart(2, '0');
       
-      // For the event_time field, store the LOCAL time components
-      // This ensures the user sees the same time they entered
-      const localHours = eventDate.getHours();
-      const localMinutes = eventDate.getMinutes();
-      const eventTimeLocal = selectedTime ? `${localHours.toString().padStart(2, '0')}:${localMinutes.toString().padStart(2, '0')}:00` : null;
+      // Store as local datetime string (database will treat as local time)
+      const eventDateLocal = `${year}-${month}-${day} ${hours}:${minutes}:00`;
+      
+      // Store the time component separately for display
+      const eventTimeLocal = selectedTime ? `${hours}:${minutes}:00` : null;
 
       console.log('Event creation:', {
         selectedTime,
         localDateTime: eventDate.toLocaleString('el-GR', { timeZone: 'Europe/Athens' }),
-        storedISO: eventDateISO,
+        storedDate: eventDateLocal,
         storedTime: eventTimeLocal
       });
 
@@ -189,7 +194,7 @@ const AddEventPage = () => {
             title,
             event_type: eventType,
             pet_id: petId,
-            event_date: eventDateISO,
+            event_date: eventDateLocal,
             event_time: eventTimeLocal,
             recurring,
             notes: notes || null
@@ -209,7 +214,7 @@ const AddEventPage = () => {
           event_type: eventType,
           pet_id: petId,
           user_id: user.id,
-          event_date: eventDateISO,
+          event_date: eventDateLocal,
           event_time: eventTimeLocal,
           recurring,
           notes: notes || null
@@ -225,13 +230,18 @@ const AddEventPage = () => {
         if (recurring !== 'none') {
           const nextOccurrence = calculateNextOccurrence(eventDate, recurring);
           if (nextOccurrence) {
-            const nextLocalHours = nextOccurrence.getHours();
-            const nextLocalMinutes = nextOccurrence.getMinutes();
-            const nextEventTimeLocal = selectedTime ? `${nextLocalHours.toString().padStart(2, '0')}:${nextLocalMinutes.toString().padStart(2, '0')}:00` : null;
+            const nextYear = nextOccurrence.getFullYear();
+            const nextMonth = (nextOccurrence.getMonth() + 1).toString().padStart(2, '0');
+            const nextDay = nextOccurrence.getDate().toString().padStart(2, '0');
+            const nextHours = nextOccurrence.getHours().toString().padStart(2, '0');
+            const nextMinutes = nextOccurrence.getMinutes().toString().padStart(2, '0');
+            
+            const nextEventDateLocal = `${nextYear}-${nextMonth}-${nextDay} ${nextHours}:${nextMinutes}:00`;
+            const nextEventTimeLocal = selectedTime ? `${nextHours}:${nextMinutes}:00` : null;
             
             const nextEventData = {
               ...eventData,
-              event_date: nextOccurrence.toISOString(),
+              event_date: nextEventDateLocal,
               event_time: nextEventTimeLocal
             };
             
