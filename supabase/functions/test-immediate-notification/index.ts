@@ -34,32 +34,52 @@ serve(async (req) => {
 
     console.log('TEST IMMEDIATE: Found token:', tokens[0].token.substring(0, 20) + '...');
 
-    // Call the send-push-notification function directly
-    const { data: notificationResult, error: notificationError } = await supabase.functions.invoke(
-      'send-push-notification',
-      {
-        body: {
-          action: 'send_notification',
-          token: tokens[0].token,
-          title: 'Test Ειδοποίηση',
-          body: 'Αυτό είναι ένα test push notification άμεσα από τη βάση!',
-          data: {
-            type: 'test_immediate'
-          }
-        }
+    // Send FCM notification directly
+    const serverKey = Deno.env.get('FIREBASE_SERVER_KEY');
+    if (!serverKey) {
+      throw new Error('FIREBASE_SERVER_KEY not configured');
+    }
+
+    const payload = {
+      to: tokens[0].token,
+      notification: {
+        title: 'Test Ειδοποίηση',
+        body: 'Αυτό είναι ένα test push notification άμεσα από τη βάση!',
+        sound: 'default'
+      },
+      data: {
+        type: 'test_immediate'
       }
-    );
+    };
+
+    console.log('TEST IMMEDIATE: Sending FCM notification...');
+
+    const response = await fetch('https://fcm.googleapis.com/fcm/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `key=${serverKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    console.log('TEST IMMEDIATE: FCM Response status:', response.status);
+
+    const notificationResult = await response.json();
+    console.log('TEST IMMEDIATE: FCM Response body:', notificationResult);
+
+    if (!response.ok) {
+      throw new Error(`FCM Error: ${response.status} - ${JSON.stringify(notificationResult)}`);
+    }
 
     console.log('TEST IMMEDIATE: Notification result:', notificationResult);
-    console.log('TEST IMMEDIATE: Notification error:', notificationError);
 
     return new Response(
       JSON.stringify({ 
         success: true,
         message: 'Test notification sent',
         tokenUsed: tokens[0].token.substring(0, 20) + '...',
-        notificationResult,
-        notificationError
+        notificationResult
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
