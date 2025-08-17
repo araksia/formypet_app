@@ -14,10 +14,6 @@ export const usePushNotifications = () => {
     
     if (!Capacitor.isNativePlatform()) {
       console.log('🔔 Push notifications not available on web platform - tokens will only be saved on mobile app');
-      toast({
-        title: "Push Notifications",
-        description: "Τα push notifications λειτουργούν μόνο στη mobile εφαρμογή. Στο web δεν αποθηκεύονται tokens.",
-      });
       return;
     }
 
