@@ -27,7 +27,7 @@
       "permissions": ["camera", "photos"]
     },
     "LocalNotifications": {
-      "smallIcon": "notification-icon",
+      "smallIcon": "notification_icon",
       "iconColor": "#4ADE80"
     },
     "PushNotifications": {
