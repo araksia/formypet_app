@@ -72,9 +72,21 @@ serve(async (req) => {
         return false;
       }
       
-      // Since event_date is now timestamp without time zone and contains full datetime,
-      // we just use it directly - no need to combine with event_time
-      const fullEventTime = new Date(event.event_date);
+      // Create full event datetime by combining event_date and event_time
+      // event_date is stored as timestamp without timezone (local time)
+      // We need to handle timezone properly
+      let fullEventTime: Date;
+      
+      if (event.event_time) {
+        // Combine date and time - treat as local time
+        const eventDateStr = event.event_date.split('T')[0]; // Get date part
+        const eventTimeStr = event.event_time; // Get time part
+        const combinedStr = `${eventDateStr}T${eventTimeStr}`;
+        fullEventTime = new Date(combinedStr);
+      } else {
+        // Just use the date part
+        fullEventTime = new Date(event.event_date);
+      }
       
       // Check if notification should be sent (5 minutes before event)
       const notificationTime = new Date(fullEventTime.getTime() - 5 * 60 * 1000);
@@ -89,9 +101,19 @@ serve(async (req) => {
     // Process recurring events - create next instances for events that have passed
     for (const event of events) {
       if (event.recurring && event.recurring !== 'none') {
-        // Since event_date is now timestamp without time zone and contains full datetime,
-        // we just use it directly
-        const fullEventTime = new Date(event.event_date);
+        // Create full event datetime by combining event_date and event_time
+        let fullEventTime: Date;
+        
+        if (event.event_time) {
+          // Combine date and time - treat as local time
+          const eventDateStr = event.event_date.split('T')[0]; // Get date part
+          const eventTimeStr = event.event_time; // Get time part
+          const combinedStr = `${eventDateStr}T${eventTimeStr}`;
+          fullEventTime = new Date(combinedStr);
+        } else {
+          // Just use the date part
+          fullEventTime = new Date(event.event_date);
+        }
         
         // If this recurring event has passed, create the next instance
         if (fullEventTime < now) {
