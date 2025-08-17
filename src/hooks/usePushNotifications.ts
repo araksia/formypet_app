@@ -85,11 +85,6 @@ export const usePushNotifications = () => {
           }
         } else {
           console.error('No authenticated user found');
-          toast({
-            title: "Σφάλμα",
-            description: "Δεν βρέθηκε συνδεδεμένος χρήστης",
-            variant: "destructive"
-          });
         }
       } catch (error) {
         console.error('Error saving push token:', error);
