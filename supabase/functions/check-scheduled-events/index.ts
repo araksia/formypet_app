@@ -38,10 +38,16 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get current time in Greek timezone (UTC+2)
+    // Get current time - we'll work in local Greek time
     const now = new Date();
-    const greekTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // Add 2 hours for Greek timezone
-    const fiveMinutesFromNow = new Date(greekTime.getTime() + 5 * 60 * 1000);
+    console.log(`Current UTC time: ${now.toISOString()}`);
+    
+    // Convert to Greek timezone (UTC+2) - but we work with the actual current time
+    const greekOffsetHours = 2; // Greek timezone offset
+    const currentGreekTime = new Date(now.getTime() + greekOffsetHours * 60 * 60 * 1000);
+    console.log(`Current Greek time: ${currentGreekTime.toISOString()}`);
+    
+    const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
     
     console.log(`Checking events between ${now.toISOString()} and ${fiveMinutesFromNow.toISOString()}`);
 
@@ -92,9 +98,9 @@ serve(async (req) => {
       // Check if notification should be sent (5 minutes before event)
       const notificationTime = new Date(fullEventTime.getTime() - 5 * 60 * 1000);
       
-      console.log(`Event "${event.title}": full time ${fullEventTime.toISOString()}, notification time ${notificationTime.toISOString()}, current Greek time ${greekTime.toISOString()}`);
+      console.log(`Event "${event.title}": full time ${fullEventTime.toISOString()}, notification time ${notificationTime.toISOString()}, current Greek time ${currentGreekTime.toISOString()}`);
       
-      return notificationTime <= greekTime && greekTime < fullEventTime && fullEventTime > greekTime;
+      return notificationTime <= currentGreekTime && currentGreekTime < fullEventTime && fullEventTime > currentGreekTime;
     });
 
     console.log(`Found ${eventsToNotify.length} events that need notifications now`);
@@ -117,7 +123,7 @@ serve(async (req) => {
         }
         
         // If this recurring event has passed, create the next instance
-        if (fullEventTime < greekTime) {
+        if (fullEventTime < currentGreekTime) {
           console.log(`Creating next instance for recurring event: ${event.title}`);
           
           try {
