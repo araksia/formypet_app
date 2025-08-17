@@ -27,7 +27,7 @@
       "permissions": ["camera", "photos"]
     },
     "LocalNotifications": {
-      "smallIcon": "notification_icon",
+      "smallIcon": "lovable-uploads/dac47f25-a6cb-4d5c-95c2-a5d5cc262c08",
       "iconColor": "#4ADE80"
     },
     "PushNotifications": {
