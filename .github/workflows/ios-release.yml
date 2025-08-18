@@ -35,6 +35,12 @@ jobs:
           ruby-version: '3.1'
           bundler-cache: true
           working-directory: 'ios/App' # Σημαντικό: για να βρει το Gemfile
+      - name: Setup Keychain
+        run: |
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security set-keychain-settings -t 3600 -l build.keychain
 
       - name: Run Fastlane to build and upload
         working-directory: ios/App
