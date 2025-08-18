@@ -27,6 +27,9 @@ jobs:
         with:
           node-version: '20'
       - run: npm ci
+      
+      - name: Build Web Assets
+        run: npm run build
 
       - name: Sync Capacitor iOS Project
         run: npx cap sync ios
