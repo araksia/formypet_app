@@ -1,7 +1,9 @@
 name: Build and Release iOS App
 
 on:
-  workflow_dispatch: # Επιτρέπει να το τρέξετε χειροκίνητα
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build-and-release:
@@ -11,45 +13,32 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Απαραίτητο για να μπορεί το workflow να κάνει push
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build web app
-        run: npm run build
-
-      - name: Install Capacitor CLI
-        run: npm i --global @capacitor/cli
-
-      - name: Sync Capacitor for iOS
-        run: npx cap sync ios
-
-      - name: Set up Ruby and Bundler
+      - name: Setup Ruby and Bundler
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.1'
           bundler-cache: true
-          working-directory: 'ios/App' # Σημαντικό: για να βρει το Gemfile
+          working-directory: 'ios/App'
+
       - name: Select Xcode version
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '15.2'
+
       - name: Setup Keychain
         run: |
           security create-keychain -p "" build.keychain
-          security default-keychain -s build.keychain
+          security default-keychain -s build.keykeychain
           security unlock-keychain -p "" build.keychain
           security set-keychain-settings -t 3600 -l build.keychain
 
       - name: Update Pods, Build and Upload
         working-directory: ios/App
         env:
-          # Βεβαιωθείτε ότι όλα τα secrets σας είναι εδώ
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
@@ -60,26 +49,24 @@ jobs:
           APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
           APPLE_ID_EMAIL: ${{ secrets.APPLE_ID_EMAIL }}
         run: |
-          # 1. Ενημερώνει τις εξαρτήσεις (Pods)
+          # Βήμα 1: Ενημέρωση των Pods
           echo "Updating Pods..."
           pod repo update
           pod update
 
-          # 2. Ελέγχει αν το Podfile.lock άλλαξε
-          # Αν άλλαξε, το ανεβάζει πίσω στο GitHub και σταματάει το τρέχον workflow.
-          # Το workflow θα ξαναξεκινήσει αυτόματα λόγω του νέου push.
-         if ! git diff --quiet ios/App/Podfile.lock; then
+          # Βήμα 2: Έλεγχος για αλλαγές στο Podfile.lock
+          if ! git diff --quiet Podfile.lock; then
             echo "Podfile.lock has changed. Committing and pushing changes..."
             git config --global user.name 'GitHub Actions'
             git config --global user.email 'actions@github.com'
-            git add ios/App/Podfile.lock
+            git add Podfile.lock
             git commit -m "Update Pods"
             git push
             echo "Changes pushed. The workflow will restart."
-            exit 0 # Τερματίζει την τρέχουσα εκτέλεση με επιτυχία
+            exit 0
           fi
 
-          # 3. Αν το Podfile.lock είναι ήδη ενημερωμένο, προχωράει κανονικά
+          # Βήμα 3: Εκτέλεση του Fastlane αν δεν υπάρχουν αλλαγές
           echo "Podfile.lock is up to date. Proceeding with build..."
           bundle exec fastlane release
 
