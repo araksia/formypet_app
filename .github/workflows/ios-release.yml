@@ -21,6 +21,22 @@ jobs:
         with:
           node-version: '20'
       - run: npm ci
+      
+      - name: Setup Node.js and Install Dependencies
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+
+      - name: Sync Capacitor iOS Project
+        run: npx cap sync ios
+
+      - name: Setup Ruby and Bundler
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1'
+          bundler-cache: true
+          working-directory: 'ios/App'
 
       - name: Setup Ruby and Bundler
         uses: ruby/setup-ruby@v1
