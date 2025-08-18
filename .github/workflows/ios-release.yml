@@ -14,7 +14,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Απαραίτητο για να μπορεί το workflow να κάνει push
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js and Install Dependencies
@@ -22,7 +21,7 @@ jobs:
         with:
           node-version: '20'
       - run: npm ci
-      
+
       - name: Setup Ruby and Bundler
         uses: ruby/setup-ruby@v1
         with:
