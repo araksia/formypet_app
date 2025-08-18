@@ -68,7 +68,7 @@ jobs:
           # 2. Ελέγχει αν το Podfile.lock άλλαξε
           # Αν άλλαξε, το ανεβάζει πίσω στο GitHub και σταματάει το τρέχον workflow.
           # Το workflow θα ξαναξεκινήσει αυτόματα λόγω του νέου push.
-          if ! git diff --quiet ios/App/Podfile.lock; then
+         if ! git diff --quiet ios/App/Podfile.lock; then
             echo "Podfile.lock has changed. Committing and pushing changes..."
             git config --global user.name 'GitHub Actions'
             git config --global user.email 'actions@github.com'
