@@ -113,6 +113,21 @@ All colors MUST be HSL.
   .safe-area-right {
     padding-right: env(safe-area-inset-right);
   }
+
+  /* Virtual keyboard support */
+  .keyboard-adjust {
+    transition: transform 0.3s ease-in-out;
+  }
+
+  /* Prevent viewport zoom on input focus */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+
+  /* Ensure input fields are visible when keyboard opens */
+  .input-focus-visible {
+    scroll-margin-bottom: 200px;
+  }
 }
 
 /* Walking paws animation for splash screen */
