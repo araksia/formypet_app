@@ -3,6 +3,12 @@ require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
 platform :ios, '14.0'
 use_frameworks!
 
+# Force Firebase to use compatible versions
+pod 'Firebase/Core', '~> 10.18.0'
+pod 'Firebase/Messaging', '~> 10.18.0'
+pod 'FirebaseCore', '~> 10.18.0'
+pod 'FirebaseMessaging', '~> 10.18.0'
+
 # workaround to avoid Xcode caching of Pods that requires
 # Product -> Clean Build Folder after new Cordova plugins installed
 # Requires CocoaPods 1.6 or newer
