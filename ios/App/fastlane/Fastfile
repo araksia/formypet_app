@@ -22,7 +22,7 @@ platform :ios do
 ) 
 
     # 3. Δημιουργεί το .ipa αρχείο
-    gym(scheme: "App", export_method: "app-store", xcargs: "CODE_SIGN_IDENTITY='' CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO" # <-- Η ΣΗΜΑΝΤΙΚΗ ΠΡΟΣΘΗΚΗ
+    gym(scheme: "App", export_method: "app-store", team_id: ENV["APPLE_TEAM_ID"] 
 )
 
     # 4. Ανεβάζει το build στο TestFlight
