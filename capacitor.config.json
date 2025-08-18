@@ -11,7 +11,7 @@
       "background": "#ffffff"
     },
     "splash": {
-      "source": "/lovable-uploads/27c66cb9-7960-4234-b23f-c17164852331.png",
+      "source": "public/splash-paws.png",
       "backgroundColor": "#ffffff"
     }
   },
@@ -27,7 +27,7 @@
       "permissions": ["camera", "photos"]
     },
     "LocalNotifications": {
-      "smallIcon": "lovable-uploads/dac47f25-a6cb-4d5c-95c2-a5d5cc262c08",
+      "smallIcon": "notification-icon",
       "iconColor": "#4ADE80"
     },
     "PushNotifications": {

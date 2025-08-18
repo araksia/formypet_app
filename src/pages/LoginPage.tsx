@@ -103,7 +103,7 @@ const LoginPage = () => {
             className="h-16 w-16 mx-auto"
           />
           <CardTitle className="text-2xl font-bold">For my pet</CardTitle>
-          <p className="text-muted-foreground">Φροντίδα κατοικιδίων στην Ελλάδα</p>
+          <p className="text-muted-foreground">Η #1 εφαρμογή για τη φροντίδα των κατοικιδίων στην Ελλάδα</p>
         </CardHeader>
         <CardContent className="space-y-4">
 

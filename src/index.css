@@ -96,6 +96,38 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Safe area support for mobile devices */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Virtual keyboard support */
+  .keyboard-adjust {
+    transition: transform 0.3s ease-in-out;
+  }
+
+  /* Prevent viewport zoom on input focus */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+
+  /* Ensure input fields are visible when keyboard opens */
+  .input-focus-visible {
+    scroll-margin-bottom: 200px;
+  }
 }
 
 /* Walking paws animation for splash screen */
