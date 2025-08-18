@@ -47,12 +47,14 @@ jobs:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
           APPLE_ID_EMAIL: ${{ secrets.APPLE_ID_EMAIL }}
+          # ΝΕΕΣ ΜΕΤΑΒΛΗΤΕΣ ΠΕΡΙΒΑΛΛΟΝΤΟΣ ΓΙΑ ΤΟ MATCH
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }} # Το απλό URL που ορίσατε στο secret
+          MATCH_GIT_USERNAME: araksia # Το GitHub username σας
+          MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }} # Το PAT secret
         run: |
           # Βήμα 1: Ενημέρωση των Pods
           echo "Updating Pods..."

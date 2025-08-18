@@ -15,9 +15,11 @@ platform :ios do
 
     # 2. Τώρα το match τρέχει, αφού έχει γίνει η σύνδεση
     match(
-      type: "appstore",
-      readonly: false,
-      username: ENV['APPLE_ID_EMAIL']
+       type: "appstore",
+	   readonly: false,
+	   git_url: ENV["MATCH_GIT_URL"],
+	   git_user: ENV["MATCH_GIT_USERNAME"],
+	   git_token: ENV["MATCH_GIT_TOKEN"]
     )
 
     # 3. Δημιουργεί το .ipa αρχείο
