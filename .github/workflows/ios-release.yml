@@ -73,7 +73,7 @@ jobs:
             git config --global user.name 'GitHub Actions'
             git config --global user.email 'actions@github.com'
             git add ios/App/Podfile.lock
-            git commit -m "ci: Update iOS dependencies (Pods)"
+            git commit -m 'ci: Update iOS dependencies (Pods)'
             git push
             echo "Changes pushed. The workflow will restart."
             exit 0 # Τερματίζει την τρέχουσα εκτέλεση με επιτυχία
