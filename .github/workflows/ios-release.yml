@@ -48,4 +48,5 @@ jobs:
           MATCH_GIT_AUTHORIZATION: ${{ secrets.MATCH_GIT_AUTHORIZATION }}
           APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID_EMAIL: ${{ secrets.APPLE_ID_EMAIL }}
         run: bundle exec fastlane release

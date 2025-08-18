@@ -4,7 +4,8 @@ platform :ios do
   desc "Build and upload to TestFlight"
   lane :release do
     # Δημιουργεί/κατεβάζει τα πιστοποιητικά
-    match(type: "appstore", readonly: false)
+    match(type: "appstore", readonly: false, username: ENV['APPLE_ID_EMAIL'])
+	
 
     # Δημιουργεί το .ipa αρχείο
     gym(scheme: "App", export_method: "app-store")
