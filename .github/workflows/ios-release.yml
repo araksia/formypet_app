@@ -17,6 +17,12 @@ jobs:
           # Απαραίτητο για να μπορεί το workflow να κάνει push
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup Node.js and Install Dependencies
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      
       - name: Setup Ruby and Bundler
         uses: ruby/setup-ruby@v1
         with:
