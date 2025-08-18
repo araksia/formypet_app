@@ -16,8 +16,8 @@ const Layout = ({ children }: LayoutProps) => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="pb-16">
+    <div className="min-h-screen bg-background safe-area-top">
+      <main className="pb-16 safe-area-left safe-area-right">
         {children}
       </main>
       <Navigation />
