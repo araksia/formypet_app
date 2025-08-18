@@ -1,16 +1,11 @@
+# ΣΩΣΤΗ ΣΕΙΡΑ
 default_platform(:ios)
 
 platform :ios do
   desc "Build and upload to TestFlight"
   lane :release do
-    # Δημιουργεί/κατεβάζει τα πιστοποιητικά
-    match(type: "appstore", readonly: false, username: ENV['APPLE_ID_EMAIL'])
-	
-
-    # Δημιουργεί το .ipa αρχείο
-    gym(scheme: "App", export_method: "app-store")
-
-    # Συνδέεται στο App Store Connect με το API Key
+    
+    # 1. Συνδέεται στο App Store Connect με το API Key
     app_store_connect_api_key(
         key_id: ENV['APP_STORE_CONNECT_API_KEY_ID'],
         issuer_id: ENV['APP_STORE_CONNECT_API_ISSUER_ID'],
@@ -18,7 +13,17 @@ platform :ios do
         is_key_content_base64: false
     )
 
-    # Ανεβάζει το build στο TestFlight
+    # 2. Τώρα το match τρέχει, αφού έχει γίνει η σύνδεση
+    match(
+      type: "appstore",
+      readonly: false,
+      username: ENV['APPLE_ID_EMAIL']
+    )
+
+    # 3. Δημιουργεί το .ipa αρχείο
+    gym(scheme: "App", export_method: "app-store")
+
+    # 4. Ανεβάζει το build στο TestFlight
     upload_to_testflight(
         app_identifier: ENV['APPLE_APP_ID'],
         skip_waiting_for_build_processing: true
