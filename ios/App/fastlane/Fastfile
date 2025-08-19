@@ -12,14 +12,17 @@ platform :ios do
     )
 
     match(
-      type: "appstore",
-      readonly: false,
-      git_url: ENV["MATCH_GIT_URL"],
-      git_basic_authorization: Base64.strict_encode64("#{ENV["MATCH_GIT_USERNAME"]}:#{ENV["MATCH_GIT_TOKEN"]}"),
-      team_id: ENV["APPLE_TEAM_ID"],
-      keychain_password: ENV["KEYCHAIN_PASSWORD"],
-      keychain_name: "build.keychain"
-    )
+	  type: "appstore",
+	  readonly: true,                       # στο CI συνήθως read-only
+	  storage_mode: "git",
+	  git_url: ENV["MATCH_GIT_URL"],
+	  git_branch: "main",                   # <= άλλαξέ το αν το repo σου έχει master
+	  clone_branch_directly: true,
+	  git_basic_authorization: Base64.strict_encode64("#{ENV["MATCH_GIT_USERNAME"]}:#{ENV["MATCH_GIT_TOKEN"]}"),
+	  team_id: ENV["APPLE_TEAM_ID"],
+	  keychain_password: ENV["KEYCHAIN_PASSWORD"],
+	  keychain_name: "build.keychain"
+	)
 
     update_project_team(teamid: ENV["APPLE_TEAM_ID"])
 
