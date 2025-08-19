@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Stethoscope, Copy, Check, Info, Edit } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Plus, Stethoscope, Copy, Check, Info, Edit, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +21,9 @@ const PetsPage = () => {
   const [selectedPetForShare, setSelectedPetForShare] = useState<string | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
   const [copiedPetId, setCopiedPetId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [petToDelete, setPetToDelete] = useState<any>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Fetch pets when user is available
   useEffect(() => {
@@ -153,6 +156,47 @@ const PetsPage = () => {
         variant: "destructive"
       });
     }
+  };
+
+  const handleDeletePet = async () => {
+    if (!petToDelete || !user) return;
+
+    setDeleteLoading(true);
+    try {
+      const { error } = await supabase
+        .from('pets')
+        .delete()
+        .eq('id', petToDelete.id)
+        .eq('owner_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Επιτυχία!",
+        description: "Το κατοικίδιο διαγράφηκε"
+      });
+
+      // Refresh pets list
+      await fetchPets();
+      
+      // Close dialog
+      setDeleteDialogOpen(false);
+      setPetToDelete(null);
+    } catch (error) {
+      console.error('Error deleting pet:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Υπήρξε πρόβλημα κατά τη διαγραφή",
+        variant: "destructive"
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const openDeleteDialog = (pet: any) => {
+    setPetToDelete(pet);
+    setDeleteDialogOpen(true);
   };
 
   const getSpeciesEmoji = (species: string) => {
@@ -288,6 +332,15 @@ const PetsPage = () => {
                             <Button 
                               variant="ghost" 
                               size="icon" 
+                              className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
+                              onClick={() => openDeleteDialog(pet)}
+                              title="Διαγραφή κατοικιδίου"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
                               className="h-8 w-8 hover:bg-purple-50 hover:text-purple-600"
                               onClick={() => navigate(`/pet/${pet.id}/medical`)}
                               title="Ιατρικά στοιχεία"
@@ -317,6 +370,36 @@ const PetsPage = () => {
           </Card>
         ) : null}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="max-w-sm mx-auto">
+          <DialogHeader>
+            <DialogTitle>Διαγραφή Κατοικιδίου</DialogTitle>
+            <DialogDescription>
+              Είστε σίγουροι ότι θέλετε να διαγράψετε το κατοικίδιο <strong>{petToDelete?.name}</strong>;
+              <br /><br />
+              Αυτή η ενέργεια δεν μπορεί να αναιρεθεί και θα διαγράψει όλα τα σχετικά δεδομένα.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleteLoading}
+            >
+              Άκυρο
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeletePet}
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? 'Διαγραφή...' : 'Διαγραφή'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
