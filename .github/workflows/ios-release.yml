@@ -32,7 +32,7 @@ jobs:
         with:
           ruby-version: '3.1'
           bundler-cache: true
-          working-directory: 'ios/App'
+          working-directory: ios/App
 
       - name: Select Xcode version
         uses: maxim-lobanov/setup-xcode@v1
@@ -50,20 +50,20 @@ jobs:
           security list-keychains -d user -s build.keychain
 
       - name: Install CocoaPods (via bundler) & Build + Upload
-          working-directory: ios/App
-          env:
-            KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}   # ΜΗΝ το ξεχάσεις
-            APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-            APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-            APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
-            MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-            APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-            APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}             # bundle id π.χ. com.company.app
-            APPLE_ID_EMAIL: ${{ secrets.APPLE_ID_EMAIL }}
-            MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-            MATCH_GIT_USERNAME: ${{ secrets.MATCH_GIT_USERNAME }}
-            MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
-          run: |
-            bundle install
-            bundle exec pod install --repo-update
-            bundle exec fastlane release
+        working-directory: ios/App
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }} # bundle id
+          APPLE_ID_EMAIL: ${{ secrets.APPLE_ID_EMAIL }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_USERNAME: ${{ secrets.MATCH_GIT_USERNAME }}
+          MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
+        run: |
+          bundle install
+          bundle exec pod install --repo-update
+          bundle exec fastlane release
