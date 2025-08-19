@@ -11,14 +11,14 @@ platform :ios do
       is_key_content_base64: false # ή true αν περάσεις base64
     )
 
-    match(
+
+	match(
 	  type: "appstore",
-	  readonly: true,                       # στο CI συνήθως read-only
+	  readonly: true,                 # στο CI είναι καλύτερα read-only
 	  storage_mode: "git",
 	  git_url: ENV["MATCH_GIT_URL"],
-	  git_branch: "main",                   # <= άλλαξέ το αν το repo σου έχει master
-	  clone_branch_directly: true,
-	  git_basic_authorization: Base64.strict_encode64("#{ENV["MATCH_GIT_USERNAME"]}:#{ENV["MATCH_GIT_TOKEN"]}"),
+	  git_branch: "main",             # βάλε "master" αν το repo σου έχει master
+	  git_basic_authorization: Base64.strict_encode64("x-access-token:#{ENV['MATCH_GIT_TOKEN']}"),
 	  team_id: ENV["APPLE_TEAM_ID"],
 	  keychain_password: ENV["KEYCHAIN_PASSWORD"],
 	  keychain_name: "build.keychain"
