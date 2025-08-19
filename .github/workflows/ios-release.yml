@@ -57,12 +57,12 @@ jobs:
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
+          export PATH="/usr/bin:$PATH" # <-- ΝΕΑ ΠΡΟΣΘΗΚΗ: Διασφαλίζει ότι η εντολή 'security' βρίσκεται στο PATH
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          ssecurity create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security default-keychain -s build.keychain # <-- ΔΙΟΡΘΩΣΗ ΕΔΩ: ΑΦΑΙΡΕΣΗ ΤΟΥ -k
+          security default-keychain -s build.keychain # <-- ΔΙΟΡΘΩΣΗ: Έχει αφαιρεθεί το '-k'
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security set-keychain-settings -t 3600 -l build.keychain
-          security list-keychains -d user -s build.keychain
+          security list-keychains -d user -s build.keychain # <-- ΠΡΟΣΘΗΚΗ: Ορίζει το keychain ως default για αναζήτηση
 
       - name: Update Pods, Build and Upload
         working-directory: ios/App
