@@ -18,9 +18,10 @@ platform :ios do
 	  type: "appstore",
 	  readonly: false,
 	  git_url: ENV["MATCH_GIT_URL"],
-	  git_basic_authorization: Base64.strict_encode64("#{ENV["MATCH_GIT_USERNAME"]}:#{ENV["MATCH_GIT_TOKEN"]}"), # <-- ΠΡΟΣΘΗΚΗ ΚΟΜΜΑΤΟΣ ΕΔΩ
+	  git_basic_authorization: Base64.strict_encode64("#{ENV["MATCH_GIT_USERNAME"]}:#{ENV["MATCH_GIT_TOKEN"]}"),
 	  team_id: ENV["APPLE_TEAM_ID"],
-	  keychain_password: ENV["KEYCHAIN_PASSWORD"] # <-- Αυτή η γραμμή
+	  keychain_password: ENV["KEYCHAIN_PASSWORD"],
+	  keychain_name: "build.keychain" # <-- ΝΕΑ ΠΡΟΣΘΗΚΗ
 	)
 
 	update_project_team(
