@@ -1,13 +1,17 @@
 {
   "assets": {
     "iconPath": "public/app-icon.png",
-    "splashPath": "public/splash-paws.png"
+    "splashPath": "public/splash-paws.png",
+    "notificationIconPath": "public/notification-icon.png"
   },
   "ios": {
-    "iconPath": "public/app-icon.png"
+    "iconPath": "public/app-icon.png",
+    "splashPath": "public/splash-paws.png"
   },
   "android": {
     "iconPath": "public/app-icon.png",
+    "splashPath": "public/splash-paws.png",
+    "notificationIconPath": "public/notification-icon.png",
     "adaptiveIconForeground": "public/app-icon.png",
     "adaptiveIconBackground": "#ffffff"
   }
