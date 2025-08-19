@@ -3,4 +3,3 @@ storage_mode('git')
 type('appstore')
 app_identifier(ENV['APPLE_APP_ID'])   # bundle id
 team_id(ENV['APPLE_TEAM_ID'])
-# ΑΦΑΙΡΕΘΗΚΕ: git_basic_authorization(...)
