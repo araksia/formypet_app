@@ -13,33 +13,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Node.js and Install Dependencies
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+
       - run: npm ci
-      
-      - name: Setup Node.js and Install Dependencies
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - run: npm ci
-      
+
       - name: Build Web Assets
         run: npm run build
 
       - name: Sync Capacitor iOS Project
         run: npx cap sync ios
-
-      - name: Setup Ruby and Bundler
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.1'
-          bundler-cache: true
-          working-directory: 'ios/App'
 
       - name: Setup Ruby and Bundler
         uses: ruby/setup-ruby@v1
@@ -57,46 +43,29 @@ jobs:
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          export PATH="/usr/bin:$PATH"
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security default-keychain -s build.keychain # <-- ΔΙΟΡΘΩΣΗ ΕΔΩ: ΑΦΑΙΡΕΣΗ ΤΟΥ -k
+          security default-keychain -s build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security set-keychain-settings -t 3600 -l build.keychain
-          security list-keychains -d user -s build.keychain # <-- ΝΕΑ ΠΡΟΣΘΗΚΗ
+          security list-keychains -d user -s build.keychain
 
-      - name: Update Pods, Build and Upload
+      - name: Install CocoaPods (via bundler) & Build + Upload
         working-directory: ios/App
         env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}            # <-- ΠΡΟΣΤΕΘΗΚΕ
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
+          APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}                      # bundle id π.χ. com.company.app
           APPLE_ID_EMAIL: ${{ secrets.APPLE_ID_EMAIL }}
-          # ΝΕΕΣ ΜΕΤΑΒΛΗΤΕΣ ΠΕΡΙΒΑΛΛΟΝΤΟΣ ΓΙΑ ΤΟ MATCH
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }} # Το απλό URL που ορίσατε στο secret
-          MATCH_GIT_USERNAME: araksia # Το GitHub username σας
-          MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }} # Το PAT secret
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_USERNAME: ${{ secrets.MATCH_GIT_USERNAME }}
+          MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
         run: |
-          # Βήμα 1: Ενημέρωση των Pods
-          echo "Updating Pods..."
-          pod repo update
-          pod update
+          bundle install
+          bundle exec pod install --repo-update
 
-          # Βήμα 2: Έλεγχος για αλλαγές στο Podfile.lock
-          if ! git diff --quiet Podfile.lock; then
-            echo "Podfile.lock has changed. Committing and pushing changes..."
-            git config --global user.name 'GitHub Actions'
-            git config --global user.email 'actions@github.com'
-            git add Podfile.lock
-            git commit -m "Update Pods"
-            git push
-            echo "Changes pushed. The workflow will restart."
-            exit 0
-          fi
-
-          # Βήμα 3: Εκτέλεση του Fastlane αν δεν υπάρχουν αλλαγές
-          echo "Podfile.lock is up to date. Proceeding with build..."
+          echo "Pods installed. Proceeding with build..."
           bundle exec fastlane release
-
