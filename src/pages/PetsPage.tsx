@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Stethoscope, Copy, Check, Info } from 'lucide-react';
+import { Plus, Stethoscope, Copy, Check, Info, Edit } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -275,6 +275,15 @@ const PetsPage = () => {
                               title="Προφίλ κατοικιδίου"
                             >
                               <span className="text-lg">{getSpeciesEmoji(pet.species)}</span>
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 hover:bg-green-50 hover:text-green-600"
+                              onClick={() => navigate(`/pet/${pet.id}?edit=true`)}
+                              title="Επεξεργασία κατοικιδίου"
+                            >
+                              <Edit className="h-4 w-4" />
                             </Button>
                             <Button 
                               variant="ghost" 

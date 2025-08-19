@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ const PetProfilePage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [pet, setPet] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [recentEvents, setRecentEvents] = useState<any[]>([]);
@@ -44,6 +45,15 @@ const PetProfilePage = () => {
       fetchPetData();
     }
   }, [petId, user]);
+
+  // Check for edit query parameter and open edit dialog when pet data is loaded
+  useEffect(() => {
+    if (pet && searchParams.get('edit') === 'true') {
+      openEditDialog();
+      // Remove the edit parameter from URL
+      navigate(`/pet/${petId}`, { replace: true });
+    }
+  }, [pet, searchParams]);
 
   const fetchPetData = async () => {
     if (!petId || !user) return;
