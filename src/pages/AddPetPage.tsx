@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Camera, ArrowLeft, Upload, Image } from 'lucide-react';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Camera, ArrowLeft, Upload, Image, CalendarIcon } from 'lucide-react';
 import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { useNavigate } from 'react-router-dom';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,6 +16,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { useAnalytics, analyticsEvents } from '@/hooks/useAnalytics';
+import { format } from 'date-fns';
+import { el } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 const AddPetPage = () => {
   const navigate = useNavigate();
@@ -27,7 +32,7 @@ const AddPetPage = () => {
     species: '',
     breed: '',
     gender: '',
-    age: '',
+    birthDate: null as Date | null,
     weight: '',
     description: ''
   });
@@ -121,7 +126,7 @@ const AddPetPage = () => {
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | Date | null) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -161,7 +166,7 @@ const AddPetPage = () => {
         species: formData.species,
         breed: formData.breed || null,
         gender: formData.gender || null,
-        age: formData.age ? parseInt(formData.age) : null,
+        birth_date: formData.birthDate ? formData.birthDate.toISOString().split('T')[0] : null,
         weight: formData.weight ? parseFloat(formData.weight) : null,
         description: formData.description || null,
         avatar_url: avatarUrl,
@@ -175,7 +180,7 @@ const AddPetPage = () => {
           species: formData.species,
           breed: formData.breed || null,
           gender: formData.gender || null,
-          age: formData.age ? parseInt(formData.age) : null,
+          birth_date: formData.birthDate ? formData.birthDate.toISOString().split('T')[0] : null,
           weight: formData.weight ? parseFloat(formData.weight) : null,
           description: formData.description || null,
           avatar_url: avatarUrl,
@@ -337,17 +342,39 @@ const AddPetPage = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="age">Ηλικία (χρόνια)</Label>
-                  <Input 
-                    id="age" 
-                    type="number" 
-                    min="0"
-                    placeholder="π.χ. 3"
-                    value={formData.age}
-                    onChange={(e) => handleInputChange('age', e.target.value)}
-                  />
+                  <Label htmlFor="birth-date">Ημερομηνία Γέννησης</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !formData.birthDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.birthDate ? (
+                          format(formData.birthDate, "dd MMM yyyy", { locale: el })
+                        ) : (
+                          <span>Επίλεξε ημερομηνία</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={formData.birthDate || undefined}
+                        onSelect={(date) => handleInputChange('birthDate', date)}
+                        disabled={(date) =>
+                          date > new Date() || date < new Date("1900-01-01")
+                        }
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <Label htmlFor="weight">Βάρος (kg)</Label>

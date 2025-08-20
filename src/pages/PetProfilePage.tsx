@@ -9,13 +9,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Calendar, Stethoscope, Euro, Edit, Share2, PawPrint, Heart, Weight, Clock, MapPin, Camera, Upload } from 'lucide-react';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ArrowLeft, Calendar, Stethoscope, Euro, Edit, Share2, PawPrint, Heart, Weight, Clock, MapPin, Camera, Upload, CalendarIcon } from 'lucide-react';
 import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
-import { format } from 'date-fns';
+import { format, differenceInYears } from 'date-fns';
 import { el } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 const PetProfilePage = () => {
   const { petId } = useParams();
@@ -35,7 +38,7 @@ const PetProfilePage = () => {
     species: '',
     breed: '',
     gender: '',
-    age: '',
+    birthDate: null as Date | null,
     weight: '',
     description: ''
   });
@@ -141,6 +144,17 @@ const PetProfilePage = () => {
     }
   };
 
+  // Helper function to calculate age from birth date
+  const calculateAge = (birthDate: Date | string | null): number | null => {
+    if (!birthDate) return null;
+    try {
+      const birth = new Date(birthDate);
+      return differenceInYears(new Date(), birth);
+    } catch {
+      return null;
+    }
+  };
+
   const openEditDialog = () => {
     if (pet) {
       setEditFormData({
@@ -148,7 +162,7 @@ const PetProfilePage = () => {
         species: pet.species || '',
         breed: pet.breed || '',
         gender: pet.gender || '',
-        age: pet.age?.toString() || '',
+        birthDate: pet.birth_date ? new Date(pet.birth_date) : null,
         weight: pet.weight?.toString() || '',
         description: pet.description || ''
       });
@@ -157,7 +171,7 @@ const PetProfilePage = () => {
     }
   };
 
-  const handleEditInputChange = (field: string, value: string) => {
+  const handleEditInputChange = (field: string, value: string | Date | null) => {
     setEditFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -278,7 +292,7 @@ const PetProfilePage = () => {
         species: editFormData.species,
         breed: editFormData.breed || null,
         gender: editFormData.gender || null,
-        age: editFormData.age ? parseInt(editFormData.age) : null,
+        birth_date: editFormData.birthDate ? editFormData.birthDate.toISOString().split('T')[0] : null,
         weight: editFormData.weight ? parseFloat(editFormData.weight) : null,
         description: editFormData.description || null,
         avatar_url: avatarUrl,
@@ -449,12 +463,14 @@ const PetProfilePage = () => {
                       </div>
                     </div>
                   )}
-                  {pet.age && (
+                  {(pet.birth_date || pet.age) && (
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <p className="text-xs text-muted-foreground">Ηλικία</p>
-                        <p className="text-sm font-medium">{pet.age} {pet.age === 1 ? 'χρόνος' : 'χρόνια'}</p>
+                        <p className="text-sm font-medium">
+                          {pet.birth_date ? calculateAge(pet.birth_date) : pet.age} {(pet.birth_date ? calculateAge(pet.birth_date) : pet.age) === 1 ? 'χρόνος' : 'χρόνια'}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -595,14 +611,37 @@ const PetProfilePage = () => {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
-                            <Label htmlFor="edit-age">Ηλικία (χρόνια)</Label>
-                            <Input 
-                              id="edit-age" 
-                              type="number" 
-                              min="0"
-                              value={editFormData.age}
-                              onChange={(e) => handleEditInputChange('age', e.target.value)}
-                            />
+                            <Label htmlFor="edit-birth-date">Ημερομηνία Γέννησης</Label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !editFormData.birthDate && "text-muted-foreground"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {editFormData.birthDate ? (
+                                    format(editFormData.birthDate, "dd MMM yyyy", { locale: el })
+                                  ) : (
+                                    <span>Επίλεξε ημερομηνία</span>
+                                  )}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <CalendarComponent
+                                  mode="single"
+                                  selected={editFormData.birthDate || undefined}
+                                  onSelect={(date) => handleEditInputChange('birthDate', date)}
+                                  disabled={(date) =>
+                                    date > new Date() || date < new Date("1900-01-01")
+                                  }
+                                  initialFocus
+                                  className={cn("p-3 pointer-events-auto")}
+                                />
+                              </PopoverContent>
+                            </Popover>
                           </div>
                           <div>
                             <Label htmlFor="edit-weight">Βάρος (kg)</Label>

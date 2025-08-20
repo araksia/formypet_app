@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
+import { differenceInYears } from 'date-fns';
 
 const PetsPage = () => {
   const navigate = useNavigate();
@@ -194,6 +195,17 @@ const PetsPage = () => {
     }
   };
 
+  // Helper function to calculate age from birth date
+  const calculateAge = (birthDate: Date | string | null): number | null => {
+    if (!birthDate) return null;
+    try {
+      const birth = new Date(birthDate);
+      return differenceInYears(new Date(), birth);
+    } catch {
+      return null;
+    }
+  };
+
   const openDeleteDialog = (pet: any) => {
     setPetToDelete(pet);
     setDeleteDialogOpen(true);
@@ -295,9 +307,9 @@ const PetsPage = () => {
                             <p className="text-sm text-muted-foreground font-medium">{pet.breed}</p>
                           )}
                           <div className="flex flex-wrap gap-2 mt-2">
-                            {pet.age && (
+                            {(pet.birth_date || pet.age) && (
                               <Badge variant="outline" className="text-xs">
-                                {pet.age} {pet.age === 1 ? 'χρόνος' : 'χρόνια'}
+                                {pet.birth_date ? calculateAge(pet.birth_date) : pet.age} {(pet.birth_date ? calculateAge(pet.birth_date) : pet.age) === 1 ? 'χρόνος' : 'χρόνια'}
                               </Badge>
                             )}
                             {pet.weight && (
