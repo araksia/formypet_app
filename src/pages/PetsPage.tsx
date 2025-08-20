@@ -314,15 +314,6 @@ const PetsPage = () => {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600"
-                              onClick={() => navigate(`/pet/${pet.id}`)}
-                              title="Προφίλ κατοικιδίου"
-                            >
-                              <span className="text-lg">{getSpeciesEmoji(pet.species)}</span>
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
                               className="h-8 w-8 hover:bg-green-50 hover:text-green-600"
                               onClick={() => navigate(`/pet/${pet.id}?edit=true`)}
                               title="Επεξεργασία κατοικιδίου"
