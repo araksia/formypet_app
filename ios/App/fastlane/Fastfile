@@ -26,6 +26,9 @@ platform :ios do
 
     update_project_team(teamid: ENV["APPLE_TEAM_ID"])
 
+    # Προσθέστε αυτή τη γραμμή για να επιλέξετε ρητά την έκδοση Xcode
+    xcversion(version: "15.2")
+
     gym(
       scheme: "App",
       export_method: "app-store"
