@@ -11,13 +11,13 @@ platform :ios do
       is_key_content_base64: false
     )
 
-    # App Store certs/profiles από το match (SSH repo, branch master)
+    # App Store certs/profiles από το match (SSH repo, branch main)
     match(
       type: "appstore",
       readonly: false,                        # άφησέ το false μέχρι να “γεμίσει” το repo. Μετά ξανά true.
       storage_mode: "git",
       git_url: ENV["MATCH_GIT_URL"],          # π.χ. git@github.com:araksia/formypet-ios-certificates.git
-      git_branch: "master",
+      git_branch: "main",
       team_id: ENV["APPLE_TEAM_ID"],
       keychain_name: "build.keychain",
       keychain_password: ENV["KEYCHAIN_PASSWORD"]
