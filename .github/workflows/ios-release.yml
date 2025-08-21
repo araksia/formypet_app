@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-release:
+  build-ios:
     name: Build and Release iOS
     runs-on: macos-latest
 
@@ -19,61 +19,45 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install npm deps
+      - name: Install npm dependencies
         run: npm ci
 
-      - name: Build Web Assets
+      - name: Build web assets
         run: npm run build
 
-      # ΜΟΝΟ sync χωρίς pods
+      # ΜΟΝΟ sync, ΧΩΡΙΣ pod install (θα το κάνουμε χειροκίνητα παρακάτω)
       - name: Sync Capacitor iOS (skip pods)
-        run: CAPACITOR_SKIP_POD_INSTALL=1 npx cap sync ios
+        env:
+          CAPACITOR_SKIP_POD_INSTALL: '1'
+        run: npx cap sync ios
 
-      # Ruby μόνο για fastlane (δεν βάζουμε working-directory σε uses)
-      - name: Setup Ruby
+      # Ruby + Bundler για fastlane
+      - name: Setup Ruby and Bundler
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-          bundler-cache: false
+          bundler-cache: false  # θα τρέξουμε μόνοι μας bundle install μέσα στο ios/App
 
-      - name: Select Xcode version
+      # Xcode (προαιρετικό, αλλά το κλειδώνουμε για σταθερότητα)
+      - name: Select Xcode 15.2
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '15.2'
 
-      - name: Setup Keychain
-        env:
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: |
-          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-          security set-keychain-settings -t 3600 -l build.keychain
-          security list-keychains -d user -s build.keychain
-
-      # Εγκατάσταση CocoaPods στη σωστή Ruby
-      - name: Install CocoaPods gem
+      # Εγκατάσταση CocoaPods CLI (εκτός Bundler για να αποφύγουμε conflicts)
+      - name: Install CocoaPods
         run: gem install cocoapods -N
 
-      # Pods για το iOS project
-      - name: Install pods
+      # pod install μέσα στον φάκελο ios/App (εκεί βρίσκεται το Podfile)
+      - name: Install Pods
         working-directory: ios/App
         run: pod install --repo-update
 
-      # Fastlane (bundle install + release)
-      - name: Build & Upload with Fastlane
+      # Εγκατάσταση gems του project (fastlane κ.λπ.) μέσα στο ios/App
+      - name: Bundle install (Fastlane & friends)
         working-directory: ios/App
-        env:
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
-          APPLE_ID_EMAIL: ${{ secrets.APPLE_ID_EMAIL }}
-        run: |
-          bundle install
-          bundle exec fastlane release --verbose
+        run: bundle install --path vendor/bundle
+
+      # Τελικό build & upload με fastlane
+      - name: Build & Upload (Fastlane)
+        working-di
