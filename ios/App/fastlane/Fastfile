@@ -11,7 +11,14 @@ platform :ios do
       is_key_content_base64: false # ή true αν περάσεις base64
     )
 
-
+  # Προσωρινές γραμμές για debugging - ΑΦΑΙΡΕΣΤΕ ΤΕΣ ΜΕΤΑ ΤΟ DEBUGGING
+    puts "DEBUG: MATCH_GIT_URL: #{ENV["MATCH_GIT_URL"]}"
+    puts "DEBUG: MATCH_GIT_TOKEN (raw): #{ENV["MATCH_GIT_TOKEN"]}"
+    puts "DEBUG: GITHUB_USERNAME (raw): #{ENV["TGITHUB_USERNAME"]}"
+    puts "DEBUG: git_basic_authorization string: #{ENV["GITHUB_USERNAME"]}:#{ENV["MATCH_GIT_TOKEN"]}"
+    puts "DEBUG: git_basic_authorization Base64: #{Base64.strict_encode64("#{ENV["GITHUB_USERNAME"]}:#{ENV["MATCH_GIT_TOKEN"]}")}"
+    # Τέλος προσωρινών γραμμών debugging
+	
 	match(
 	  type: "appstore",
 	  readonly: true,                 # στο CI είναι καλύτερα read-only
