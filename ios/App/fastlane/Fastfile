@@ -11,22 +11,19 @@ platform :ios do
       is_key_content_base64: false
     )
 
-    # Κατέβασε certificates/profiles από το match (SSH repo, branch master)
-    # Παίρνουμε και development και appstore για πλήρη κάλυψη
-    %w[appstore].each do |t|
-      match(
-        type: t,
-        readonly: true,
-        storage_mode: "git",
-        git_url: ENV["MATCH_GIT_URL"],     # π.χ. git@github.com:araksia/formypet-ios-certificates.git
-        git_branch: "master",
-        team_id: ENV["APPLE_TEAM_ID"],
-        keychain_name: "build.keychain",
-        keychain_password: ENV["KEYCHAIN_PASSWORD"]
-      )
-    end
+    # ΜΟΝΟ App Store profiles/certs από το match (SSH repo, branch master)
+    match(
+      type: "appstore",
+      readonly: true,                         # CI: read-only
+      storage_mode: "git",
+      git_url: ENV["MATCH_GIT_URL"],          # π.χ. git@github.com:araksia/formypet-ios-certificates.git
+      git_branch: "master",
+      team_id: ENV["APPLE_TEAM_ID"],
+      keychain_name: "build.keychain",
+      keychain_password: ENV["KEYCHAIN_PASSWORD"]
+    )
 
-    # Κλειδώνουμε manual signing στο project & σωστή ομάδα
+    # Κλειδώνουμε manual signing & σωστή ομάδα
     automatic_code_signing(
       path: "App.xcodeproj",
       use_automatic_signing: false,
@@ -34,11 +31,10 @@ platform :ios do
     )
     update_project_team(teamid: ENV["APPLE_TEAM_ID"])
 
-    # Ορισμοί για το provisioning που θα χρησιμοποιηθεί στο Release
+    # Ρητά provisioning για Release
     app_id       = ENV['APPLE_APP_ID']                 # bundle id, π.χ. com.company.app
-    profile_name = "match AppStore #{app_id}"          # default όνομα που φτιάχνει το match
+    profile_name = "match AppStore #{app_id}"
 
-    # Archive με Release + manual signing + ρητό provisioning
     gym(
       scheme: "App",
       configuration: "Release",
@@ -56,7 +52,6 @@ platform :ios do
       }
     )
 
-    # Upload στο TestFlight
     upload_to_testflight(
       app_identifier: app_id,
       skip_waiting_for_build_processing: true
