@@ -25,44 +25,41 @@ jobs:
       - name: Build web assets
         run: npm run build
 
-      # ΜΟΝΟ sync, ΧΩΡΙΣ pod install (θα το κάνουμε χειροκίνητα παρακάτω)
-      - name: Sync Capacitor iOS (skip pods)
-        env:
-          CAPACITOR_SKIP_POD_INSTALL: '1'
-        run: npx cap sync ios
-
-      # Ruby + Bundler για fastlane
-      - name: Setup Ruby and Bundler
+      # Ruby (για Bundler/fastlane/cocoapods)
+      - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-          bundler-cache: false  # θα τρέξουμε μόνοι μας bundle install μέσα στο ios/App
+          bundler-cache: false
 
-      # Xcode (προαιρετικό, αλλά το κλειδώνουμε για σταθερότητα)
+      # Δημιουργώ Gemfile στο ios/App και κάνω bundle install,
+      # ώστε το Capacitor να τρέξει ομαλά το "bundle exec pod install"
+      - name: Prepare Bundler (add Gemfile & install)
+        working-directory: ios/App
+        run: |
+          cat > Gemfile <<'RUBY'
+          source "https://rubygems.org"
+          gem "cocoapods"
+          gem "fastlane"
+          RUBY
+          bundle config set path 'vendor/bundle'
+          bundle install --jobs 4
+
+      # Τώρα το sync θα καλέσει "bundle exec pod install" και θα δουλέψει,
+      # γιατί υπάρχει Gemfile με cocoapods.
+      - name: Sync Capacitor iOS
+        run: npx cap sync ios
+
+      # (προαιρετικό) κλειδώνουμε Xcode έκδοση
       - name: Select Xcode 15.2
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '15.2'
 
-      # Εγκατάσταση CocoaPods CLI (εκτός Bundler για να αποφύγουμε conflicts)
-      - name: Install CocoaPods
-        run: gem install cocoapods -N
-
-      # pod install μέσα στον φάκελο ios/App (εκεί βρίσκεται το Podfile)
-      - name: Install Pods
-        working-directory: ios/App
-        run: pod install --repo-update
-
-      # Εγκατάσταση gems του project (fastlane κ.λπ.) μέσα στο ios/App
-      - name: Bundle install (Fastlane & friends)
-        working-directory: ios/App
-        run: bundle install --path vendor/bundle
-
-      # Τελικό build & upload με fastlane
+      # Τελικό build & upload μέσω fastlane
       - name: Build & Upload (Fastlane)
         working-directory: ios/App
         env:
-          # --- Secrets που χρειάζεται το Fastlane/Match ---
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
