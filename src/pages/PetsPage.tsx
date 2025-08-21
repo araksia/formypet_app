@@ -252,16 +252,7 @@ const PetsPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
       <Header title="Τα Κατοικίδιά μου" />
       
-      <div className="p-3 sm:p-4 space-y-4">
-
-        {/* Add Pet Button */}
-        <Button 
-          onClick={() => navigate('/add-pet')}
-          className="w-full h-12 sm:h-14 flex items-center justify-center gap-2 text-sm sm:text-base"
-        >
-          <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
-          Προσθήκη Νέου Κατοικιδίου
-        </Button>
+      <div className="p-3 sm:p-4 pb-20 space-y-4">
 
         {/* Loading State */}
         {loading && (
@@ -403,6 +394,15 @@ const PetsPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Floating Add Button */}
+      <Button
+        onClick={() => navigate('/add-pet')}
+        size="lg"
+        className="fixed bottom-20 right-4 rounded-full w-14 h-14 shadow-lg hover:shadow-xl transition-shadow z-40"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
     </div>
   );
 };
