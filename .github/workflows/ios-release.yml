@@ -2,7 +2,7 @@ name: Build and Release iOS App
 
 on:
   push:
-    branches: [ main ]       # changed to main
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -23,24 +23,33 @@ jobs:
       - name: Build Web Assets
         run: npm run build
 
-      # Prepare Ruby/Bundler FIRST so pods run with the right environment
-      - name: Setup Ruby and Bundler
+      # 1) Ruby πριν το cap sync
+      - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-          bundler: '2.5.14'
-          bundler-cache: true
+          # ΜΗΝ κάνεις bundler-cache εδώ, θέλουμε πρώτα να φτιάξουμε το lockfile platform
+          bundler-cache: false
           working-directory: ios/App
 
-      - name: Install gems (iOS)
+      # 2) Προσθήκη σωστού platform στο Gemfile.lock + install gems
+      - name: Prepare Bundler (add platform & install)
         working-directory: ios/App
-        run: bundle install
+        run: |
+          # Προσθέτει το macOS/arm64 platform που λείπει από το lockfile
+          bundle lock --add-platform arm64-darwin-23 || true
+          # (προαιρετικά, χρήσιμο αν αλλάξει runner)
+          bundle lock --add-platform x86_64-darwin-23 || true
+          bundle lock --add-platform x86_64-linux || true
+          # Τώρα κάνε install με την bundler έκδοση του lockfile (συνήθως 2.6.9)
+          gem install bundler -v "$(ruby -e 'puts Bundler::LOCKFILE_VERSION rescue nil')"
+          bundle install
 
-      # Sync iOS project but DO NOT let Capacitor run pod install
+      # 3) Sync iOS χωρίς να τρέξει pods
       - name: Sync Capacitor iOS Project (skip pods)
         run: CAPACITOR_SKIP_POD_INSTALL=1 npx cap sync ios
 
-      # Run CocoaPods explicitly via Bundler inside ios/App
+      # 4) Pod install μέσω Bundler στο ios/App
       - name: Install CocoaPods via Bundler
         working-directory: ios/App
         run: bundle exec pod install --repo-update
@@ -60,7 +69,7 @@ jobs:
           security set-keychain-settings -t 3600 -l build.keychain
           security list-keychains -d user -s build.keychain
 
-      # SSH deploy key for the match certificates repo (must be RW)
+      # SSH deploy key για το repo των certs (match)
       - name: Start ssh-agent (match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
