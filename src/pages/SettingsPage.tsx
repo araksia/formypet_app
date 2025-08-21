@@ -39,28 +39,52 @@ const SettingsPage = () => {
   const { signOut } = useAuth();
   const { sendTestNotification, enablePushNotifications } = usePushNotifications();
   
-  const [settings, setSettings] = useState({
-    // Notifications
-    emailNotifications: true,
-    pushNotifications: true,
-    smsNotifications: false,
-    eventReminders: true,
-    medicationReminders: true,
-    familyInvites: true,
+  // Load settings from localStorage on component mount
+  const loadSettings = () => {
+    try {
+      const savedSettings = localStorage.getItem('app_settings');
+      if (savedSettings) {
+        return JSON.parse(savedSettings);
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
     
-    // Privacy
-    profileVisibility: 'friends',
-    shareLocation: false,
-    shareActivity: true,
-    
-    // App preferences
-    theme: 'light',
-    soundEnabled: true,
-    
-    // Security
-    twoFactorAuth: false,
-    biometricLogin: false,
-  });
+    // Default settings if none saved
+    return {
+      // Notifications
+      emailNotifications: true,
+      pushNotifications: true,
+      smsNotifications: false,
+      eventReminders: true,
+      medicationReminders: true,
+      familyInvites: true,
+      
+      // Privacy
+      profileVisibility: 'friends',
+      shareLocation: false,
+      shareActivity: true,
+      
+      // App preferences
+      theme: 'light',
+      soundEnabled: true,
+      
+      // Security
+      twoFactorAuth: false,
+      biometricLogin: false,
+    };
+  };
+
+  const [settings, setSettings] = useState(loadSettings);
+
+  // Save settings to localStorage whenever settings change
+  useEffect(() => {
+    try {
+      localStorage.setItem('app_settings', JSON.stringify(settings));
+    } catch (error) {
+      console.error('Error saving settings:', error);
+    }
+  }, [settings]);
 
   // Apply theme changes
   useEffect(() => {
@@ -73,19 +97,31 @@ const SettingsPage = () => {
   }, [settings.theme]);
 
   const handleSettingChange = async (key: string, value: any) => {
+    // First update the settings state
+    const newSettings = { ...settings, [key]: value };
+    setSettings(newSettings);
+    
     if (key === 'pushNotifications') {
       if (value) {
         // Χρήση της νέας enablePushNotifications λειτουργίας
         await enablePushNotifications();
+        toast({
+          title: "Push ειδοποιήσεις ενεργοποιήθηκαν",
+          description: "Θα λαμβάνετε πλέον push ειδοποιήσεις.",
+        });
       } else {
         toast({
           title: "Push ειδοποιήσεις απενεργοποιήθηκαν",
           description: "Δεν θα λαμβάνετε πλέον push ειδοποιήσεις.",
         });
       }
+    } else {
+      // Show confirmation toast for other settings
+      toast({
+        title: "Ρύθμιση αποθηκεύτηκε",
+        description: "Η ρύθμισή σας έχει αποθηκευτεί επιτυχώς.",
+      });
     }
-    
-    setSettings(prev => ({ ...prev, [key]: value }));
   };
 
   const handleLogout = async () => {
