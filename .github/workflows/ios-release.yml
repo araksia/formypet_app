@@ -1,103 +1,58 @@
-name: Build and Release iOS App
+name: Build and Release iOS
 
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
 
-env:
-  IOS_MIN: "13.0"   # <- Αν χρειαστεί μεγαλύτερο, άλλαξέ το εδώ
-
 jobs:
-  build-and-release:
-    runs-on: macos-latest
+  ios:
+    name: Build and Release iOS
+    runs-on: macos-14
+    defaults:
+      run:
+        shell: bash
 
     steps:
-      - name: Checkout
+      - name: "Checkout repository"
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: "Setup Node.js"
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
-      - run: npm ci
+      - name: "Install deps"
+        run: npm ci
 
-      - name: Build web
+      - name: "Build Web Assets"
         run: npm run build
 
-      # --- Βάλε/ενημέρωσε iOS platform πριν το cap sync
-      - name: Ensure iOS platform exists
-        run: |
-          npx cap ls
-          npx cap add ios || true
-
-      # --- Ανεβάζουμε το iOS deployment target στο Podfile ΚΑΙ σε όλα τα Pods
-      - name: Bump iOS deployment target in Podfile to ${{ env.IOS_MIN }}
-        working-directory: ios/App
-        run: |
-          # 1) Αν υπάρχει γραμμή platform :ios, 'x.y' την αλλάζουμε
-          ruby -e "f='Podfile'; s=File.read(f); s=s.gsub(/platform :ios, *'[^']*'/, \"platform :ios, '${{ env.IOS_MIN }}'\"); File.write(f,s)" || true
-
-          # 2) Αν δεν υπάρχει καθόλου platform, πρόσθεσέ το στην αρχή
-          if ! grep -q \"platform :ios\" Podfile; then
-            (echo \"platform :ios, '${{ env.IOS_MIN }}'\"; cat Podfile) > Podfile.new && mv Podfile.new Podfile
-          fi
-
-          # 3) Πρόσθεσε/ενημέρωσε post_install ώστε όλα τα Pods να παίρνουν το ίδιο target
-          ruby <<'RUBY'
-          f = 'Podfile'
-          s = File.read(f)
-          block = %q{
-post_install do |installer|
-  installer.pods_project.targets.each do |t|
-    t.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '${{ env.IOS_MIN }}'
-      config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
-    end
-  end
-end
-          }.strip + "\n"
-          if s !~ /post_install do \|installer\|/
-            s << "\n\n" + block
-            File.write(f, s)
-          end
-RUBY
-
-          echo "----- Podfile -----"
-          cat Podfile
-
-      # --- Κάνε sync ΧΩΡΙΣ pod install εδώ (θα το κάνουμε μετά)
-      - name: Sync Capacitor iOS (skip pods)
+      - name: "Sync Capacitor iOS (skip pods)"
         env:
           CAPACITOR_SKIP_POD_INSTALL: "1"
-          CAPACITOR_DISABLE_POD_INSTALL: "1"
-        run: |
-          npx cap sync ios --no-build || npx cap sync ios
+        run: npx cap sync ios
 
-      # --- Ruby/Bundler
-      - name: Setup Ruby and Bundler
+      - name: "Setup Ruby and Bundler"
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: "3.2"
+          bundler: "2.6.9"
           bundler-cache: true
 
-      # --- Εγκατάσταση CocoaPods με bundler (μετά το sync)
-      - name: Install CocoaPods (via bundler)
+      - name: "Select Xcode 15.2"
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "15.2"
+
+      - name: "Install CocoaPods"
         working-directory: ios/App
         run: |
-          bundle install
+          bundle config set path vendor/bundle
           bundle exec pod repo update
           bundle exec pod install --repo-update
 
-      # --- Xcode
-      - name: Select Xcode 15.2
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: '15.2'
-
-      # --- Keychain (αν το χρειάζεσαι για signing)
-      - name: Setup Keychain
+      - name: "Setup Keychain"
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
@@ -107,8 +62,7 @@ RUBY
           security set-keychain-settings -t 3600 -l build.keychain
           security list-keychains -d user -s build.keychain
 
-      # --- Build/Release με fastlane (υποθέτει ότι το Fastfile σου είναι έτοιμο)
-      - name: Build & Upload with fastlane
+      - name: "Build and Upload with Fastlane"
         working-directory: ios/App
         env:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
@@ -120,13 +74,6 @@ RUBY
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
           APPLE_ID_EMAIL: ${{ secrets.APPLE_ID_EMAIL }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           bundle exec fastlane release --verbose
-
-      # Δώσε μας τα logs του xcodebuild αν κάτι πάει στραβά
-      - name: Upload Xcode build logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: xcode-build-logs
-          path: ~/Library/Logs/gym
