@@ -23,42 +23,51 @@ jobs:
       - name: Build Web Assets
         run: npm run build
 
-      # 1) Ruby πριν το cap sync
+      # ---------- Ruby / Bundler ----------
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-          # ΜΗΝ κάνεις bundler-cache εδώ, θέλουμε πρώτα να φτιάξουμε το lockfile platform
           bundler-cache: false
           working-directory: ios/App
 
-      # 2) Προσθήκη σωστού platform στο Gemfile.lock + install gems
       - name: Prepare Bundler (add platform & install)
         working-directory: ios/App
         run: |
-          # Προσθέτει το macOS/arm64 platform που λείπει από το lockfile
           bundle lock --add-platform arm64-darwin-23 || true
-          # (προαιρετικά, χρήσιμο αν αλλάξει runner)
           bundle lock --add-platform x86_64-darwin-23 || true
           bundle lock --add-platform x86_64-linux || true
-          # Τώρα κάνε install με την bundler έκδοση του lockfile (συνήθως 2.6.9)
           gem install bundler -v "$(ruby -e 'puts Bundler::LOCKFILE_VERSION rescue nil')"
           bundle install
 
-      # 3) Sync iOS χωρίς να τρέξει pods
+      # ---------- Capacitor sync (skip pods) ----------
       - name: Sync Capacitor iOS Project (skip pods)
         run: CAPACITOR_SKIP_POD_INSTALL=1 npx cap sync ios
 
-      # 4) Pod install μέσω Bundler στο ios/App
+      # ---------- Fix iOS deployment target for Xcode 15.x (≤ 17.2/17.5) ----------
+      - name: Force iOS Deployment Target for runner SDK
+        run: |
+          # Set project to 17.0
+          sed -i '' -E 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;/IPHONEOS_DEPLOYMENT_TARGET = 17.0;/g' ios/App/App.xcodeproj/project.pbxproj
+          # Ensure Podfile declares a safe platform for Firebase
+          if grep -q "^platform :ios" ios/App/Podfile; then
+            sed -i '' -E "s/^platform :ios.*/platform :ios, '13.0'/" ios/App/Podfile
+          else
+            printf "\nplatform :ios, '13.0'\n" >> ios/App/Podfile
+          fi
+
+      # ---------- CocoaPods ----------
       - name: Install CocoaPods via Bundler
         working-directory: ios/App
         run: bundle exec pod install --repo-update
 
+      # ---------- Xcode ----------
       - name: Select Xcode version
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '15.2'
+          xcode-version: '15.4' # iOS 17.5 SDK (συμβατό με target 17.0)
 
+      # ---------- Keychain for codesign ----------
       - name: Setup Keychain
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
@@ -69,7 +78,7 @@ jobs:
           security set-keychain-settings -t 3600 -l build.keychain
           security list-keychains -d user -s build.keychain
 
-      # SSH deploy key για το repo των certs (match)
+      # ---------- SSH key for match repo ----------
       - name: Start ssh-agent (match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -78,6 +87,7 @@ jobs:
       - name: Clean old gym logs
         run: rm -rf "$HOME/Library/Logs/gym" || true
 
+      # ---------- Fastlane build & upload ----------
       - name: Build & Upload via Fastlane
         working-directory: ios/App
         env:
@@ -92,6 +102,7 @@ jobs:
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
         run: bundle exec fastlane release --verbose
 
+      # ---------- Troubleshooting artifacts ----------
       - name: Show last xcodebuild lines on failure
         if: failure()
         run: |
