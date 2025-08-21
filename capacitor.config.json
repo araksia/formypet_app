@@ -17,7 +17,8 @@
   },
   "ios": {
     "scheme": "ForMyPet",
-    "path": "ios"
+    "path": "ios",
+	"minVersion": "13.0"
   },
   "android": {
     "path": "android"
