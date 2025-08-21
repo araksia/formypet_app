@@ -48,6 +48,17 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security set-keychain-settings -t 3600 -l build.keychain
           security list-keychains -d user -s build.keychain
+          
+      - name: Debug Match Git Auth
+        run: |
+          echo "MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}"
+          echo "MATCH_GIT_TOKEN (first 5 chars): ${{ secrets.MATCH_GIT_TOKEN | slice(0, 5) }}..."
+          echo "MATCH_GIT_TOKEN (last 5 chars): ...${{ secrets.MATCH_GIT_TOKEN | slice(-5, 5) }}"
+          echo "MATCH_GIT_TOKEN length: ${{ secrets.MATCH_GIT_TOKEN | length }}"
+          echo "APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}"
+          echo "APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}"
+          echo "APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}"
+          echo "APP_STORE_CONNECT_API_KEY_CONTENT length: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT | length }}"
 
       - name: Install CocoaPods, Build & Upload
         working-directory: ios/App
