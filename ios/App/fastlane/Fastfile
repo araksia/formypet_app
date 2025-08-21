@@ -15,7 +15,7 @@ platform :ios do
       readonly: true,                 # σε CI προτείνεται read-only
       storage_mode: "git",
       git_url: ENV["MATCH_GIT_URL"],  # SSH URL
-      git_branch: "master",             # άλλαξέ το σε "master" αν χρειάζεται
+      git_branch: "main",             # άλλαξέ το σε "master" αν χρειάζεται
       team_id: ENV["APPLE_TEAM_ID"],
       keychain_name: "build.keychain",
       keychain_password: ENV["KEYCHAIN_PASSWORD"]
