@@ -13,7 +13,7 @@ platform :ios do
 
     # Κατέβασε certificates/profiles από το match (SSH repo, branch master)
     # Παίρνουμε και development και appstore για πλήρη κάλυψη
-    %w[development appstore].each do |t|
+    %w[appstore].each do |t|
       match(
         type: t,
         readonly: true,
