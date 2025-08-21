@@ -12,16 +12,18 @@ platform :ios do
     )
 
     # ΜΟΝΟ App Store profiles/certs από το match (SSH repo, branch master)
-    match(
-      type: "appstore",
-      readonly: true,                         # CI: read-only
-      storage_mode: "git",
-      git_url: ENV["MATCH_GIT_URL"],          # π.χ. git@github.com:araksia/formypet-ios-certificates.git
-      git_branch: "master",
-      team_id: ENV["APPLE_TEAM_ID"],
-      keychain_name: "build.keychain",
-      keychain_password: ENV["KEYCHAIN_PASSWORD"]
-    )
+	# Fastfile – ΜΟΝΟ αυτό το block άλλαξε
+	match(
+	  type: "appstore",
+	  readonly: false,                     # <-- από true σε false για να δημιουργήσει cert/profile
+	  storage_mode: "git",
+	  git_url: ENV["MATCH_GIT_URL"],
+	  git_branch: "master",
+	  team_id: ENV["APPLE_TEAM_ID"],
+	  keychain_name: "build.keychain",
+	  keychain_password: ENV["KEYCHAIN_PASSWORD"]
+	)
+
 
     # Κλειδώνουμε manual signing & σωστή ομάδα
     automatic_code_signing(
