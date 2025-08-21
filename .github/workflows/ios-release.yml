@@ -27,9 +27,7 @@ jobs:
 
       # ΜΟΝΟ sync χωρίς pods
       - name: Sync Capacitor iOS (skip pods)
-        env:
-          CAPACITOR_SKIP_POD_INSTALL: '1'
-        run: npx cap sync ios
+        run: CAPACITOR_SKIP_POD_INSTALL=1 npx cap sync ios
 
       # Ruby μόνο για fastlane (δεν βάζουμε working-directory σε uses)
       - name: Setup Ruby
