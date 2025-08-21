@@ -2,7 +2,7 @@ name: Build and Release iOS App
 
 on:
   push:
-    branches: [ main ]   # Ζήτησες main
+    branches: [ main ]       # changed to main
   workflow_dispatch:
 
 jobs:
@@ -23,11 +23,7 @@ jobs:
       - name: Build Web Assets
         run: npm run build
 
-      # Μην αφήνουμε τον Capacitor να τρέχει pod install (χρησιμοποιεί λάθος Ruby)
-      - name: Sync Capacitor iOS Project (skip pods)
-        run: |
-          CAPACITOR_SKIP_POD_INSTALL=1 npx cap sync ios
-
+      # Prepare Ruby/Bundler FIRST so pods run with the right environment
       - name: Setup Ruby and Bundler
         uses: ruby/setup-ruby@v1
         with:
@@ -35,6 +31,19 @@ jobs:
           bundler: '2.5.14'
           bundler-cache: true
           working-directory: ios/App
+
+      - name: Install gems (iOS)
+        working-directory: ios/App
+        run: bundle install
+
+      # Sync iOS project but DO NOT let Capacitor run pod install
+      - name: Sync Capacitor iOS Project (skip pods)
+        run: CAPACITOR_SKIP_POD_INSTALL=1 npx cap sync ios
+
+      # Run CocoaPods explicitly via Bundler inside ios/App
+      - name: Install CocoaPods via Bundler
+        working-directory: ios/App
+        run: bundle exec pod install --repo-update
 
       - name: Select Xcode version
         uses: maxim-lobanov/setup-xcode@v1
@@ -51,14 +60,8 @@ jobs:
           security set-keychain-settings -t 3600 -l build.keychain
           security list-keychains -d user -s build.keychain
 
-      - name: Install CocoaPods via Bundler
-        working-directory: ios/App
-        run: |
-          bundle install
-          bundle exec pod install --repo-update
-
-      # SSH key για read/write πρόσβαση στο repo του match (deploy key)
-      - name: Start ssh-agent (for match repo)
+      # SSH deploy key for the match certificates repo (must be RW)
+      - name: Start ssh-agent (match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
@@ -66,7 +69,7 @@ jobs:
       - name: Clean old gym logs
         run: rm -rf "$HOME/Library/Logs/gym" || true
 
-      - name: Build & Upload via fastlane
+      - name: Build & Upload via Fastlane
         working-directory: ios/App
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
@@ -78,17 +81,14 @@ jobs:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
-        run: |
-          bundle exec fastlane release --verbose
+        run: bundle exec fastlane release --verbose
 
       - name: Show last xcodebuild lines on failure
         if: failure()
         run: |
           LOGFILE=$(ls -1t "$HOME/Library/Logs/gym"/* 2>/dev/null | head -n1 || true)
           echo "Log file: $LOGFILE"
-          if [ -f "$LOGFILE" ]; then
-            tail -n 200 "$LOGFILE"
-          fi
+          if [ -f "$LOGFILE" ]; then tail -n 200 "$LOGFILE"; fi
 
       - name: Upload full gym logs
         if: failure()
