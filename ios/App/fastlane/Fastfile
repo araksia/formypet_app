@@ -41,6 +41,7 @@ platform :ios do
 
     UI.message("Using provisioning profile: #{profile_name} (#{profile_uuid})")
     
+	profiles_map  = { app_id => profile_name }   
 	id_dist = "Apple Distribution"
     # Archive με Release + manual signing + ρητό provisioning
     gym(
