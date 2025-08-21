@@ -11,21 +11,19 @@ platform :ios do
       is_key_content_base64: false
     )
 
-    # ΜΟΝΟ App Store profiles/certs από το match (SSH repo, branch master)
-	# Fastfile – ΜΟΝΟ αυτό το block άλλαξε
-	match(
-	  type: "appstore",
-	  readonly: false,                     # <-- από true σε false για να δημιουργήσει cert/profile
-	  storage_mode: "git",
-	  git_url: ENV["MATCH_GIT_URL"],
-	  git_branch: "master",
-	  team_id: ENV["APPLE_TEAM_ID"],
-	  keychain_name: "build.keychain",
-	  keychain_password: ENV["KEYCHAIN_PASSWORD"]
-	)
+    # App Store certs/profiles από το match (SSH repo, branch master)
+    match(
+      type: "appstore",
+      readonly: false,                        # άφησέ το false μέχρι να “γεμίσει” το repo. Μετά ξανά true.
+      storage_mode: "git",
+      git_url: ENV["MATCH_GIT_URL"],          # π.χ. git@github.com:araksia/formypet-ios-certificates.git
+      git_branch: "master",
+      team_id: ENV["APPLE_TEAM_ID"],
+      keychain_name: "build.keychain",
+      keychain_password: ENV["KEYCHAIN_PASSWORD"]
+    )
 
-
-    # Κλειδώνουμε manual signing & σωστή ομάδα
+    # Manual signing στο project & σωστή ομάδα
     automatic_code_signing(
       path: "App.xcodeproj",
       use_automatic_signing: false,
@@ -33,10 +31,17 @@ platform :ios do
     )
     update_project_team(teamid: ENV["APPLE_TEAM_ID"])
 
-    # Ρητά provisioning για Release
-    app_id       = ENV['APPLE_APP_ID']                 # bundle id, π.χ. com.company.app
-    profile_name = "match AppStore #{app_id}"
+    # === ΠΑΡΕ ΤΟ ΠΡΑΓΜΑΤΙΚΟ ΟΝΟΜΑ/UUID ΤΟΥ PROFILE ΑΠΟ ΤΑ ENV ΤΟΥ match ===
+    app_id        = ENV['APPLE_APP_ID']                   # π.χ. com.company.app
+    sanitized_bid = app_id.gsub('.', '_')
+    # π.χ. sigh_com_company_app_appstore_profile-name => "match AppStore com.company.app 1755..."
+    profile_name  = ENV["sigh_#{sanitized_bid}_appstore_profile-name"] || "match AppStore #{app_id}"
+    # π.χ. sigh_com_company_app_appstore => "8C086981-...."
+    profile_uuid  = ENV["sigh_#{sanitized_bid}_appstore"] || ENV["sigh_#{sanitized_bid}_appstore_uuid"]
 
+    UI.message("Using provisioning profile: #{profile_name} (#{profile_uuid})")
+
+    # Archive με Release + manual signing + ρητό provisioning
     gym(
       scheme: "App",
       configuration: "Release",
@@ -45,8 +50,10 @@ platform :ios do
         "DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
         "CODE_SIGN_STYLE=Manual",
         "CODE_SIGN_IDENTITY=Apple Distribution",
-        "PROVISIONING_PROFILE_SPECIFIER='#{profile_name}'"
-      ].join(' '),
+        # δώσε ΚΑΙ specifier (name) ΚΑΙ uuid για πλήρη ταύτιση
+        ("PROVISIONING_PROFILE_SPECIFIER='#{profile_name}'" if profile_name),
+        ("PROVISIONING_PROFILE='#{profile_uuid}'" if profile_uuid)
+      ].compact.join(' '),
       export_options: {
         provisioningProfiles: { app_id => profile_name },
         signingStyle: "manual",
@@ -54,6 +61,7 @@ platform :ios do
       }
     )
 
+    # Upload στο TestFlight
     upload_to_testflight(
       app_identifier: app_id,
       skip_waiting_for_build_processing: true
