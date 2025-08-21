@@ -52,23 +52,23 @@ jobs:
       # API check: αν δώσει 200, το PAT βλέπει το repo
       - name: Check access to certs repo (API)
         env:
-        MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
+          MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
         run: |
-        set -e
-        code=$(curl -s -o /dev/null -w "%{http_code}" \
-          -H "Authorization: token $MATCH_GIT_TOKEN" \
-          https://api.github.com/repos/araksia/formypet-ios-certificates)
-        echo "GitHub API HTTP $code"
-        test "$code" = "200"
+          set -e
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token $MATCH_GIT_TOKEN" \
+            https://api.github.com/repos/araksia/formypet-ios-certificates)
+          echo "GitHub API HTTP $code"
+          test "$code" = "200"
 
       - name: Check git access (literal URL, no secrets printed)
         env:
-        MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
+          MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
         run: |
-        set -e
-        AUTH=$(printf "x-access-token:%s" "$MATCH_GIT_TOKEN" | base64 | tr -d '\n')
-        git -c "http.extraheader=Authorization: Basic ${AUTH}" \
-        ls-remote "https://github.com/araksia/formypet-ios-certificates.git" -h
+          set -e
+          AUTH=$(printf "x-access-token:%s" "$MATCH_GIT_TOKEN" | base64 | tr -d '\n')
+          git -c "http.extraheader=Authorization: Basic ${AUTH}" \
+            ls-remote "https://github.com/araksia/formypet-ios-certificates.git" -h
 
       # Git check με Basic header (χωρίς να τυπώσουμε το token)
       - name: Debug Match Git Access (no secrets printed)
