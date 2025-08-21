@@ -18,7 +18,7 @@ platform :ios do
 	  storage_mode: "git",
 	  git_url: ENV["MATCH_GIT_URL"],
 	  git_branch: "master",             # βάλε "master" αν το repo σου έχει master
-      git_basic_authorization: Base64.strict_encode64("#{ENV["GITHUB_USERNAME"]}:#{ENV["MATCH_GIT_TOKEN"]}"),
+      git_basic_authorization: Base64.strict_encode64("#{ENV["TGITHUB_USERNAME"]}:#{ENV["MATCH_GIT_TOKEN"]}"),
 	  team_id: ENV["APPLE_TEAM_ID"],
 	  keychain_password: ENV["KEYCHAIN_PASSWORD"],
 	  keychain_name: "build.keychain"
