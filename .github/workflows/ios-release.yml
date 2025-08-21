@@ -25,36 +25,24 @@ jobs:
       - name: Build Web Assets
         run: npm run build
 
-      # === Skip pods κατά το cap sync (και "fake" pod για παν ενδεχόμενο) ===
+      # ΜΟΝΟ sync χωρίς pods
       - name: Sync Capacitor iOS (skip pods)
-        run: |
-          mkdir -p fakebin
-          printf '#!/usr/bin/env bash\necho "pod disabled during sync"\n' > fakebin/pod
-          chmod +x fakebin/pod
-          PATH="$(pwd)/fakebin:$PATH" CAPACITOR_SKIP_POD_INSTALL=1 npx cap sync ios
+        env:
+          CAPACITOR_SKIP_POD_INSTALL: '1'
+        run: npx cap sync ios
 
-      # === Ruby / Bundler για fastlane ===
+      # Ruby μόνο για fastlane (δεν βάζουμε working-directory σε uses)
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-          bundler: '2.5.14'
           bundler-cache: false
-        working-directory: ios/App
-
-      - name: Prepare Bundler (add platform & install)
-        working-directory: ios/App
-        run: |
-          # Προσθέτουμε το arm64 macOS platform ώστε να μην "γκρινιάζει" το lockfile
-          bundle lock --add-platform arm64-darwin-23 || true
-          bundle install --jobs 4
 
       - name: Select Xcode version
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '15.2'
 
-      # === Keychain για code signing ===
       - name: Setup Keychain
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
@@ -65,54 +53,29 @@ jobs:
           security set-keychain-settings -t 3600 -l build.keychain
           security list-keychains -d user -s build.keychain
 
-      # === Εξασφάλιση του deployment target για Pods (>=13.0) πριν τα pods ===
-      - name: Force iOS Deployment Target for Pods (13.0)
+      # Εγκατάσταση CocoaPods στη σωστή Ruby
+      - name: Install CocoaPods gem
+        run: gem install cocoapods -N
+
+      # Pods για το iOS project
+      - name: Install pods
         working-directory: ios/App
-        run: |
-          if ! grep -q "platform :ios" Podfile; then
-            sed -i.bak "1s/^/platform :ios, '13.0'\n/" Podfile
-          else
-            sed -i.bak "s/platform :ios, *'[^']*'/platform :ios, '13.0'/" Podfile
-          fi
+        run: pod install --repo-update
 
-          if ! grep -q "post_install do |installer|" Podfile; then
-            cat >> Podfile <<'RUBY'
-
-          post_install do |installer|
-            installer.pods_project.targets.each do |t|
-              t.build_configurations.each do |c|
-                if c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_s.to_f < 13.0
-                  c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
-                end
-              end
-            end
-          end
-          RUBY
-          fi
-
-      # === ΕΓΚΑΤΑΣΤΑΣΗ COCOAPODS & POD INSTALL (εκτός sync) ===
-      - name: Install CocoaPods
-        working-directory: ios/App
-        run: |
-          gem install cocoapods -N
-          pod repo update
-          pod install --repo-update
-
-      # === Build & Upload με fastlane ===
-      - name: Build & Release with Fastlane
+      # Fastlane (bundle install + release)
+      - name: Build & Upload with Fastlane
         working-directory: ios/App
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
-
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
           APPLE_ID_EMAIL: ${{ secrets.APPLE_ID_EMAIL }}
         run: |
+          bundle install
           bundle exec fastlane release --verbose
