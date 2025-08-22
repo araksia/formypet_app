@@ -25,16 +25,15 @@ platform :ios do
 
     gym(
       scheme: "App",
+      workspace: "../App.xcworkspace", # <-- Η ΣΗΜΑΝΤΙΚΗ ΠΡΟΣΘΗΚΗ
       configuration: "Release",
       export_method: "app-store",
       clean: true,
-      # ΜΟΝΟ για το app bundle id – ΟΧΙ για Pods
       export_options: {
         provisioningProfiles: {
           ENV['APPLE_APP_ID'] => "match AppStore #{ENV['APPLE_APP_ID']}"
         }
       }
-      # Μην περάσεις xcargs με CODE_SIGN_* ή PROVISIONING_PROFILE_SPECIFIER
     )
 
     upload_to_testflight(
