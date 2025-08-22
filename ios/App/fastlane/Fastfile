@@ -1,8 +1,11 @@
+# fastlane/Fastfile
+
 default_platform(:ios)
 
 platform :ios do
   desc "Build & upload to TestFlight"
   lane :release do
+    # 1) App Store Connect API key από τα secrets
     app_store_connect_api_key(
       key_id: ENV['APP_STORE_CONNECT_API_KEY_ID'],
       issuer_id: ENV['APP_STORE_CONNECT_API_ISSUER_ID'],
@@ -10,14 +13,18 @@ platform :ios do
       is_key_content_base64: false
     )
 
-    # Χρησιμοποίησε τον login keychain του runner
-    match(
+    # 2) Εγκατάσταση certs/profiles με match στον login keychain του runner
+    #    (Αν έχεις SSH, πέρνα MATCH_GIT_URL=git@github.com:<OWNER>/<REPO>.git στο workflow)
+    match_params = {
       type: "appstore",
       readonly: true,
       keychain_name: "login.keychain-db"
-    )
+    }
+    match_params[:git_url]    = ENV["MATCH_GIT_URL"]     if ENV["MATCH_GIT_URL"].to_s.length > 0
+    match_params[:git_branch] = ENV["MATCH_GIT_BRANCH"]  if ENV["MATCH_GIT_BRANCH"].to_s.length > 0
+    match(**match_params)
 
-    # ⬇️ ΔΗΛΩΣΕ ΡΗΤΑ project + target + team
+    # 3) Δηλώνουμε ρητά το Team & ανοίγουμε Automatic signing στο target "App" ΜΟΝΟ
     update_project_team(
       path: "App.xcodeproj",
       teamid: ENV["APPLE_TEAM_ID"],
@@ -31,15 +38,19 @@ platform :ios do
       targets: ["App"]
     )
 
-    # Build (το workspace είναι μέσα στο ios/App)
+    # 4) Build/Archive (τρέχεις το fastlane από τον φάκελο ios/App)
     gym(
       scheme: "App",
-      workspace: "App.xcworkspace",   # ή απλά αφαίρεσέ το και θα το βρει μόνο του
+      workspace: "App.xcworkspace",   # υπάρχει μέσα στον ίδιο φάκελο
       configuration: "Release",
       export_method: "app-store",
-      export_options: { signingStyle: "automatic" }
+      export_options: {
+        signingStyle: "automatic"     # να ΜΗΝ δέσει provisioning στα Pods
+      }
+      # αν χρειαστεί: xcargs: "-allowProvisioningUpdates"
     )
 
+    # 5) Upload στο TestFlight
     upload_to_testflight(
       app_identifier: ENV['APPLE_APP_ID'],
       skip_waiting_for_build_processing: true
