@@ -24,7 +24,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 2) Επιλογή Xcode (ίδια έκδοση με τα Pods σου)
+      # 2) Επιλογή Xcode
       - name: Select Xcode 15.4
         run: sudo xcode-select -s /Applications/Xcode_15.4.app
 
@@ -40,8 +40,7 @@ jobs:
         run: |
           bundle install --jobs 4 --retry 3
           
-      # (μετά το Checkout και το Select Xcode)
-      # Node.js για Capacitor/JS dependencies
+      # Node.js για Capacitor/JS
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -58,7 +57,6 @@ jobs:
             npm install
           fi
 
-
       - name: Build web assets (create ./dist)
         run: npm run build
           
@@ -67,7 +65,6 @@ jobs:
         env:
           CAPACITOR_SKIP_POD_INSTALL: '1'
         run: npx cap sync ios
-
 
       # 4) CocoaPods
       - name: Install CocoaPods
@@ -81,7 +78,7 @@ jobs:
           pod repo update
           bundle exec pod install --repo-update || pod install --repo-update
 
-      # 5) Αν δεν υπάρχει shared scheme, αντιγράφουμε πιθανό user scheme σε shared (workaround για CI)
+      # 5) Αν δεν υπάρχει shared scheme, αντιγράφουμε πιθανό user scheme σε shared
       - name: Ensure shared scheme exists
         working-directory: ios/App
         run: |
@@ -97,7 +94,7 @@ jobs:
             echo "No user schemes to copy (if archive fails, share the 'App' scheme locally and commit)."
           fi
 
-      # 6) Γρήγορος έλεγχος workspace & signing (δεν μπλοκάρει το build)
+      # 6) Γρήγορος έλεγχος (δεν μπλοκάρει)
       - name: Sanity check workspace & signing
         run: |
           ls -la ios/App
@@ -106,27 +103,43 @@ jobs:
             -workspace ios/App/App.xcworkspace \
             -scheme App | egrep 'PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER|IPHONEOS_DEPLOYMENT_TARGET' || true
 
-      # 7) SSH key για το match repo (deploy key)
+      # 7) SSH για το match repo (deploy key)
       - name: Start ssh-agent (for match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
+
+      - name: Add github.com to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
 
       - name: Configure Git for match
         run: |
           git config --global user.email "ci@github.actions"
           git config --global user.name "GitHub Actions"
 
+      # (προαιρετικό) Έλεγχος πρόσβασης στο certs repo
+      - name: Check access to match repo
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+        run: git ls-remote "$MATCH_GIT_URL" -h
+
       # 8) Build & Release μέσω fastlane (lane: ios release)
       - name: Build & Release with fastlane
         working-directory: ios/App
         env:
+          # match (SSH + branch master)
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}       # π.χ. git@github.com:araksia/formypet-ios-certificates.git
+          MATCH_GIT_BRANCH: master
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          ASC_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+
+          # App Store Connect API key (το .p8 περιεχόμενο σε αυτό το secret)
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+
+          # Team & bundle id που διαβάζει ο Fastfile
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
         run: bundle exec fastlane ios release
