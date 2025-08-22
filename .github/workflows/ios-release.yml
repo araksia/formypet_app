@@ -110,7 +110,7 @@ jobs:
       - name: Start ssh-agent (for match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.MATCH_DEPLOY_KEY }}
+          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
 
       - name: Configure Git for match
         run: |
