@@ -1,52 +1,54 @@
-lane :release do
-  # 1) App Store Connect API key
-  api_key = app_store_connect_api_key(
-    key_id:     ENV['APP_STORE_CONNECT_API_KEY_ID'],
-    issuer_id:  ENV['APP_STORE_CONNECT_API_ISSUER_ID'],
-    key_content: ENV['APP_STORE_CONNECT_API_KEY_CONTENT']
-  )
+# fastlane/Fastfile
 
-  # 1b) match appstore
-  match_params = { type: "appstore", readonly: true, api_key: api_key }
-  match(**match_params)
+default_platform(:ios)
 
-  # 2) >>> ΕΔΩ βάζεις το Automatic signing ΠΡΙΝ το gym <<<
-  update_project_team(
-    path: "App.xcodeproj",
-    teamid: ENV["APPLE_TEAM_ID"],
-    targets: ["App"]
-  )
+platform :ios do
+  desc "Build & upload to TestFlight"
+  lane :release do
+    # 1) App Store Connect API key (από secrets)
+    api_key = app_store_connect_api_key(
+      key_id:     ENV['APP_STORE_CONNECT_API_KEY_ID'],
+      issuer_id:  ENV['APP_STORE_CONNECT_API_ISSUER_ID'],
+      key_content: ENV['APP_STORE_CONNECT_API_KEY_CONTENT']
+    )
 
-  automatic_code_signing(
-    path: "App.xcodeproj",
-    use_automatic_signing: true,
-    team_id: ENV["APPLE_TEAM_ID"],
-    targets: ["App"]
-  )
+    # 2) match (App Store) με API key
+    match(
+      type: "appstore",
+      readonly: true,
+      api_key: api_key
+    )
 
-  # (προαιρετικό, αν έχει μείνει manual provisioning στο project)
-  # update_project_provisioning(
-  #   xcodeproj: "App.xcodeproj",
-  #   target_filter: "App",
-  #   build_configuration: "Release",
-  #   profile: nil,
-  #   code_signing_identity: "Apple Distribution"
-  # )
+    # 3) Automatic signing ΠΡΙΝ το gym
+    update_project_team(
+      path: "App.xcodeproj",
+      teamid: ENV['APPLE_TEAM_ID'],
+      targets: ["App"]
+    )
 
-  # 4) Build/Archive
-  gym(
-    scheme: "App",
-    workspace: "App.xcworkspace",
-    configuration: "Release",
-    clean: true,
-    export_method: "app-store",
-    xcargs: "-allowProvisioningUpdates CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
-    export_options: { signingStyle: "automatic" }
-  )
+    automatic_code_signing(
+      path: "App.xcodeproj",
+      use_automatic_signing: true,
+      team_id: ENV['APPLE_TEAM_ID'],
+      targets: ["App"]
+    )
 
-  # 5) Upload
-  upload_to_testflight(
-    app_identifier: ENV['APPLE_APP_ID'],
-    skip_waiting_for_build_processing: true
-  )
+    # 4) Build/Archive
+    gym(
+      scheme: "App",
+      workspace: "App.xcworkspace",
+      configuration: "Release",
+      clean: true,
+      export_method: "app-store",
+      xcargs: "-allowProvisioningUpdates CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
+      export_options: { signingStyle: "automatic" }
+      # disable_xcpretty: true   # προαιρετικό για πιο «ωμές» stdout γραμμές
+    )
+
+    # 5) Upload στο TestFlight
+    upload_to_testflight(
+      app_identifier: ENV['APPLE_APP_ID'], # = bundle identifier (π.χ. com.company.app)
+      skip_waiting_for_build_processing: true
+    )
+  end
 end
