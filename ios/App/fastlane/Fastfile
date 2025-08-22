@@ -6,13 +6,11 @@ platform :ios do
   desc "Build & upload to TestFlight"
   lane :release do
     # 1) App Store Connect API key από τα secrets
-    app_store_connect_api_key(
-      key_id: ENV['APP_STORE_CONNECT_API_KEY_ID'],
-      issuer_id: ENV['APP_STORE_CONNECT_API_ISSUER_ID'],
-      key_content: ENV['APP_STORE_CONNECT_API_KEY'],
-      is_key_content_base64: false
+    api_key = app_store_connect_api_key(
+      key_id:     ENV['APP_STORE_CONNECT_API_KEY_ID'],
+      issuer_id:  ENV['APP_STORE_CONNECT_API_ISSUER_ID'],
+      key_content: ENV['APP_STORE_CONNECT_API_KEY_CONTENT'] # ή key_filepath: ...
     )
-
     # 2) Εγκατάσταση certs/profiles με match στον login keychain του runner
     #    (Αν έχεις SSH, πέρνα MATCH_GIT_URL=git@github.com:<OWNER>/<REPO>.git στο workflow)
     match_params = {
