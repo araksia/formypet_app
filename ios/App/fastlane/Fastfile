@@ -23,17 +23,10 @@ platform :ios do
     )
 
     gym(
-      scheme: "App",
-      workspace: "../App.xcworkspace", # <-- Η ΣΗΜΑΝΤΙΚΗ ΠΡΟΣΘΗΚΗ
-      configuration: "Release",
-      export_method: "app-store",
-      clean: true,
-      export_options: {
-        provisioningProfiles: {
-          ENV['APPLE_APP_ID'] => "match AppStore #{ENV['APPLE_APP_ID']}"
-        }
-      }
-    )
+	  scheme: "App",
+	  configuration: "Release",
+	  export_method: "app-store"
+	)
 
     upload_to_testflight(
       app_identifier: ENV['APPLE_APP_ID'],
