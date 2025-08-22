@@ -13,8 +13,7 @@ platform :ios do
       type: "appstore",
       readonly: true,
       git_url: ENV["MATCH_GIT_URL"],
-      keychain_name: "build.keychain",
-      keychain_password: ENV["KEYCHAIN_PASSWORD"]
+      keychain_name: "login.keychain-db",
     )
 
     # Το Xcode θα υπογράψει αυτόματα τα Pods
