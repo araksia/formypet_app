@@ -25,25 +25,24 @@ platform :ios do
       teamid: ENV['APPLE_TEAM_ID'],
       targets: ["App"]
     )
+	# 4) Build/Archive με ρητή δήλωση του profile από το match
+	profile_name = "match AppStore #{ENV['APPLE_APP_ID']}"  # fastlane standard name
+	profiles_map = { ENV['APPLE_APP_ID'] => profile_name }
 
-    automatic_code_signing(
-      path: "App.xcodeproj",
-      use_automatic_signing: true,
-      team_id: ENV['APPLE_TEAM_ID'],
-      targets: ["App"]
-    )
 
     # 4) Build/Archive
     gym(
-      scheme: "App",
-      workspace: "App.xcworkspace",
-      configuration: "Release",
-      clean: true,
-      export_method: "app-store",
-      xcargs: "-allowProvisioningUpdates CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
-      export_options: { signingStyle: "automatic" }
-      # disable_xcpretty: true   # προαιρετικό για πιο «ωμές» stdout γραμμές
-    )
+	  scheme: "App",
+	  workspace: "App.xcworkspace",
+	  configuration: "Release",
+	  clean: true,
+	  export_method: "app-store",
+	  xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
+	  export_options: {
+		signingStyle: "manual",
+		provisioningProfiles: profiles_map
+	  }
+	)
 
     # 5) Upload στο TestFlight
     upload_to_testflight(
