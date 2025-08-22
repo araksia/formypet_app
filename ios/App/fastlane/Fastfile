@@ -1,64 +1,52 @@
-# fastlane/Fastfile
+lane :release do
+  # 1) App Store Connect API key
+  api_key = app_store_connect_api_key(
+    key_id:     ENV['APP_STORE_CONNECT_API_KEY_ID'],
+    issuer_id:  ENV['APP_STORE_CONNECT_API_ISSUER_ID'],
+    key_content: ENV['APP_STORE_CONNECT_API_KEY_CONTENT']
+  )
 
-default_platform(:ios)
+  # 2) Προφίλ/Cert με match (appstore)
+  match(
+    type: "appstore",
+    readonly: true,
+    api_key: api_key,
+    # προαιρετικό αλλά καθαρό: φτιάχνει προσωρινό keychain
+    keychain_name: "fastlane_tmp.keychain",
+    keychain_password: ENV['MATCH_KEYCHAIN_PASSWORD']
+  )
 
-platform :ios do
-  desc "Build & upload to TestFlight"
-  lane :release do
-    # 1) App Store Connect API key (από secrets)
-    api_key = app_store_connect_api_key(
-      key_id:     ENV['APP_STORE_CONNECT_API_KEY_ID'],
-      issuer_id:  ENV['APP_STORE_CONNECT_API_ISSUER_ID'],
-      key_content: ENV['APP_STORE_CONNECT_API_KEY_CONTENT']
-    )
+  # Παίρνουμε τον ακριβή χάρτη που έφτιαξε το match (με το πλήρες όνομα)
+  profiles_map = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]
+  profile_name = profiles_map.values.first # π.χ. "match AppStore com.xxx.yyy 1755..."
 
-    # 2) match (App Store) με API key
-    match(
-      type: "appstore",
-      readonly: true,
-      api_key: api_key
-    )
+  # 3) Manual signing στο target "App" ΚΑΙ δέσιμο με το provisioning profile
+  update_code_signing_settings(
+    path: "App.xcodeproj",
+    use_automatic_signing: false,
+    team_id: ENV['APPLE_TEAM_ID'],
+    targets: ["App"],
+    profile_name: profile_name,
+    code_sign_identity: "Apple Distribution"
+  )
 
-    # 3) Automatic signing ΠΡΙΝ το gym
-    update_project_team(
-	  path: "App.xcodeproj",
-	  teamid: ENV['APPLE_TEAM_ID'],
-	  targets: ["App"]
-	)
+  # 4) Build/Archive με το ίδιο specifier και manual signing
+  gym(
+    scheme: "App",
+    workspace: "App.xcworkspace",
+    configuration: "Release",
+    clean: true,
+    export_method: "app-store",
+    xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']} PROVISIONING_PROFILE_SPECIFIER='#{profile_name}' CODE_SIGN_IDENTITY='Apple Distribution'",
+    export_options: {
+      signingStyle: "manual",
+      provisioningProfiles: profiles_map
+    }
+  )
 
-	automatic_code_signing(
-	  path: "App.xcodeproj",
-	  use_automatic_signing: false,   # <-- manual
-	  team_id: ENV['APPLE_TEAM_ID'],
-	  targets: ["App"]
-	)
-	
-	# 4) Build/Archive με ρητή δήλωση του profile από το match
-	profile_name = "match AppStore #{ENV['APPLE_APP_ID']}"  # fastlane standard name
-
-	# ΠΑΡΕ τον χάρτη που έδωσε το match (έχει το ακριβές profile name με timestamp)
-	profiles_map = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]
-	UI.message("Using provisioning profiles: #{profiles_map}")
-
-    # 4) Build/Archive
-	gym(
-	  scheme: "App",
-	  workspace: "App.xcworkspace",
-	  configuration: "Release",
-	  clean: true,
-	  export_method: "app-store",
-	  # Manual signing – ΔΕΝ ζητάμε να δημιουργηθούν προφίλ αυτόματα
-	  xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
-	  export_options: {
-		signingStyle: "manual",
-		provisioningProfiles: profiles_map
-	  }
-	)
-
-    # 5) Upload στο TestFlight
-    upload_to_testflight(
-      app_identifier: ENV['APPLE_APP_ID'], # = bundle identifier (π.χ. com.company.app)
-      skip_waiting_for_build_processing: true
-    )
-  end
+  # 5) Upload
+  upload_to_testflight(
+    app_identifier: ENV['APPLE_APP_ID'],
+    skip_waiting_for_build_processing: true
+  )
 end
