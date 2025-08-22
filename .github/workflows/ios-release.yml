@@ -40,7 +40,6 @@ jobs:
         run: |
           bundle install --jobs 4 --retry 3
           
-      # (μετά το Checkout και το Select Xcode)
       # Node.js για Capacitor/JS dependencies
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -58,7 +57,6 @@ jobs:
             npm install
           fi
 
-
       - name: Build web assets (create ./dist)
         run: npm run build
           
@@ -67,7 +65,6 @@ jobs:
         env:
           CAPACITOR_SKIP_POD_INSTALL: '1'
         run: npx cap sync ios
-
 
       # 4) CocoaPods
       - name: Install CocoaPods
@@ -112,6 +109,11 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
 
+      - name: Allow github.com host
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
       - name: Configure Git for match
         run: |
           git config --global user.email "ci@github.actions"
@@ -121,12 +123,17 @@ jobs:
       - name: Build & Release with fastlane
         working-directory: ios/App
         env:
+          # Match repo (SSH + branch)
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          ASC_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.APPSTORE_PRIVATE_KEY }}
-          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          MATCH_GIT_BRANCH: main
+
+          # App Store Connect API (ονόματα που διαβάζει ο Fastfile σου)
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+
+          # Apple Team / App Id (αν τα χρειάζεται ο Fastfile σου)
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
         run: bundle exec fastlane ios release
