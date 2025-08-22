@@ -32,7 +32,15 @@ jobs:
 
       - name: Install npm dependencies
         run: npm ci
-
+      
+      - name: Sanity check workspace & signing
+        run: |
+          ls -la ios/App
+          /usr/bin/xcodebuild -list -workspace ios/App/App.xcworkspace
+          /usr/bin/xcodebuild -showBuildSettings \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App | egrep 'PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER|IPHONEOS_DEPLOYMENT_TARGET'
+          
       - name: Build web assets
         run: npm run build
 
