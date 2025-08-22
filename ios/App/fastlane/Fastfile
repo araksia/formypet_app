@@ -18,7 +18,8 @@ platform :ios do
     match_params = {
       type: "appstore",
       readonly: true,
-      keychain_name: "login.keychain-db"
+	  api_key: api_key        # <-- εδώ περνάμε ΤΟ ΑΝΤΙΚΕΙΜΕΝΟ, όχι string
+
     }
     match_params[:git_url]    = ENV["MATCH_GIT_URL"]     if ENV["MATCH_GIT_URL"].to_s.length > 0
     match_params[:git_branch] = ENV["MATCH_GIT_BRANCH"]  if ENV["MATCH_GIT_BRANCH"].to_s.length > 0
