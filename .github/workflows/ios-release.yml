@@ -58,6 +58,10 @@ jobs:
             npm install
           fi
 
+
+      - name: Build web assets (create ./dist)
+        run: npm run build
+          
       # Συγχρονισμός Capacitor -> iOS (χωρίς pod install εδώ)
       - name: Sync Capacitor iOS (skip pods)
         env:
