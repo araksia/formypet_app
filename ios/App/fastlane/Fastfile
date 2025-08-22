@@ -41,12 +41,13 @@ platform :ios do
 	UI.message("Using provisioning profiles: #{profiles_map}")
 
     # 4) Build/Archive
-    gym(
+	gym(
 	  scheme: "App",
 	  workspace: "App.xcworkspace",
 	  configuration: "Release",
 	  clean: true,
 	  export_method: "app-store",
+	  # Manual signing – ΔΕΝ ζητάμε να δημιουργηθούν προφίλ αυτόματα
 	  xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
 	  export_options: {
 		signingStyle: "manual",
