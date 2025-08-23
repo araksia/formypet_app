@@ -1,10 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
-import { Bell, User, Users, Calendar, Heart, Clock, LogOut } from 'lucide-react';
+import { Bell, User, Users, Calendar, Heart, Clock, LogOut, Menu, Trophy, Settings, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -237,6 +244,92 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {/* Hamburger Menu */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="sm" className="p-2">
+                <Menu className="h-5 w-5 text-gray-600" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-80">
+              <SheetHeader>
+                <SheetTitle>Μενού</SheetTitle>
+              </SheetHeader>
+              <div className="mt-6 space-y-6">
+                {/* Gamification Section */}
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Gamification</h3>
+                  <div className="space-y-2">
+                    <Link 
+                      to="/achievements" 
+                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                    >
+                      <Trophy className="h-5 w-5 text-primary" />
+                      <span>Στόχοι & Επιτεύγματα</span>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Family Section */}
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Οικογένεια</h3>
+                  <div className="space-y-2">
+                    <Link 
+                      to="/family" 
+                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                    >
+                      <Users className="h-5 w-5 text-primary" />
+                      <span>Διαχείριση Οικογένειας</span>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Account Section */}
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Λογαριασμός</h3>
+                  <div className="space-y-2">
+                    <Link 
+                      to="/profile" 
+                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                    >
+                      <User className="h-5 w-5 text-primary" />
+                      <span>Προφίλ</span>
+                    </Link>
+                    <Link 
+                      to="/settings" 
+                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                    >
+                      <Settings className="h-5 w-5 text-primary" />
+                      <span>Ρυθμίσεις</span>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Legal Section */}
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Νομικά</h3>
+                  <div className="space-y-2">
+                    <Link 
+                      to="/privacy" 
+                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                    >
+                      <FileText className="h-5 w-5 text-primary" />
+                      <span>Πολιτική Απορρήτου</span>
+                    </Link>
+                    <Link 
+                      to="/terms" 
+                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                    >
+                      <FileText className="h-5 w-5 text-primary" />
+                      <span>Όροι Χρήσης</span>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          {/* Notifications */}
           {showNotifications && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -306,6 +399,7 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          {/* Profile Dropdown - Simplified */}
           {showProfile && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -321,15 +415,6 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
                 <DropdownMenuLabel>
                   {user?.email || 'Χρήστης'}
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate('/profile')}>
-                  <User className="h-4 w-4 mr-2" />
-                  Προφίλ
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/settings')}>
-                  <Clock className="h-4 w-4 mr-2" />
-                  Ρυθμίσεις
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
                   <LogOut className="h-4 w-4 mr-2" />

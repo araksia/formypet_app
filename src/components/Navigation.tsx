@@ -10,8 +10,6 @@ const Navigation = () => {
     { icon: Heart, label: 'Κατοικίδια', path: '/pets' },
     { icon: Calendar, label: 'Ημερολόγιο', path: '/calendar' },
     { icon: Euro, label: 'Έξοδα', path: '/expenses' },
-    { icon: Trophy, label: 'Στόχοι', path: '/achievements' },
-    { icon: Settings, label: 'Ρυθμίσεις', path: '/settings' },
   ];
 
   return (
