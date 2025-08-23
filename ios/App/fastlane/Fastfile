@@ -10,17 +10,18 @@ platform :ios do
       key_content: ENV['APP_STORE_CONNECT_API_KEY_CONTENT']
     )
 
-    # 2) match (appstore). Απλά άστο στο login keychain (βγάλ’ τα keychain_name/password)
-    match(type: "appstore", readonly: true, api_key: api_key)
+    # 2) match (appstore) – στο login keychain
+    match(
+      type: "appstore",
+      readonly: true,
+      api_key: api_key
+    )
 
     # 3) Πάρε τον χάρτη που έφτιαξε το match
     profiles_map = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]
-    bundle_id    = profiles_map.keys.first
-    profile_name = profiles_map[bundle_id]
+    profile_name = profiles_map.values.first
 
-    UI.message("Using profile for #{bundle_id}: #{profile_name}")
-
-    # 4) Ρητό manual signing στο target "App" + δέσιμο profile
+    # 4) Manual signing ΜΟΝΟ στο target App
     update_code_signing_settings(
       path: "App.xcodeproj",
       use_automatic_signing: false,
@@ -29,27 +30,24 @@ platform :ios do
       profile_name: profile_name,
       code_sign_identity: "Apple Distribution"
     )
-	
-	sh("security find-identity -v -p codesigning || true")
-	Dir["/Users/runner/Library/MobileDevice/Provisioning Profiles/*.mobileprovision"].each { |p| UI.message("Has profile: #{p}") }
 
-
-    # 5) Build/Archive περνώντας ΞΑΝΑ το ίδιο profile + manual
+    # 5) Build/Archive – ΧΩΡΙΣ PROVISIONING_PROFILE_SPECIFIER στα xcargs
     gym(
       scheme: "App",
       workspace: "App.xcworkspace",
       configuration: "Release",
       clean: true,
       export_method: "app-store",
-      xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']},
+      xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
       export_options: {
         signingStyle: "manual",
         provisioningProfiles: profiles_map
       }
     )
 
+    # 6) Upload
     upload_to_testflight(
-      app_identifier: bundle_id,
+      app_identifier: ENV['APPLE_APP_ID'],
       skip_waiting_for_build_processing: true
     )
   end
