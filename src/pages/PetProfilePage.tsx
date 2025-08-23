@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { ArrowLeft, Calendar, Stethoscope, Euro, Edit, Share2, PawPrint, Heart, Weight, Clock, MapPin, Camera, Upload, CalendarIcon } from 'lucide-react';
+import { ArrowLeft, Calendar, Stethoscope, Euro, Edit, Share2, PawPrint, Heart, Weight, Clock, MapPin, Camera, Upload, CalendarIcon, TrendingUp, Flame } from 'lucide-react';
 import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +19,9 @@ import { useAuth } from '@/components/AuthProvider';
 import { format, differenceInYears } from 'date-fns';
 import { el } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { HappinessMeter } from '@/components/gamification/HappinessMeter';
+import { StreakDisplay } from '@/components/gamification/StreakDisplay';
+import { useGamification } from '@/hooks/useGamification';
 
 const PetProfilePage = () => {
   const { petId } = useParams();
@@ -33,6 +36,9 @@ const PetProfilePage = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [editImage, setEditImage] = useState<string>('');
+  const [happiness, setHappiness] = useState<number>(50);
+  const [streaks, setStreaks] = useState<any[]>([]);
+  const { getPetHappiness, getPetStreaks } = useGamification();
   const [editFormData, setEditFormData] = useState({
     name: '',
     species: '',
@@ -46,8 +52,25 @@ const PetProfilePage = () => {
   useEffect(() => {
     if (petId && user) {
       fetchPetData();
+      loadGamificationData();
     }
   }, [petId, user]);
+
+  const loadGamificationData = async () => {
+    if (!petId) return;
+    
+    try {
+      const [happinessScore, petStreaks] = await Promise.all([
+        getPetHappiness(petId),
+        getPetStreaks(petId)
+      ]);
+      
+      setHappiness(happinessScore);
+      setStreaks(petStreaks);
+    } catch (error) {
+      console.error('Error loading gamification data:', error);
+    }
+  };
 
   // Check for edit query parameter and open edit dialog when pet data is loaded
   useEffect(() => {
@@ -717,6 +740,53 @@ const PetProfilePage = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Gamification Section - Happiness & Streaks */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Happiness Meter */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Επίπεδο Ευτυχίας
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex justify-center">
+              <HappinessMeter 
+                score={happiness} 
+                size="lg" 
+                showLabel={true}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Streaks Display */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Flame className="h-5 w-5" />
+                Συνεχόμενες Μέρες
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {streaks.length > 0 ? (
+                streaks.map((streak) => (
+                  <StreakDisplay
+                    key={streak.id}
+                    type={streak.streak_type}
+                    currentCount={streak.current_count}
+                    bestCount={streak.best_count}
+                    isActive={streak.is_active}
+                  />
+                ))
+              ) : (
+                <p className="text-center text-muted-foreground py-4">
+                  Δημιουργήστε το πρώτο event για να ξεκινήσετε τα streaks!
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Recent Events */}
         <Card>

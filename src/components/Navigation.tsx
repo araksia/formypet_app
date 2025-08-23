@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Heart, Calendar, Settings, Plus, Euro } from 'lucide-react';
+import { Home, Heart, Calendar, Settings, Plus, Euro, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Navigation = () => {
@@ -10,6 +10,7 @@ const Navigation = () => {
     { icon: Heart, label: 'Κατοικίδια', path: '/pets' },
     { icon: Calendar, label: 'Ημερολόγιο', path: '/calendar' },
     { icon: Euro, label: 'Έξοδα', path: '/expenses' },
+    { icon: Trophy, label: 'Στόχοι', path: '/achievements' },
     { icon: Settings, label: 'Ρυθμίσεις', path: '/settings' },
   ];
 

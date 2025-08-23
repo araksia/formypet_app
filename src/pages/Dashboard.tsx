@@ -3,16 +3,20 @@ import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Heart, Calendar, Euro, Plus, PawPrint, Star, Clock, User, TrendingUp, Award, MapPin, ChevronRight, Users, Activity, FileText, Stethoscope, Pill, Dog } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Heart, Calendar, Euro, Plus, PawPrint, Star, Clock, User, TrendingUp, Award, MapPin, ChevronRight, Users, Activity, FileText, Stethoscope, Pill, Dog, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { format, isAfter, isBefore, addDays } from 'date-fns';
 import { el } from 'date-fns/locale';
+import { AchievementBadge } from '@/components/gamification/AchievementBadge';
+import { useGamification } from '@/hooks/useGamification';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { userAchievements, achievements, loading: achievementsLoading } = useGamification();
   const [stats, setStats] = useState({
     pets: 0,
     medicalRecords: 0,
@@ -290,6 +294,55 @@ const Dashboard = () => {
               );
             })}
           </div>
+        </div>
+
+        {/* Recent Achievements */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-yellow-600" />
+              Πρόσφατα Επιτεύγματα
+            </h3>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-primary"
+              onClick={() => navigate('/achievements')}
+            >
+              Όλα <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+          {achievementsLoading ? (
+            <div className="text-center py-4 text-gray-500">Φόρτωση...</div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {userAchievements
+                .filter(ua => ua.is_completed)
+                .slice(0, 4)
+                .map((userAchievement) => {
+                  const achievement = achievements.find(a => a.id === userAchievement.achievement_id);
+                  return achievement ? (
+                    <AchievementBadge
+                      key={userAchievement.id}
+                      title={achievement.title}
+                      description={achievement.description}
+                      icon={achievement.icon}
+                      color={achievement.badge_color}
+                      isCompleted={true}
+                      size="sm"
+                    />
+                  ) : null;
+                })
+              }
+              {userAchievements.filter(ua => ua.is_completed).length === 0 && (
+                <div className="col-span-2 text-center py-4 text-gray-500">
+                  <Trophy className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Κανένα επίτευγμα ακόμα</p>
+                  <p className="text-xs">Ξεκινήστε να φροντίζετε τα κατοικίδιά σας!</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Upcoming Events */}
