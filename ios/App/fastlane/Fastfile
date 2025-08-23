@@ -15,7 +15,7 @@ platform :ios do
       type: "appstore",
       readonly: true,
       api_key: api_key,
-      keychain_name: "fastlane_tmp.keychain",
+      keychain_name: "fastlane_tmp",                    # <— ΧΩΡΙΣ .keychain
       keychain_password: ENV['MATCH_KEYCHAIN_PASSWORD']
     )
 

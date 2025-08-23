@@ -138,8 +138,8 @@ jobs:
         env:
           # match (SSH + branch master)
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}       # π.χ. git@github.com:araksia/formypet-ios-certificates.git
-          MATCH_GIT_BRANCH: master
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BRANCH: main
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}   # <—
 
           # App Store Connect API key (το .p8 περιεχόμενο σε αυτό το secret)
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
