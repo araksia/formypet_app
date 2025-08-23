@@ -16,6 +16,8 @@ jobs:
       BUNDLE_PATH: vendor/bundle
       LC_ALL: en_US.UTF-8
       LANG: en_US.UTF-8
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}          # << ΕΔΩ στο job
+
 
     steps:
       # 1) Checkout
@@ -140,6 +142,7 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}       # π.χ. git@github.com:araksia/formypet-ios-certificates.git
           MATCH_GIT_BRANCH: main
           MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}   # <—
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }} 
 
           # App Store Connect API key (το .p8 περιεχόμενο σε αυτό το secret)
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
