@@ -136,7 +136,7 @@ jobs:
       - name: Build & Release with fastlane
         working-directory: ios/App
         env:
-          # match (SSH + branch master)
+          # match (SSH + branch main)
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}       # π.χ. git@github.com:araksia/formypet-ios-certificates.git
           MATCH_GIT_BRANCH: main
           MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}   # <—
