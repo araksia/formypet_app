@@ -150,4 +150,4 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
           MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}   # <— ΝΕΟ (βάλε ένα random string στα secrets)
-        run: bundle exec fastlane ios release
+        run: bundle exec fastlane release
