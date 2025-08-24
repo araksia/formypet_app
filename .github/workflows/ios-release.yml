@@ -143,6 +143,8 @@ jobs:
           MATCH_GIT_BRANCH: main
           MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}   # <—
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }} 
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}   # <— ΝΕΟ
+
 
           # App Store Connect API key (το .p8 περιεχόμενο σε αυτό το secret)
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}

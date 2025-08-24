@@ -3,25 +3,36 @@ default_platform(:ios)
 platform :ios do
   desc "Build & upload to TestFlight"
   lane :release do
-    # 1) App Store Connect API key
+    # 1) App Store Connect API key (από secrets)
     api_key = app_store_connect_api_key(
       key_id:     ENV['APP_STORE_CONNECT_API_KEY_ID'],
       issuer_id:  ENV['APP_STORE_CONNECT_API_ISSUER_ID'],
       key_content: ENV['APP_STORE_CONNECT_API_KEY_CONTENT']
     )
 
-    # 2) match (appstore) – στο login keychain
+    # 2) Δημιουργία δικού μας keychain στο runner
+    create_keychain(
+      name: 'build.keychain',
+      password: ENV['KEYCHAIN_PASSWORD'],
+      default_keychain: true,
+      unlock: true,
+      timeout: 3600
+    )
+
+    # 3) match (appstore) - εγκατάσταση στο build.keychain
     match(
       type: "appstore",
       readonly: true,
-      api_key: api_key
+      api_key: api_key,
+      keychain_name: "build.keychain",
+      keychain_password: ENV['KEYCHAIN_PASSWORD']
     )
 
-    # 3) Πάρε τον χάρτη που έφτιαξε το match
+    # 4) Παίρνουμε τον χάρτη profile -> bundle id
     profiles_map = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]
     profile_name = profiles_map.values.first
 
-    # 4) Manual signing ΜΟΝΟ στο target App
+    # 5) ΜΟΝΟ το target "App" σε Manual με συγκεκριμένο profile/identity
     update_code_signing_settings(
       path: "App.xcodeproj",
       use_automatic_signing: false,
@@ -31,24 +42,28 @@ platform :ios do
       code_sign_identity: "Apple Distribution"
     )
 
-    # 5) Build/Archive – ΧΩΡΙΣ PROVISIONING_PROFILE_SPECIFIER στα xcargs
+    # 6) Build/Archive - μην περνάς PROVISIONING_PROFILE_SPECIFIER στους Pods!
     gym(
       scheme: "App",
       workspace: "App.xcworkspace",
       configuration: "Release",
       clean: true,
       export_method: "app-store",
-      xcargs: "CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
+      # Εξαναγκάζουμε το codesign να χρησιμοποιήσει το νέο keychain
+      xcargs: 'OTHER_CODE_SIGN_FLAGS="--keychain build.keychain"',
       export_options: {
         signingStyle: "manual",
         provisioningProfiles: profiles_map
       }
     )
 
-    # 6) Upload
+    # 7) Upload στο TestFlight
     upload_to_testflight(
       app_identifier: ENV['APPLE_APP_ID'],
       skip_waiting_for_build_processing: true
     )
+
+    # (προαιρετικό) καθάρισε το keychain στο τέλος
+    delete_keychain(name: 'build.keychain')
   end
 end
