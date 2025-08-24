@@ -29,15 +29,15 @@ export const AchievementBadge: React.FC<AchievementBadgeProps> = ({
   const IconComponent = (Icons as any)[icon] as LucideIcon || Icons.Star;
 
   const sizeClasses = {
-    sm: 'p-3',
-    md: 'p-4',
-    lg: 'p-6'
+    sm: 'p-2',
+    md: 'p-3 sm:p-4',
+    lg: 'p-4 sm:p-6'
   };
 
   const iconSizes = {
-    sm: 'h-6 w-6',
-    md: 'h-8 w-8',
-    lg: 'h-10 w-10'
+    sm: 'h-5 w-5',
+    md: 'h-6 w-6 sm:h-8 sm:w-8',
+    lg: 'h-8 w-8 sm:h-10 sm:w-10'
   };
 
   const getColorClasses = (color: string, completed: boolean) => {
@@ -71,10 +71,10 @@ export const AchievementBadge: React.FC<AchievementBadgeProps> = ({
         
         {/* Title and Description */}
         <div className="text-center">
-          <h4 className="font-semibold text-sm leading-tight">
+          <h4 className="font-semibold text-xs sm:text-sm leading-tight">
             {title}
           </h4>
-          <p className="text-xs opacity-80 mt-1">
+          <p className="text-[10px] sm:text-xs opacity-80 mt-1 line-clamp-2">
             {description}
           </p>
         </div>
@@ -96,7 +96,7 @@ export const AchievementBadge: React.FC<AchievementBadgeProps> = ({
 
         {/* Completed Badge */}
         {isCompleted && (
-          <Badge variant="default" className="text-xs">
+          <Badge variant="default" className="text-[10px] sm:text-xs px-2 py-1">
             ✨ Ολοκληρωμένο
           </Badge>
         )}

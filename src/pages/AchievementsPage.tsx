@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Trophy, Award, Target, Star, Filter } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Trophy, Award, Target, Star, Filter, Dog } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AchievementBadge } from '@/components/gamification/AchievementBadge';
 import { useGamification } from '@/hooks/useGamification';
 import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/integrations/supabase/client';
 
 const AchievementsPage = () => {
   const { 
@@ -18,6 +19,21 @@ const AchievementsPage = () => {
   } = useGamification();
   
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedPet, setSelectedPet] = useState<string>('all');
+  const [pets, setPets] = useState<any[]>([]);
+  
+  // Load user pets
+  useEffect(() => {
+    const loadPets = async () => {
+      try {
+        const { data } = await supabase.from('pets').select('id, name').order('name');
+        setPets(data || []);
+      } catch (error) {
+        console.error('Error loading pets:', error);
+      }
+    };
+    loadPets();
+  }, []);
 
   const categories = [
     { id: 'all', label: 'Όλα', icon: Star },
@@ -29,9 +45,18 @@ const AchievementsPage = () => {
     { id: 'happiness', label: 'Ευτυχία', icon: Star }
   ];
 
-  const filteredAchievements = achievements.filter(achievement => 
-    selectedCategory === 'all' || achievement.category === selectedCategory
-  );
+  const filteredAchievements = achievements.filter(achievement => {
+    const categoryMatch = selectedCategory === 'all' || achievement.category === selectedCategory;
+    
+    if (selectedPet === 'all') return categoryMatch;
+    
+    // Check if this achievement has user progress for the selected pet
+    const userAchievement = userAchievements.find(ua => 
+      ua.achievement_id === achievement.id && ua.pet_id === selectedPet
+    );
+    
+    return categoryMatch && userAchievement;
+  });
 
   const completedCount = achievements.filter(isAchievementCompleted).length;
   const totalCount = achievements.length;
@@ -112,36 +137,76 @@ const AchievementsPage = () => {
 
       {/* Categories and Achievements */}
       <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7">
-          {categories.map(category => {
-            const Icon = category.icon;
-            return (
-              <TabsTrigger 
-                key={category.id} 
-                value={category.id}
-                className="flex items-center space-x-1 text-xs"
+        <div className="flex flex-col space-y-4">
+          {/* Pet Filter */}
+          {pets.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={selectedPet === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedPet('all')}
+                className="text-xs"
               >
-                <Icon className="h-3 w-3" />
-                <span className="hidden sm:inline">{category.label}</span>
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
+                <Star className="h-3 w-3 mr-1" />
+                Όλα τα ζώα
+              </Button>
+              {pets.map(pet => (
+                <Button
+                  key={pet.id}
+                  variant={selectedPet === pet.id ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedPet(pet.id)}
+                  className="text-xs"
+                >
+                  <Dog className="h-3 w-3 mr-1" />
+                  {pet.name}
+                </Button>
+              ))}
+            </div>
+          )}
+          
+          {/* Category Tabs - Mobile Responsive */}
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
+            {categories.map(category => {
+              const Icon = category.icon;
+              return (
+                <TabsTrigger 
+                  key={category.id} 
+                  value={category.id}
+                  className="flex flex-col sm:flex-row items-center justify-center sm:space-x-1 text-xs p-2"
+                >
+                  <Icon className="h-3 w-3 mb-1 sm:mb-0" />
+                  <span className="text-[10px] sm:text-xs">{category.label}</span>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </div>
 
         <TabsContent value={selectedCategory} className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredAchievements.map(achievement => (
-              <AchievementBadge
-                key={achievement.id}
-                title={achievement.title}
-                description={achievement.description}
-                icon={achievement.icon}
-                color={achievement.badge_color}
-                isCompleted={isAchievementCompleted(achievement)}
-                progress={getAchievementProgress(achievement)}
-                size="md"
-              />
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredAchievements.map(achievement => {
+              const userAchievement = selectedPet === 'all' 
+                ? userAchievements.find(ua => ua.achievement_id === achievement.id)
+                : userAchievements.find(ua => ua.achievement_id === achievement.id && ua.pet_id === selectedPet);
+              
+              const petName = userAchievement?.pet_id 
+                ? pets.find(p => p.id === userAchievement.pet_id)?.name 
+                : null;
+
+              return (
+                <AchievementBadge
+                  key={`${achievement.id}-${selectedPet}`}
+                  title={achievement.title}
+                  description={petName ? `${achievement.description} (${petName})` : achievement.description}
+                  icon={achievement.icon}
+                  color={achievement.badge_color}
+                  isCompleted={userAchievement?.is_completed || false}
+                  progress={userAchievement?.progress || 0}
+                  size="md"
+                />
+              );
+            })}
           </div>
 
           {filteredAchievements.length === 0 && (
