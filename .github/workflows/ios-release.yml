@@ -161,4 +161,5 @@ jobs:
           # Team & bundle id που διαβάζει ο Fastfile
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
+          BUILD_NUMBER: ${{ github.run_number }}   # <-- προσθήκη
         run: bundle exec fastlane release
