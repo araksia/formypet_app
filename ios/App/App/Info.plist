@@ -45,5 +45,16 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<!-- Εάν επιλέγεις φωτογραφία από το Photo Library -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Χρειαζόμαστε πρόσβαση στη βιβλιοθήκη φωτογραφιών για να επιλέξεις φωτογραφίες του κατοικιδίου σου.</string>
+
+	<!-- Εάν αποθηκεύεις/εξάγεις εικόνες στη βιβλιοθήκη -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Χρησιμοποιούμε αυτήν την άδεια για να αποθηκεύουμε φωτογραφίες στη βιβλιοθήκη σου.</string>
+
+	<!-- Εάν χρησιμοποιείς κάμερα (π.χ. CapacitorCamera για λήψη) -->
+	<key>NSCameraUsageDescription</key>
+	<string>Χρειαζόμαστε πρόσβαση στην κάμερα για να τραβήξεις φωτογραφίες του κατοικιδίου σου.</string>
 </dict>
 </plist>
