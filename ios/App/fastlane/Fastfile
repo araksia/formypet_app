@@ -56,11 +56,21 @@ platform :ios do
         provisioningProfiles: profiles_map
       }
     )
+	produce(
+	  app_name: "FormyPet",
+	  language: "en-US",
+	  app_identifier: ENV['APP_BUNDLE_ID'],
+	  sku: "formypet-ios-001",
+	  team_id: ENV['APPLE_TEAM_ID'],
+	  platform: "ios"
+	)
 
     # 7) Upload στο TestFlight
     upload_to_testflight(
-      app_identifier: ENV['APPLE_APP_ID'],
-      skip_waiting_for_build_processing: true
+      api_key: api_key,                       # χρησιμοποίησε το ίδιο API key
+	  app_identifier: ENV['APP_BUNDLE_ID'],   # ΒΑΛΕ εδώ το bundle id (π.χ. com.araksia.formypet)
+	  app_platform: 'ios',
+	  skip_waiting_for_build_processing: true
     )
 
     # (προαιρετικό) καθάρισε το keychain στο τέλος

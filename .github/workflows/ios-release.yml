@@ -17,7 +17,7 @@ jobs:
       LC_ALL: en_US.UTF-8
       LANG: en_US.UTF-8
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}          # << ΕΔΩ στο job
-
+      APP_BUNDLE_ID: gr.formypet.app   # 👈 εδώ
 
     steps:
       # 1) Checkout
