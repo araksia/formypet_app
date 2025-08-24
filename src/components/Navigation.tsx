@@ -13,7 +13,11 @@ const Navigation = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50 safe-area-bottom">
+    <nav 
+      className="fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50 safe-area-bottom"
+      role="navigation"
+      aria-label="Κεντρική περιήγηση εφαρμογής"
+    >
       <div className="flex justify-around items-center h-16 px-2 safe-area-left safe-area-right">
         {navItems.map(({ icon: Icon, label, path }) => (
           <NavLink
@@ -21,14 +25,16 @@ const Navigation = () => {
             to={path}
             className={({ isActive }) =>
               cn(
-                "flex flex-col items-center justify-center p-2 rounded-lg transition-colors min-w-0 flex-1",
+                "flex flex-col items-center justify-center p-2 rounded-lg transition-colors min-w-0 flex-1 focus-enhanced",
                 isActive 
                   ? "text-primary bg-primary/10" 
                   : "text-muted-foreground hover:text-foreground"
               )
             }
+            aria-label={`${label} - ${path === window.location.pathname ? 'Τρέχουσα σελίδα' : 'Μετάβαση στην ' + label.toLowerCase()}`}
+            aria-current={path === window.location.pathname ? 'page' : undefined}
           >
-            <Icon className="h-5 w-5 mb-1" />
+            <Icon className="h-5 w-5 mb-1" aria-hidden="true" />
             <span className="text-xs text-center truncate">{label}</span>
           </NavLink>
         ))}

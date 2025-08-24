@@ -228,104 +228,135 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
   };
 
   return (
-    <div className="bg-white border-b border-gray-100">
+    <div className="bg-white border-b border-gray-100" role="banner">
       <div className="flex items-center justify-between p-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full overflow-hidden">
             <img 
               src="/lovable-uploads/cdeb7e37-956e-4df1-a666-ec55f7ac208b.png" 
-              alt="For my pet Logo"
+              alt="For My Pet λογότυπο - Εφαρμογή φροντίδας κατοικιδίων"
               className="w-full h-full object-cover"
             />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
-            <p className="text-xs text-gray-500">{greeting} 🐾</p>
+            <h1 id="page-title" className="text-lg font-semibold text-gray-900">{title}</h1>
+            <p className="text-xs text-gray-500" role="text">{greeting} 🐾</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           {/* Hamburger Menu */}
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" className="p-2">
-                <Menu className="h-5 w-5 text-gray-600" />
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="p-2 focus-enhanced"
+                aria-label="Άνοιγμα κεντρικού μενού"
+                aria-expanded="false"
+              >
+                <Menu className="h-5 w-5 text-gray-600" aria-hidden="true" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-80">
+            <SheetContent 
+              side="right" 
+              className="w-80"
+              role="dialog"
+              aria-labelledby="menu-title"
+            >
               <SheetHeader>
-                <SheetTitle>Μενού</SheetTitle>
+                <SheetTitle id="menu-title">Μενού Εφαρμογής</SheetTitle>
               </SheetHeader>
-              <div className="mt-6 space-y-6">
+              <nav className="mt-6 space-y-6" role="navigation" aria-label="Δευτερεύουσα περιήγηση">
                 {/* Gamification Section */}
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Gamification</h3>
-                  <div className="space-y-2">
+                <section aria-labelledby="gamification-heading">
+                  <h3 id="gamification-heading" className="text-sm font-medium text-muted-foreground mb-3">
+                    Gamification
+                  </h3>
+                  <div className="space-y-2" role="list">
                     <Link 
                       to="/achievements" 
-                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors focus-enhanced"
+                      aria-label="Προβολή στόχων και επιτευγμάτων"
+                      role="listitem"
                     >
-                      <Trophy className="h-5 w-5 text-primary" />
+                      <Trophy className="h-5 w-5 text-primary" aria-hidden="true" />
                       <span>Στόχοι & Επιτεύγματα</span>
                     </Link>
                   </div>
-                </div>
+                </section>
 
                 {/* Family Section */}
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Οικογένεια</h3>
-                  <div className="space-y-2">
+                <section aria-labelledby="family-heading">
+                  <h3 id="family-heading" className="text-sm font-medium text-muted-foreground mb-3">
+                    Οικογένεια
+                  </h3>
+                  <div className="space-y-2" role="list">
                     <Link 
                       to="/family" 
-                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors focus-enhanced"
+                      aria-label="Διαχείριση οικογένειας κατοικιδίων"
+                      role="listitem"
                     >
-                      <Users className="h-5 w-5 text-primary" />
+                      <Users className="h-5 w-5 text-primary" aria-hidden="true" />
                       <span>Διαχείριση Οικογένειας</span>
                     </Link>
                   </div>
-                </div>
+                </section>
 
                 {/* Account Section */}
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Λογαριασμός</h3>
-                  <div className="space-y-2">
+                <section aria-labelledby="account-heading">
+                  <h3 id="account-heading" className="text-sm font-medium text-muted-foreground mb-3">
+                    Λογαριασμός
+                  </h3>
+                  <div className="space-y-2" role="list">
                     <Link 
                       to="/profile" 
-                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors focus-enhanced"
+                      aria-label="Προβολή και επεξεργασία προφίλ"
+                      role="listitem"
                     >
-                      <User className="h-5 w-5 text-primary" />
+                      <User className="h-5 w-5 text-primary" aria-hidden="true" />
                       <span>Προφίλ</span>
                     </Link>
                     <Link 
                       to="/settings" 
-                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors focus-enhanced"
+                      aria-label="Ρυθμίσεις εφαρμογής"
+                      role="listitem"
                     >
-                      <Settings className="h-5 w-5 text-primary" />
+                      <Settings className="h-5 w-5 text-primary" aria-hidden="true" />
                       <span>Ρυθμίσεις</span>
                     </Link>
                   </div>
-                </div>
+                </section>
 
                 {/* Legal Section */}
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Νομικά</h3>
-                  <div className="space-y-2">
+                <section aria-labelledby="legal-heading">
+                  <h3 id="legal-heading" className="text-sm font-medium text-muted-foreground mb-3">
+                    Νομικά
+                  </h3>
+                  <div className="space-y-2" role="list">
                     <Link 
                       to="/privacy" 
-                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors focus-enhanced"
+                      aria-label="Διάβασμα πολιτικής απορρήτου"
+                      role="listitem"
                     >
-                      <FileText className="h-5 w-5 text-primary" />
+                      <FileText className="h-5 w-5 text-primary" aria-hidden="true" />
                       <span>Πολιτική Απορρήτου</span>
                     </Link>
                     <Link 
                       to="/terms" 
-                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors focus-enhanced"
+                      aria-label="Διάβασμα όρων χρήσης"
+                      role="listitem"
                     >
-                      <FileText className="h-5 w-5 text-primary" />
+                      <FileText className="h-5 w-5 text-primary" aria-hidden="true" />
                       <span>Όροι Χρήσης</span>
                     </Link>
                   </div>
-                </div>
-              </div>
+                </section>
+              </nav>
             </SheetContent>
           </Sheet>
 
@@ -333,18 +364,29 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
           {showNotifications && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="p-2 relative">
-                  <Bell className="h-5 w-5 text-gray-600" />
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="p-2 relative focus-enhanced"
+                  aria-label={`Ειδοποιήσεις ${unreadCount > 0 ? `- ${unreadCount} μη αναγνωσμένες` : '- δεν υπάρχουν νέες'}`}
+                >
+                  <Bell className="h-5 w-5 text-gray-600" aria-hidden="true" />
                   {unreadCount > 0 && (
                     <Badge 
                       className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0 bg-destructive text-destructive-foreground text-xs rounded-full"
+                      aria-label={`${unreadCount} μη αναγνωσμένες ειδοποιήσεις`}
                     >
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </Badge>
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+              <DropdownMenuContent 
+                align="end" 
+                className="w-80 max-h-96 overflow-y-auto"
+                role="menu"
+                aria-label="Λίστα ειδοποιήσεων"
+              >
                 <DropdownMenuLabel className="flex items-center justify-between">
                   <span>Ειδοποιήσεις</span>
                   {unreadCount > 0 && (
@@ -352,7 +394,8 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
                       variant="ghost"
                       size="sm"
                       onClick={markAllAsRead}
-                      className="h-auto p-1 text-xs text-muted-foreground hover:text-foreground"
+                      className="h-auto p-1 text-xs text-muted-foreground hover:text-foreground focus-enhanced"
+                      aria-label="Σήμανση όλων των ειδοποιήσεων ως αναγνωσμένες"
                     >
                       Όλα ως αναγνωσμένα
                     </Button>
@@ -370,18 +413,24 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
                     return (
                       <DropdownMenuItem
                         key={notification.id}
-                        className={`p-4 cursor-pointer ${!notification.read ? 'bg-muted/30' : ''}`}
+                        className={`p-4 cursor-pointer focus-enhanced ${!notification.read ? 'bg-muted/30' : ''}`}
                         onClick={() => markAsRead(notification.id)}
+                        role="menuitem"
+                        aria-label={`${notification.title}: ${notification.message} - ${notification.read ? 'Αναγνωσμένο' : 'Μη αναγνωσμένο'}`}
                       >
                         <div className="flex gap-3 w-full">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${getNotificationBadgeColor(notification.type)}`}>
-                            <IconComponent className="h-4 w-4 text-white" />
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${getNotificationBadgeColor(notification.type)}`} role="img" aria-label={`Εικονίδιο ${notification.type}`}>
+                            <IconComponent className="h-4 w-4 text-white" aria-hidden="true" />
                           </div>
                           <div className="flex-1 space-y-1">
                             <div className="flex items-start justify-between">
                               <h4 className="font-medium text-sm leading-tight">{notification.title}</h4>
                               {!notification.read && (
-                                <div className="w-2 h-2 bg-primary rounded-full mt-1 flex-shrink-0" />
+                                <div 
+                                  className="w-2 h-2 bg-primary rounded-full mt-1 flex-shrink-0" 
+                                  role="img"
+                                  aria-label="Νέα ειδοποίηση"
+                                />
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground leading-relaxed">
@@ -406,18 +455,29 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="p-2"
+                  className="p-2 focus-enhanced"
+                  aria-label="Μενού χρήστη"
                 >
-                  <User className="h-5 w-5 text-gray-600" />
+                  <User className="h-5 w-5 text-gray-600" aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent 
+                align="end" 
+                className="w-56"
+                role="menu"
+                aria-label="Μενού λογαριασμού χρήστη"
+              >
                 <DropdownMenuLabel>
                   {user?.email || 'Χρήστης'}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
-                  <LogOut className="h-4 w-4 mr-2" />
+                <DropdownMenuItem 
+                  onClick={handleSignOut} 
+                  className="text-red-600 focus-enhanced"
+                  role="menuitem"
+                  aria-label="Αποσύνδεση από την εφαρμογή"
+                >
+                  <LogOut className="h-4 w-4 mr-2" aria-hidden="true" />
                   Αποσύνδεση
                 </DropdownMenuItem>
               </DropdownMenuContent>
