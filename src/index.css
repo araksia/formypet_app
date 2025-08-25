@@ -125,6 +125,15 @@ All colors MUST be HSL.
     padding-right: env(safe-area-inset-right);
   }
 
+  /* iPhone-specific safe area utilities */
+  .pt-safe-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+
+  .pb-nav {
+    padding-bottom: calc(4rem + max(0.5rem, env(safe-area-inset-bottom)));
+  }
+
   /* Virtual keyboard support */
   .keyboard-adjust {
     transition: transform 0.3s ease-in-out;
