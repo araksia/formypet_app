@@ -1,24 +1,66 @@
-name: Update Pods
-on: workflow_dispatch
-permissions:
-  contents: write
+name: One-off Pod Update
+
+on:
+  workflow_dispatch:
+
 jobs:
   update-pods:
     runs-on: macos-14
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select Xcode 16.2
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install JS deps
+        run: |
+          if [ -f yarn.lock ]; then
+            corepack enable
+            yarn install --frozen-lockfile
+          else
+            npm ci
+          fi
+
+      # Προαιρετικό αλλά καλό για να συγχρονίσει Capacitor
+      - name: Sync Capacitor (no pod install)
+        env:
+          CAPACITOR_SKIP_POD_INSTALL: '1'
+        run: npx cap sync ios
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: false
+
       - name: Install CocoaPods
-        run: sudo gem install cocoapods -N
-      - name: Update
+        run: gem install cocoapods -N
+
+      - name: Pod update
         working-directory: ios/App
         run: |
           pod repo update
-          pod update
-          pod install
-      - name: Commit
+          pod update --repo-update
+
+      - name: Commit lockfiles
         run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "actions@github.com"
-          git add ios/App/Podfile.lock ios/App/Pods/Manifest.lock
-          git commit -m "chore: pod update" || echo "no changes"
-          git push
+          git config user.email "ci@github.actions"
+          git config user.name "GitHub Actions"
+          # Πρόσθεσε ό,τι αλλάζει
+          git add ios/App/Podfile.lock ios/App/Pods/Manifest.lock || true
+          git add ios/App/Pods || true
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(ios): pod update (privacy manifests)"
+            git push
+          else
+            echo "No Pod changes to commit."
+          fi
