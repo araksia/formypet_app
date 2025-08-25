@@ -13,7 +13,8 @@ import {
   ArrowLeft,
   Edit2,
   Check,
-  X
+  X,
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,7 @@ import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { supabase } from '@/integrations/supabase/client';
 import { ExpenseItemSkeleton, StatsCardSkeleton } from '@/components/ui/skeleton';
+import { useToast } from "@/hooks/use-toast";
 
 // Type definitions
 type Expense = {
@@ -65,6 +67,7 @@ const categoryColors = {
 
 const ExpensesPage = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState("month");
   const [selectedPet, setSelectedPet] = useState("all");
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -120,6 +123,32 @@ const ExpensesPage = () => {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteExpense = async (expenseId: string, description: string) => {
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', expenseId);
+
+      if (error) throw error;
+
+      // Update local state by removing the deleted expense
+      setExpenses(prev => prev.filter(expense => expense.id !== expenseId));
+
+      toast({
+        title: "Επιτυχία!",
+        description: `Το έξοδο "${description}" διαγράφηκε επιτυχώς`,
+      });
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Υπήρξε πρόβλημα κατά τη διαγραφή του εξόδου",
+        variant: "destructive"
+      });
     }
   };
 
@@ -458,7 +487,7 @@ const ExpensesPage = () => {
         {/* Recent Expenses */}
         <Card>
           <CardHeader className="pb-2 sm:pb-4">
-            <CardTitle className="text-sm sm:text-base">Πρόσφατα Έξοδα</CardTitle>
+            <CardTitle className="text-sm sm:text-base">Λίστα Εξόδων</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2 sm:space-y-3 max-h-64 sm:max-h-80 overflow-y-auto">
@@ -485,7 +514,15 @@ const ExpensesPage = () => {
                     {expense.receipt && (
                       <Badge variant="secondary" className="text-xs p-0.5 hidden sm:inline">📄</Badge>
                     )}
-                    <span className="font-bold text-xs sm:text-sm">{expense.amount.toFixed(0)}€</span>
+                    <span className="font-bold text-xs sm:text-sm mr-2">{expense.amount.toFixed(0)}€</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteExpense(expense.id, expense.description)}
+                      className="p-1 h-6 w-6 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
               )) : (
