@@ -94,7 +94,62 @@ serve(async (req) => {
           throw new Error(response.error.message);
         }
 
-        // Mark notification as sent
+        // For recurring events, create next occurrence and mark current as sent
+        if (event.recurring && event.recurring !== 'none') {
+          // Calculate next occurrence
+          const currentEventDate = new Date(event.event_date);
+          let nextDate = new Date(currentEventDate);
+          
+          switch (event.recurring) {
+            case 'daily':
+              nextDate.setDate(nextDate.getDate() + 1);
+              break;
+            case 'weekly':
+              nextDate.setDate(nextDate.getDate() + 7);
+              break;
+            case 'monthly':
+              nextDate.setMonth(nextDate.getMonth() + 1);
+              break;
+            case '6months':
+              nextDate.setMonth(nextDate.getMonth() + 6);
+              break;
+            case 'yearly':
+              nextDate.setFullYear(nextDate.getFullYear() + 1);
+              break;
+          }
+          
+          // Format next date properly
+          const nextYear = nextDate.getFullYear();
+          const nextMonth = (nextDate.getMonth() + 1).toString().padStart(2, '0');
+          const nextDay = nextDate.getDate().toString().padStart(2, '0');
+          const nextHours = nextDate.getHours().toString().padStart(2, '0');
+          const nextMinutes = nextDate.getMinutes().toString().padStart(2, '0');
+          
+          const nextEventDateLocal = `${nextYear}-${nextMonth}-${nextDay} ${nextHours}:${nextMinutes}:00`;
+          
+          // Create next occurrence
+          const { error: createError } = await supabase
+            .from('events')
+            .insert({
+              title: event.title,
+              event_type: event.event_type,
+              pet_id: event.pet_id,
+              user_id: event.user_id,
+              event_date: nextEventDateLocal,
+              event_time: event.event_time,
+              recurring: event.recurring,
+              notes: event.notes,
+              notification_sent: false
+            });
+            
+          if (createError) {
+            console.error('Error creating next recurring event:', createError);
+          } else {
+            console.log(`Created next occurrence for ${event.title} on ${nextEventDateLocal}`);
+          }
+        }
+        
+        // Mark current notification as sent
         await supabase
           .from('events')
           .update({ notification_sent: true })

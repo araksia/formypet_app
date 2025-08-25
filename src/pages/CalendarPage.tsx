@@ -13,6 +13,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
+import { EventCardSkeleton } from '@/components/ui/skeleton';
 
 // Event types για icons και colors
 type EventType = {
@@ -372,8 +373,12 @@ const CalendarPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
         <Header title="Ημερολόγιο" />
-        <div className="p-4 flex justify-center items-center h-32">
-          <p>Φόρτωση...</p>
+        <div className="p-4 space-y-6">
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <EventCardSkeleton key={i} />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -425,8 +430,12 @@ const CalendarPage = () => {
               <CardContent>
                 {todayEvents.length > 0 ? (
                   <div className="space-y-3">
-                    {todayEvents.map(event => (
-                      <div key={event.id} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                    {todayEvents.map((event, index) => (
+                      <div 
+                        key={event.id} 
+                        className="flex items-center gap-3 p-3 bg-muted rounded-lg stagger-fade card-hover"
+                        style={{ animationDelay: `${index * 0.1}s` }}
+                      >
                         <div className={`p-2 rounded-full ${eventTypeColors[event.event_type as keyof typeof eventTypeColors]} text-white`}>
                           {renderEventIcon(event.event_type)}
                         </div>

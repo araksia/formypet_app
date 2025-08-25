@@ -20,6 +20,7 @@ import AcceptInvitationPage from "./pages/AcceptInvitationPage";
 import AddFamilyMemberPage from "./pages/AddFamilyMemberPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
+import AchievementsPage from "./pages/AchievementsPage";
 import LoginPage from "./pages/LoginPage";
 import { SignUpPage } from "./pages/SignUpPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
@@ -94,6 +95,13 @@ const AppContent = () => {
             <ProtectedRoute>
               <Layout>
                 <ExpensesPage />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/achievements" element={
+            <ProtectedRoute>
+              <Layout>
+                <AchievementsPage />
               </Layout>
             </ProtectedRoute>
           } />

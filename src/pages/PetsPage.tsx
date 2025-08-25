@@ -4,12 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Stethoscope, Copy, Check, Info } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Plus, Stethoscope, Copy, Check, Info, Edit, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
+import { differenceInYears } from 'date-fns';
+import { PetCardSkeleton } from '@/components/ui/skeleton';
 
 const PetsPage = () => {
   const navigate = useNavigate();
@@ -21,6 +23,9 @@ const PetsPage = () => {
   const [selectedPetForShare, setSelectedPetForShare] = useState<string | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
   const [copiedPetId, setCopiedPetId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [petToDelete, setPetToDelete] = useState<any>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Fetch pets when user is available
   useEffect(() => {
@@ -155,6 +160,58 @@ const PetsPage = () => {
     }
   };
 
+  const handleDeletePet = async () => {
+    if (!petToDelete || !user) return;
+
+    setDeleteLoading(true);
+    try {
+      const { error } = await supabase
+        .from('pets')
+        .delete()
+        .eq('id', petToDelete.id)
+        .eq('owner_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Επιτυχία!",
+        description: "Το κατοικίδιο διαγράφηκε"
+      });
+
+      // Refresh pets list
+      await fetchPets();
+      
+      // Close dialog
+      setDeleteDialogOpen(false);
+      setPetToDelete(null);
+    } catch (error) {
+      console.error('Error deleting pet:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Υπήρξε πρόβλημα κατά τη διαγραφή",
+        variant: "destructive"
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  // Helper function to calculate age from birth date
+  const calculateAge = (birthDate: Date | string | null): number | null => {
+    if (!birthDate) return null;
+    try {
+      const birth = new Date(birthDate);
+      return differenceInYears(new Date(), birth);
+    } catch {
+      return null;
+    }
+  };
+
+  const openDeleteDialog = (pet: any) => {
+    setPetToDelete(pet);
+    setDeleteDialogOpen(true);
+  };
+
   const getSpeciesEmoji = (species: string) => {
     const emojiMap: { [key: string]: string } = {
       'dog': '🐕',
@@ -174,8 +231,12 @@ const PetsPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
         <Header title="Τα Κατοικίδιά μου" />
-        <div className="p-4 flex justify-center items-center h-32">
-          <p>Φόρτωση...</p>
+        <div className="p-4 space-y-4">
+          <div className="grid gap-3">
+            {[1, 2].map((i) => (
+              <PetCardSkeleton key={i} />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -196,29 +257,26 @@ const PetsPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
       <Header title="Τα Κατοικίδιά μου" />
       
-      <div className="p-3 sm:p-4 space-y-4">
-
-        {/* Add Pet Button */}
-        <Button 
-          onClick={() => navigate('/add-pet')}
-          className="w-full h-12 sm:h-14 flex items-center justify-center gap-2 text-sm sm:text-base"
-        >
-          <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
-          Προσθήκη Νέου Κατοικιδίου
-        </Button>
+      <div className="p-3 sm:p-4 pb-20 space-y-4">
 
         {/* Loading State */}
         {loading && (
-          <div className="text-center py-8">
-            <p>Φόρτωση κατοικιδίων...</p>
+          <div className="grid gap-3 sm:gap-4">
+            {[1, 2, 3].map((i) => (
+              <PetCardSkeleton key={i} />
+            ))}
           </div>
         )}
 
         {/* Pets Grid/List */}
         {!loading && pets.length > 0 ? (
           <div className="grid gap-3 sm:gap-4">
-            {pets.map((pet) => (
-              <Card key={pet.id} className="overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+            {pets.map((pet, index) => (
+              <Card 
+                key={pet.id} 
+                className="overflow-hidden card-hover stagger-fade"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
                 <CardContent className="p-0">
                   <div className="flex flex-col sm:flex-row h-full">
                     {/* Pet Image */}
@@ -251,9 +309,9 @@ const PetsPage = () => {
                             <p className="text-sm text-muted-foreground font-medium">{pet.breed}</p>
                           )}
                           <div className="flex flex-wrap gap-2 mt-2">
-                            {pet.age && (
+                            {(pet.birth_date || pet.age) && (
                               <Badge variant="outline" className="text-xs">
-                                {pet.age} {pet.age === 1 ? 'χρόνος' : 'χρόνια'}
+                                {pet.birth_date ? calculateAge(pet.birth_date) : pet.age} {(pet.birth_date ? calculateAge(pet.birth_date) : pet.age) === 1 ? 'χρόνος' : 'χρόνια'}
                               </Badge>
                             )}
                             {pet.weight && (
@@ -270,16 +328,25 @@ const PetsPage = () => {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600"
-                              onClick={() => navigate(`/pet/${pet.id}`)}
-                              title="Προφίλ κατοικιδίου"
+                              className="h-8 w-8 button-hover hover:bg-green-50 hover:text-green-600 transition-colors"
+                              onClick={() => navigate(`/pet/${pet.id}?edit=true`)}
+                              title="Επεξεργασία κατοικιδίου"
                             >
-                              <span className="text-lg">{getSpeciesEmoji(pet.species)}</span>
+                              <Edit className="h-4 w-4" />
                             </Button>
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8 hover:bg-purple-50 hover:text-purple-600"
+                              className="h-8 w-8 button-hover hover:bg-red-50 hover:text-red-600 transition-colors"
+                              onClick={() => openDeleteDialog(pet)}
+                              title="Διαγραφή κατοικιδίου"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 button-hover hover:bg-purple-50 hover:text-purple-600 transition-colors"
                               onClick={() => navigate(`/pet/${pet.id}/medical`)}
                               title="Ιατρικά στοιχεία"
                             >
@@ -295,12 +362,12 @@ const PetsPage = () => {
             ))}
           </div>
         ) : !loading && pets.length === 0 ? (
-          <Card className="p-8">
+          <Card className="p-8 bounce-in">
             <div className="text-center space-y-4">
-              <div className="text-6xl">🐾</div>
+              <div className="text-6xl animate-bounce">🐾</div>
               <h3 className="text-lg font-semibold">Δεν έχετε κατοικίδια ακόμα</h3>
               <p className="text-muted-foreground">Προσθέστε το πρώτο σας κατοικίδιο για να ξεκινήσετε!</p>
-              <Button onClick={() => navigate('/add-pet')} className="w-full sm:w-auto">
+              <Button onClick={() => navigate('/add-pet')} className="w-full sm:w-auto button-hover">
                 <Plus className="h-4 w-4 mr-2" />
                 Προσθήκη Κατοικιδίου
               </Button>
@@ -308,6 +375,45 @@ const PetsPage = () => {
           </Card>
         ) : null}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="max-w-sm mx-auto">
+          <DialogHeader>
+            <DialogTitle>Διαγραφή Κατοικιδίου</DialogTitle>
+            <DialogDescription>
+              Είστε σίγουροι ότι θέλετε να διαγράψετε το κατοικίδιο <strong>{petToDelete?.name}</strong>;
+              <br /><br />
+              Αυτή η ενέργεια δεν μπορεί να αναιρεθεί και θα διαγράψει όλα τα σχετικά δεδομένα.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleteLoading}
+            >
+              Άκυρο
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeletePet}
+              disabled={deleteLoading}
+            >
+              {deleteLoading ? 'Διαγραφή...' : 'Διαγραφή'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Floating Add Button */}
+      <Button
+        onClick={() => navigate('/add-pet')}
+        size="lg"
+        className="fixed bottom-20 right-4 rounded-full w-14 h-14 shadow-lg hover:shadow-xl button-hover transition-all z-40 bg-primary hover:bg-primary/90"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
     </div>
   );
 };

@@ -13,7 +13,8 @@ import {
   ArrowLeft,
   Edit2,
   Check,
-  X
+  X,
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +26,8 @@ import { PieChart as RechartsePieChart, Pie, Cell, ResponsiveContainer, BarChart
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { supabase } from '@/integrations/supabase/client';
+import { ExpenseItemSkeleton, StatsCardSkeleton } from '@/components/ui/skeleton';
+import { useToast } from "@/hooks/use-toast";
 
 // Type definitions
 type Expense = {
@@ -64,6 +67,7 @@ const categoryColors = {
 
 const ExpensesPage = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState("month");
   const [selectedPet, setSelectedPet] = useState("all");
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -119,6 +123,32 @@ const ExpensesPage = () => {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteExpense = async (expenseId: string, description: string) => {
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', expenseId);
+
+      if (error) throw error;
+
+      // Update local state by removing the deleted expense
+      setExpenses(prev => prev.filter(expense => expense.id !== expenseId));
+
+      toast({
+        title: "Επιτυχία!",
+        description: `Το έξοδο "${description}" διαγράφηκε επιτυχώς`,
+      });
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Υπήρξε πρόβλημα κατά τη διαγραφή του εξόδου",
+        variant: "destructive"
+      });
     }
   };
 
@@ -208,8 +238,15 @@ const ExpensesPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 p-2 sm:p-4">
         <div className="max-w-7xl mx-auto space-y-4">
-          <div className="flex justify-center items-center h-32">
-            <p>Φόρτωση εξόδων...</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+            {[1, 2, 3, 4].map((i) => (
+              <StatsCardSkeleton key={i} />
+            ))}
+          </div>
+          <div className="space-y-2 sm:space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <ExpenseItemSkeleton key={i} />
+            ))}
           </div>
         </div>
       </div>
@@ -356,7 +393,7 @@ const ExpensesPage = () => {
 
         {/* Overview Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-          <Card className="p-2 sm:p-3">
+          <Card className="p-2 sm:p-3 card-hover stagger-fade">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <Euro className="h-4 w-4 text-muted-foreground mb-1 sm:mb-0" />
               <div className="text-left sm:text-right">
@@ -366,7 +403,7 @@ const ExpensesPage = () => {
             </div>
           </Card>
           
-          <Card className="p-2 sm:p-3">
+          <Card className="p-2 sm:p-3 card-hover stagger-fade" style={{ animationDelay: '0.1s' }}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <PieChart className="h-4 w-4 text-muted-foreground mb-1 sm:mb-0" />
               <div className="text-left sm:text-right">
@@ -376,7 +413,7 @@ const ExpensesPage = () => {
             </div>
           </Card>
           
-          <Card className="p-2 sm:p-3">
+          <Card className="p-2 sm:p-3 card-hover stagger-fade" style={{ animationDelay: '0.2s' }}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <BarChart3 className="h-4 w-4 text-muted-foreground mb-1 sm:mb-0" />
               <div className="text-left sm:text-right">
@@ -386,7 +423,7 @@ const ExpensesPage = () => {
             </div>
           </Card>
           
-          <Card className="p-2 sm:p-3">
+          <Card className="p-2 sm:p-3 card-hover stagger-fade" style={{ animationDelay: '0.3s' }}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <Calendar className="h-4 w-4 text-muted-foreground mb-1 sm:mb-0" />
               <div className="text-left sm:text-right">
@@ -450,12 +487,16 @@ const ExpensesPage = () => {
         {/* Recent Expenses */}
         <Card>
           <CardHeader className="pb-2 sm:pb-4">
-            <CardTitle className="text-sm sm:text-base">Πρόσφατα Έξοδα</CardTitle>
+            <CardTitle className="text-sm sm:text-base">Λίστα Εξόδων</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2 sm:space-y-3 max-h-64 sm:max-h-80 overflow-y-auto">
-              {filteredExpenses.length > 0 ? filteredExpenses.map((expense) => (
-                <div key={expense.id} className="flex items-center justify-between p-2 sm:p-3 bg-muted/50 rounded-md">
+              {filteredExpenses.length > 0 ? filteredExpenses.map((expense, index) => (
+                <div 
+                  key={expense.id} 
+                  className="flex items-center justify-between p-2 sm:p-3 bg-muted/50 rounded-md card-hover stagger-fade"
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div className="p-1 sm:p-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: `${categoryColors[expense.category as keyof typeof categoryColors]}20` }}>
                       <Euro className="h-3 w-3 sm:h-4 sm:w-4" style={{ color: categoryColors[expense.category as keyof typeof categoryColors] }} />
@@ -473,7 +514,15 @@ const ExpensesPage = () => {
                     {expense.receipt && (
                       <Badge variant="secondary" className="text-xs p-0.5 hidden sm:inline">📄</Badge>
                     )}
-                    <span className="font-bold text-xs sm:text-sm">{expense.amount.toFixed(0)}€</span>
+                    <span className="font-bold text-xs sm:text-sm mr-2">{expense.amount.toFixed(0)}€</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteExpense(expense.id, expense.description)}
+                      className="p-1 h-6 w-6 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
                 </div>
               )) : (

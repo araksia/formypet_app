@@ -56,5 +56,12 @@
 	<!-- Εάν χρησιμοποιείς κάμερα (π.χ. CapacitorCamera για λήψη) -->
 	<key>NSCameraUsageDescription</key>
 	<string>Χρειαζόμαστε πρόσβαση στην κάμερα για να τραβήξεις φωτογραφίες του κατοικιδίου σου.</string>
+=======
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<false/>
 </dict>
 </plist>

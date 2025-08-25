@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, Mail, Phone, MapPin, Edit2, Save, X, Bell, Shield, HelpCircle, LogOut } from 'lucide-react';
+import { Camera, Mail, Phone, MapPin, Edit2, Save, X, Bell, Shield, HelpCircle, LogOut, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +18,7 @@ const ProfilePage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [profileData, setProfileData] = useState({
     display_name: '',
     email: '',
@@ -49,10 +50,15 @@ const ProfilePage = () => {
         .from('profiles')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error loading profile:', error);
+        toast({
+          title: "Σφάλμα",
+          description: "Αδυναμία φόρτωσης προφίλ",
+          variant: "destructive"
+        });
         return;
       }
 
@@ -68,29 +74,17 @@ const ProfilePage = () => {
         setProfileData(profileInfo);
         setEditData(profileInfo);
       } else {
-        // Create profile if it doesn't exist
-        const newProfile = {
-          user_id: user.id,
-          email: user.email || '',
+        // No profile exists, create default values
+        const profileInfo = {
           display_name: user.email?.split('@')[0] || '',
+          email: user.email || '',
+          avatar_url: '',
+          phone: '',
+          location: '',
+          bio: ''
         };
-        
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert([newProfile]);
-
-        if (!insertError) {
-          const profileInfo = {
-            display_name: newProfile.display_name,
-            email: newProfile.email,
-            avatar_url: '',
-            phone: '',
-            location: '',
-            bio: ''
-          };
-          setProfileData(profileInfo);
-          setEditData(profileInfo);
-        }
+        setProfileData(profileInfo);
+        setEditData(profileInfo);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -136,52 +130,35 @@ const ProfilePage = () => {
     
     setSaving(true);
     try {
-      // First, check if profile exists
-      const { data: existingProfile } = await supabase
+      // Use upsert to insert or update in one operation
+      const { error } = await supabase
         .from('profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
+        .upsert({
+          user_id: user.id,
+          display_name: editData.display_name,
+          email: editData.email,
+          avatar_url: editData.avatar_url,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
 
-      if (existingProfile) {
-        // Update existing profile
-        const { error } = await supabase
-          .from('profiles')
-          .update({
-            display_name: editData.display_name,
-            email: editData.email,
-            avatar_url: editData.avatar_url,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', user.id);
-
-        if (error) throw error;
-      } else {
-        // Insert new profile
-        const { error } = await supabase
-          .from('profiles')
-          .insert({
-            user_id: user.id,
-            display_name: editData.display_name,
-            email: editData.email,
-            avatar_url: editData.avatar_url,
-            updated_at: new Date().toISOString()
-          });
-
-        if (error) throw error;
+      if (error) {
+        console.error('Error saving profile:', error);
+        throw error;
       }
 
       setProfileData(editData);
       setIsEditing(false);
       toast({
         title: "Επιτυχής ενημέρωση",
-        description: "Τα στοιχεία σας ενημερώθηκαν επιτυχώς.",
+        description: "Το όνομα χρήστη ενημερώθηκε επιτυχώς.",
       });
     } catch (error) {
       console.error('Error saving profile:', error);
       toast({
         title: "Σφάλμα",
-        description: "Αδυναμία αποθήκευσης αλλαγών",
+        description: `Αδυναμία αποθήκευσης αλλαγών: ${error.message}`,
         variant: "destructive"
       });
     } finally {
@@ -201,6 +178,106 @@ const ProfilePage = () => {
     } catch (error) {
       console.error('Error signing out:', error);
     }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Σφάλμα",
+        description: "Η φωτογραφία είναι πολύ μεγάλη. Μέγιστο μέγεθος: 5MB",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Σφάλμα",
+        description: "Παρακαλώ επιλέξτε μια φωτογραφία",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Delete old avatar if exists
+      if (profileData.avatar_url) {
+        const oldPath = profileData.avatar_url.split('/').pop();
+        if (oldPath) {
+          await supabase.storage
+            .from('avatars')
+            .remove([`${user.id}/${oldPath}`]);
+        }
+      }
+
+      // Upload new avatar
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const avatarUrl = data.publicUrl;
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .upsert({
+          user_id: user.id,
+          display_name: profileData.display_name,
+          email: profileData.email,
+          avatar_url: avatarUrl,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Update local state
+      const updatedProfile = { ...profileData, avatar_url: avatarUrl };
+      setProfileData(updatedProfile);
+      setEditData(updatedProfile);
+
+      toast({
+        title: "Επιτυχία",
+        description: "Η φωτογραφία προφίλ ενημερώθηκε επιτυχώς!",
+      });
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αδυναμία ανεβάσματος φωτογραφίας",
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+      // Reset input
+      event.target.value = '';
+    }
+  };
+
+  const triggerFileInput = () => {
+    document.getElementById('avatar-upload')?.click();
   };
 
   const getInitials = (name: string) => {
@@ -253,10 +330,23 @@ const ProfilePage = () => {
                   size="icon"
                   variant="outline"
                   className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full"
+                  onClick={triggerFileInput}
+                  disabled={uploading}
                 >
-                  <Camera className="h-4 w-4" />
+                  {uploading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                  ) : (
+                    <Camera className="h-4 w-4" />
+                  )}
                 </Button>
-              </div>
+                <input
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                />
+               </div>
               
               {!isEditing ? (
                 <div className="text-center space-y-2">
@@ -273,8 +363,18 @@ const ProfilePage = () => {
                     <Label htmlFor="name">Όνομα</Label>
                     <Input
                       id="name"
-                       value={editData.display_name}
-                       onChange={(e) => setEditData(prev => ({ ...prev, display_name: e.target.value }))}
+                      value={editData.display_name}
+                      onChange={(e) => setEditData(prev => ({ ...prev, display_name: e.target.value }))}
+                      onFocus={(e) => {
+                        // Enhanced iPhone keyboard handling
+                        setTimeout(() => {
+                          e.target.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'center',
+                            inline: 'nearest'
+                          });
+                        }, 500);
+                      }}
                     />
                   </div>
                   <div className="space-y-2">
@@ -283,6 +383,16 @@ const ProfilePage = () => {
                       id="bio"
                       value={editData.bio}
                       onChange={(e) => setEditData(prev => ({ ...prev, bio: e.target.value }))}
+                      onFocus={(e) => {
+                        // Enhanced iPhone keyboard handling
+                        setTimeout(() => {
+                          e.target.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'center',
+                            inline: 'nearest'
+                          });
+                        }, 500);
+                      }}
                     />
                   </div>
                   <div className="flex gap-2">

@@ -28,12 +28,13 @@
       "permissions": ["camera", "photos"]
     },
     "LocalNotifications": {
-      "smallIcon": "notification-icon",
+      "smallIcon": "ic_stat_notification",
       "iconColor": "#4ADE80"
     },
     "PushNotifications": {
       "presentationOptions": ["badge", "sound", "alert"],
-      "useFcm": true
+      "useFcm": true,
+      "iconColor": "#4ADE80"
     },
     "FirebaseAnalytics": {
       "enabled": true

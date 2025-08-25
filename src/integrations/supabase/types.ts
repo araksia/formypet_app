@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          badge_color: string
+          category: string
+          condition_data: Json | null
+          condition_type: string
+          condition_value: number
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          key: string
+          title: string
+        }
+        Insert: {
+          badge_color?: string
+          category: string
+          condition_data?: Json | null
+          condition_type: string
+          condition_value: number
+          created_at?: string
+          description: string
+          icon: string
+          id?: string
+          key: string
+          title: string
+        }
+        Update: {
+          badge_color?: string
+          category?: string
+          condition_data?: Json | null
+          condition_type?: string
+          condition_value?: number
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          key?: string
+          title?: string
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           created_at: string
@@ -291,10 +333,80 @@ export type Database = {
           },
         ]
       }
+      pet_happiness_log: {
+        Row: {
+          created_at: string
+          factors: Json | null
+          happiness_score: number
+          id: string
+          pet_id: string
+          recorded_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          factors?: Json | null
+          happiness_score?: number
+          id?: string
+          pet_id: string
+          recorded_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          factors?: Json | null
+          happiness_score?: number
+          id?: string
+          pet_id?: string
+          recorded_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      pet_streaks: {
+        Row: {
+          best_count: number
+          created_at: string
+          current_count: number
+          id: string
+          is_active: boolean | null
+          last_activity_date: string | null
+          pet_id: string
+          streak_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          best_count?: number
+          created_at?: string
+          current_count?: number
+          id?: string
+          is_active?: boolean | null
+          last_activity_date?: string | null
+          pet_id: string
+          streak_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          best_count?: number
+          created_at?: string
+          current_count?: number
+          id?: string
+          is_active?: boolean | null
+          last_activity_date?: string | null
+          pet_id?: string
+          streak_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pets: {
         Row: {
           age: number | null
           avatar_url: string | null
+          birth_date: string | null
           breed: string | null
           created_at: string
           description: string | null
@@ -309,6 +421,7 @@ export type Database = {
         Insert: {
           age?: number | null
           avatar_url?: string | null
+          birth_date?: string | null
           breed?: string | null
           created_at?: string
           description?: string | null
@@ -323,6 +436,7 @@ export type Database = {
         Update: {
           age?: number | null
           avatar_url?: string | null
+          birth_date?: string | null
           breed?: string | null
           created_at?: string
           description?: string | null
@@ -399,6 +513,44 @@ export type Database = {
         }
         Relationships: []
       }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          earned_at: string
+          id: string
+          is_completed: boolean | null
+          pet_id: string | null
+          progress: number | null
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          earned_at?: string
+          id?: string
+          is_completed?: boolean | null
+          pet_id?: string | null
+          progress?: number | null
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          earned_at?: string
+          id?: string
+          is_completed?: boolean | null
+          pet_id?: string | null
+          progress?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -407,6 +559,10 @@ export type Database = {
       calculate_next_event_occurrence: {
         Args: { base_date: string; event_time: string; recurring_type: string }
         Returns: string
+      }
+      calculate_pet_happiness: {
+        Args: { pet_id_param: string }
+        Returns: number
       }
       create_recurring_event_instance: {
         Args: { next_occurrence: string; original_event_id: string }
@@ -423,6 +579,19 @@ export type Database = {
           token_value: string
         }
         Returns: string
+      }
+      update_pet_streak: {
+        Args: {
+          activity_date?: string
+          pet_id_param: string
+          streak_type_param: string
+          user_id_param: string
+        }
+        Returns: undefined
+      }
+      user_can_create_expense_for_pet: {
+        Args: { pet_id_param: string }
+        Returns: boolean
       }
       user_can_invite_to_pet: {
         Args: { pet_id_param: string }
