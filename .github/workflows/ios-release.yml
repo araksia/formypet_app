@@ -74,6 +74,35 @@ jobs:
         env:
           CAPACITOR_SKIP_POD_INSTALL: '1'
         run: npx cap sync ios
+        
+      - name: Ensure xcodeproj gem
+        run: gem install xcodeproj -N
+
+
+      # --- γράφουμε το GoogleService-Info.plist από secret ---
+      - name: Write GoogleService-Info.plist
+        run: |
+          mkdir -p ios/App/App
+          echo "$FIREBASE_IOS_PLIST_BASE64" | base64 --decode > ios/App/App/GoogleService-Info.plist
+          /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist
+        env:
+          FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
+
+      # --- προσθήκη στο target Resources (χωρίς να ανοίξεις Xcode) ---
+      - name: Add plist to Xcode target (if missing)
+        working-directory: ios/App
+        run: |
+          ruby -e "require 'xcodeproj';
+          p='App.xcodeproj';
+          proj=Xcodeproj::Project.open(p);
+          t=proj.targets.find{|t| t.name=='App'} or abort('No target App');
+          path='App/GoogleService-Info.plist';
+          ref=proj.main_group.find_file_by_path(path) || proj.main_group.new_file(path);
+          unless t.resources_build_phase.files_references.include?(ref)
+            t.add_resources([ref]); puts 'Added GoogleService-Info.plist to Resources';
+          end
+          proj.save"
+          
 
       # 4) CocoaPods
       - name: Install CocoaPods
