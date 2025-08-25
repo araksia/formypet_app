@@ -1,0 +1,64 @@
+name: One-off Pod Update
+
+on:
+  workflow_dispatch:
+  
+permissions:
+  contents: write  
+  
+jobs:
+  update-pods:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select Xcode 16.2
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+
+      # Χρειαζόμαστε node_modules επειδή το Podfile κάνει require το
+      # node_modules/@capacitor/ios/scripts/pods_helpers
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install JS deps
+        run: |
+          if [ -f yarn.lock ]; then
+            corepack enable
+            yarn install --frozen-lockfile
+          else
+            npm ci
+          fi
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: false
+
+      - name: Install CocoaPods
+        run: gem install cocoapods -N
+
+      - name: Pod update
+        working-directory: ios/App
+        run: |
+          pod repo update
+          pod update --repo-update
+
+      - name: Commit lockfiles (optional)
+        run: |
+          git config user.email "ci@github.actions"
+          git config user.name "GitHub Actions"
+          git add ios/App/Podfile.lock ios/App/Pods/Manifest.lock || true
+          # Προαιρετικό: καλύτερα ΜΗΝ κάνεις commit ολόκληρο τον φάκελο Pods
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(ios): pod update (privacy manifests)"
+            git push
+          else
+            echo "No Pod changes to commit."
+          fi

@@ -1,0 +1,194 @@
+name: Build and Release iOS
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'ios-v*'
+
+jobs:
+  ios:
+    runs-on: macos-14
+    defaults:
+      run:
+        shell: bash
+    env:
+      BUNDLE_PATH: vendor/bundle
+      LC_ALL: en_US.UTF-8
+      LANG: en_US.UTF-8
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}          # << ΕΔΩ στο job
+      APP_BUNDLE_ID: gr.formypet.app   # 👈 εδώ
+
+    steps:
+      # 1) Checkout
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2) Επιλογή Xcode
+      - name: Select Xcode 16
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.*'   # ή 16.1 / 16.2 κ.λπ.
+      
+      - name: Show selected Xcode / SDK
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      # 3) Ruby & Bundler
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: false
+
+      - name: Install gems
+        working-directory: ios/App
+        run: |
+          bundle install --jobs 4 --retry 3
+          
+      # Node.js για Capacitor/JS
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install JS dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          elif [ -f yarn.lock ]; then
+            corepack enable
+            yarn install --frozen-lockfile
+          else
+            npm install
+          fi
+
+      - name: Build web assets (create ./dist)
+        run: npm run build
+          
+      # Συγχρονισμός Capacitor -> iOS (χωρίς pod install εδώ)
+      - name: Sync Capacitor iOS (skip pods)
+        env:
+          CAPACITOR_SKIP_POD_INSTALL: '1'
+        run: npx cap sync ios
+        
+      - name: Ensure xcodeproj gem
+        run: gem install xcodeproj -N
+
+
+      # --- γράφουμε το GoogleService-Info.plist από secret ---
+      - name: Write GoogleService-Info.plist
+        run: |
+          mkdir -p ios/App/App
+          echo "$FIREBASE_IOS_PLIST_BASE64" | base64 --decode > ios/App/App/GoogleService-Info.plist
+          /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist
+        env:
+          FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
+
+      # --- προσθήκη στο target Resources (χωρίς να ανοίξεις Xcode) ---
+      - name: Add plist to Xcode target (if missing)
+        working-directory: ios/App
+        run: |
+          ruby -e "require 'xcodeproj';
+          p='App.xcodeproj';
+          proj=Xcodeproj::Project.open(p);
+          t=proj.targets.find{|t| t.name=='App'} or abort('No target App');
+          path='App/GoogleService-Info.plist';
+          ref=proj.main_group.find_file_by_path(path) || proj.main_group.new_file(path);
+          unless t.resources_build_phase.files_references.include?(ref)
+            t.add_resources([ref]); puts 'Added GoogleService-Info.plist to Resources';
+          end
+          proj.save"
+          
+
+      # 4) CocoaPods
+      - name: Install CocoaPods
+        working-directory: ios/App
+        run: |
+          if bundle exec pod --version >/dev/null 2>&1; then
+            echo "Using CocoaPods from Gemfile"
+          else
+            gem install cocoapods -N
+          fi
+          pod repo update
+          bundle exec pod install --repo-update || pod install --repo-update
+
+      # 5) Αν δεν υπάρχει shared scheme, αντιγράφουμε πιθανό user scheme σε shared
+      - name: Ensure shared scheme exists
+        working-directory: ios/App
+        run: |
+          set -euo pipefail
+          PROJ="App.xcodeproj"
+          SHARE="$PROJ/xcshareddata/xcschemes"
+          USERDIR=$(ls -1d "$PROJ"/xcuserdata/* 2>/dev/null | head -n1 || true)
+          if [ -n "$USERDIR" ] && [ -d "$USERDIR/xcschemes" ]; then
+            mkdir -p "$SHARE"
+            cp "$USERDIR/xcschemes/"*.xcscheme "$SHARE"/ || true
+            echo "Copied user schemes to shared."
+          else
+            echo "No user schemes to copy (if archive fails, share the 'App' scheme locally and commit)."
+          fi
+
+      # 6) Γρήγορος έλεγχος (δεν μπλοκάρει)
+      - name: Sanity check workspace & signing
+        run: |
+          ls -la ios/App
+          /usr/bin/xcodebuild -list -workspace ios/App/App.xcworkspace || true
+          /usr/bin/xcodebuild -showBuildSettings \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App | egrep 'PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER|IPHONEOS_DEPLOYMENT_TARGET' || true
+
+      # 7) SSH για το match repo (deploy key)
+      - name: Start ssh-agent (for match repo)
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
+
+      - name: Add github.com to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Configure Git for match
+        run: |
+          git config --global user.email "ci@github.actions"
+          git config --global user.name "GitHub Actions"
+
+      # (προαιρετικό) Έλεγχος πρόσβασης στο certs repo
+      - name: Check access to match repo
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+        run: git ls-remote "$MATCH_GIT_URL" -h
+        
+      - name: Upload Xcode logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcode-logs
+          path: ~/Library/Logs/gym/*
+
+      # 8) Build & Release μέσω fastlane (lane: ios release)
+      - name: Build & Release with fastlane
+        working-directory: ios/App
+        env:
+          # match (SSH + branch main)
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}       # π.χ. git@github.com:araksia/formypet-ios-certificates.git
+          MATCH_GIT_BRANCH: main
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}   # <—
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }} 
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}   # <— ΝΕΟ
+
+
+          # App Store Connect API key (το .p8 περιεχόμενο σε αυτό το secret)
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+
+          # Team & bundle id που διαβάζει ο Fastfile
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
+          BUILD_NUMBER: ${{ github.run_number }}   # <-- προσθήκη
+        run: bundle exec fastlane release

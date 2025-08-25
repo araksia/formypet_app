@@ -1,7 +1,12 @@
 require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
-
 platform :ios, '14.0'
 use_frameworks!
+
+# Force Firebase to use compatible versions
+pod 'Firebase/Core', '~> 10.24.0'
+pod 'Firebase/Messaging', '~> 10.24.0'
+pod 'FirebaseCore', '~> 10.24.0'
+pod 'FirebaseMessaging', '~> 10.24.0'
 
 # workaround to avoid Xcode caching of Pods that requires
 # Product -> Clean Build Folder after new Cordova plugins installed
@@ -11,6 +16,7 @@ install! 'cocoapods', :disable_input_output_paths => true
 def capacitor_pods
   pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
   pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+  pod 'CapacitorCommunityFirebaseAnalytics', :path => '../../node_modules/@capacitor-community/firebase-analytics'
   pod 'CapacitorBrowser', :path => '../../node_modules/@capacitor/browser'
   pod 'CapacitorCamera', :path => '../../node_modules/@capacitor/camera'
   pod 'CapacitorPushNotifications', :path => '../../node_modules/@capacitor/push-notifications'
@@ -22,5 +28,14 @@ target 'App' do
 end
 
 post_install do |installer|
-  assertDeploymentTarget(installer)
+  installer.pods_project.targets.each do |t|
+    t.build_configurations.each do |config|
+      # Ελάχιστο iOS για όλα τα pods
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+
+      # (προαιρετικά) Λιγότερος θόρυβος από warnings των Pods
+      config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
+    end
+  end
 end
+
