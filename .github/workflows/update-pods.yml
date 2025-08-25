@@ -2,7 +2,10 @@ name: One-off Pod Update
 
 on:
   workflow_dispatch:
-
+  
+permissions:
+  contents: write  
+  
 jobs:
   update-pods:
     runs-on: macos-14
