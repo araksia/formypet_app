@@ -589,6 +589,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      user_can_create_expense_for_pet: {
+        Args: { pet_id_param: string }
+        Returns: boolean
+      }
       user_can_invite_to_pet: {
         Args: { pet_id_param: string }
         Returns: boolean

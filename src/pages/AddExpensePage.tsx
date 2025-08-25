@@ -155,15 +155,7 @@ const AddExpensePage = () => {
   };
 
   const handleSubmit = async () => {
-    console.log('💰 Starting expense submission with data:', expense);
-    
     if (!expense.category || !expense.amount || !expense.petId || !expense.description) {
-      console.log('❌ Missing required fields:', {
-        category: !!expense.category,
-        amount: !!expense.amount,
-        petId: !!expense.petId,
-        description: !!expense.description
-      });
       toast({
         title: "Σφάλμα",
         description: "Παρακαλώ συμπληρώστε όλα τα υποχρεωτικά πεδία",
@@ -173,58 +165,43 @@ const AddExpensePage = () => {
     }
 
     setLoading(true);
-    console.log('💰 Setting loading to true');
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      console.log('👤 Current user:', user?.id);
-      
       if (!user) {
-        console.log('❌ No user found, redirecting to login');
         window.location.href = '/login';
         return;
       }
 
-      const expenseData = {
-        category: expense.category,
-        amount: parseFloat(expense.amount),
-        pet_id: expense.petId,
-        user_id: user.id,
-        description: expense.description,
-        expense_date: expense.date,
-        is_recurring: expense.isRecurring,
-        recurring_frequency: expense.isRecurring ? expense.recurringFrequency : null
-      };
-      
-      console.log('💰 Inserting expense data:', expenseData);
-
       const { error } = await supabase
         .from('expenses')
-        .insert(expenseData);
+        .insert({
+          category: expense.category,
+          amount: parseFloat(expense.amount),
+          pet_id: expense.petId,
+          user_id: user.id,
+          description: expense.description,
+          expense_date: expense.date,
+          is_recurring: expense.isRecurring,
+          recurring_frequency: expense.isRecurring ? expense.recurringFrequency : null
+        });
 
-      if (error) {
-        console.log('❌ Database error:', error);
-        throw error;
-      }
-
-      console.log('✅ Expense saved successfully');
+      if (error) throw error;
 
       toast({
         title: "Επιτυχία!",
         description: `Το έξοδο ${expense.amount}€ προστέθηκε επιτυχώς`,
       });
 
-      console.log('🏠 Navigating to /expenses');
       navigate("/expenses");
     } catch (error) {
-      console.error('❌ Error creating expense:', error);
+      console.error('Error creating expense:', error);
       toast({
         title: "Σφάλμα",
         description: "Υπήρξε πρόβλημα κατά την αποθήκευση του εξόδου",
         variant: "destructive"
       });
     } finally {
-      console.log('💰 Setting loading to false');
       setLoading(false);
     }
   };
