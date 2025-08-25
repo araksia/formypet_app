@@ -49,10 +49,15 @@ const ProfilePage = () => {
         .from('profiles')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error loading profile:', error);
+        toast({
+          title: "Σφάλμα",
+          description: "Αδυναμία φόρτωσης προφίλ",
+          variant: "destructive"
+        });
         return;
       }
 
@@ -68,29 +73,17 @@ const ProfilePage = () => {
         setProfileData(profileInfo);
         setEditData(profileInfo);
       } else {
-        // Create profile if it doesn't exist
-        const newProfile = {
-          user_id: user.id,
-          email: user.email || '',
+        // No profile exists, create default values
+        const profileInfo = {
           display_name: user.email?.split('@')[0] || '',
+          email: user.email || '',
+          avatar_url: '',
+          phone: '',
+          location: '',
+          bio: ''
         };
-        
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert([newProfile]);
-
-        if (!insertError) {
-          const profileInfo = {
-            display_name: newProfile.display_name,
-            email: newProfile.email,
-            avatar_url: '',
-            phone: '',
-            location: '',
-            bio: ''
-          };
-          setProfileData(profileInfo);
-          setEditData(profileInfo);
-        }
+        setProfileData(profileInfo);
+        setEditData(profileInfo);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -136,52 +129,35 @@ const ProfilePage = () => {
     
     setSaving(true);
     try {
-      // First, check if profile exists
-      const { data: existingProfile } = await supabase
+      // Use upsert to insert or update in one operation
+      const { error } = await supabase
         .from('profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
+        .upsert({
+          user_id: user.id,
+          display_name: editData.display_name,
+          email: editData.email,
+          avatar_url: editData.avatar_url,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
 
-      if (existingProfile) {
-        // Update existing profile
-        const { error } = await supabase
-          .from('profiles')
-          .update({
-            display_name: editData.display_name,
-            email: editData.email,
-            avatar_url: editData.avatar_url,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', user.id);
-
-        if (error) throw error;
-      } else {
-        // Insert new profile
-        const { error } = await supabase
-          .from('profiles')
-          .insert({
-            user_id: user.id,
-            display_name: editData.display_name,
-            email: editData.email,
-            avatar_url: editData.avatar_url,
-            updated_at: new Date().toISOString()
-          });
-
-        if (error) throw error;
+      if (error) {
+        console.error('Error saving profile:', error);
+        throw error;
       }
 
       setProfileData(editData);
       setIsEditing(false);
       toast({
         title: "Επιτυχής ενημέρωση",
-        description: "Τα στοιχεία σας ενημερώθηκαν επιτυχώς.",
+        description: "Το όνομα χρήστη ενημερώθηκε επιτυχώς.",
       });
     } catch (error) {
       console.error('Error saving profile:', error);
       toast({
         title: "Σφάλμα",
-        description: "Αδυναμία αποθήκευσης αλλαγών",
+        description: `Αδυναμία αποθήκευσης αλλαγών: ${error.message}`,
         variant: "destructive"
       });
     } finally {
