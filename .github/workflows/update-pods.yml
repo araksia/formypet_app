@@ -1,0 +1,24 @@
+name: Update Pods
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  update-pods:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods -N
+      - name: Update
+        working-directory: ios/App
+        run: |
+          pod repo update
+          pod update
+          pod install
+      - name: Commit
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+          git add ios/App/Podfile.lock ios/App/Pods/Manifest.lock
+          git commit -m "chore: pod update" || echo "no changes"
+          git push
