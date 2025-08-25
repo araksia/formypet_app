@@ -16,6 +16,8 @@ jobs:
       - name: Select Xcode 16.2
         run: sudo xcode-select -s /Applications/Xcode_16.2.app
 
+      # Χρειαζόμαστε node_modules επειδή το Podfile κάνει require το
+      # node_modules/@capacitor/ios/scripts/pods_helpers
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -29,10 +31,6 @@ jobs:
           else
             npm ci
           fi
-
-      # Προαιρετικό αλλά καλό για να συγχρονίσει Capacitor
-      - name: Update Capacitor iOS only (no web copy)
-        run: npx cap update ios
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
@@ -49,13 +47,12 @@ jobs:
           pod repo update
           pod update --repo-update
 
-      - name: Commit lockfiles
+      - name: Commit lockfiles (optional)
         run: |
           git config user.email "ci@github.actions"
           git config user.name "GitHub Actions"
-          # Πρόσθεσε ό,τι αλλάζει
           git add ios/App/Podfile.lock ios/App/Pods/Manifest.lock || true
-          git add ios/App/Pods || true
+          # Προαιρετικό: καλύτερα ΜΗΝ κάνεις commit ολόκληρο τον φάκελο Pods
           if ! git diff --cached --quiet; then
             git commit -m "chore(ios): pod update (privacy manifests)"
             git push
