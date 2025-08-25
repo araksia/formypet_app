@@ -31,10 +31,8 @@ jobs:
           fi
 
       # Προαιρετικό αλλά καλό για να συγχρονίσει Capacitor
-      - name: Sync Capacitor (no pod install)
-        env:
-          CAPACITOR_SKIP_POD_INSTALL: '1'
-        run: npx cap sync ios
+      - name: Update Capacitor iOS only (no web copy)
+        run: npx cap update ios
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
