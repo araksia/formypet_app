@@ -181,21 +181,6 @@ All colors MUST be HSL.
     @apply transition-opacity duration-300;
   }
 
-  .loading-shimmer {
-    background: linear-gradient(
-      110deg,
-      hsl(var(--muted)) 8%,
-      hsl(var(--muted-foreground) / 0.1) 18%,
-      hsl(var(--muted)) 33%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-  }
-
-  @keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-  }
 
   /* Micro-interactions */
   .bounce-in {
