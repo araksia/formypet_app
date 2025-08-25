@@ -231,8 +231,12 @@ const PetsPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
         <Header title="Τα Κατοικίδιά μου" />
-        <div className="p-4 flex justify-center items-center h-32">
-          <p>Φόρτωση...</p>
+        <div className="p-4 space-y-4">
+          <div className="grid gap-3">
+            {[1, 2].map((i) => (
+              <PetCardSkeleton key={i} />
+            ))}
+          </div>
         </div>
       </div>
     );

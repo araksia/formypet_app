@@ -14,7 +14,10 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="text-4xl">🐾</div>
-          <p>Φόρτωση...</p>
+          <div className="space-y-2">
+            <div className="h-4 bg-muted animate-pulse rounded w-32 mx-auto" />
+            <div className="h-3 bg-muted animate-pulse rounded w-24 mx-auto" />
+          </div>
         </div>
       </div>
     );

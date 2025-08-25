@@ -370,7 +370,15 @@ const Dashboard = () => {
             </Button>
           </div>
           {achievementsLoading ? (
-            <div className="text-center py-4 text-gray-500">Φόρτωση...</div>
+            <div className="grid grid-cols-2 gap-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="p-4 bg-muted rounded-lg animate-pulse">
+                  <div className="h-8 w-8 bg-muted-foreground/20 rounded-full mb-2" />
+                  <div className="h-4 bg-muted-foreground/20 rounded w-3/4 mb-1" />
+                  <div className="h-3 bg-muted-foreground/20 rounded w-1/2" />
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="grid grid-cols-2 gap-3" role="grid" aria-label="Πρόσφατα επιτεύγματα">
               {userAchievements
@@ -424,7 +432,18 @@ const Dashboard = () => {
             <CardContent>
               <div className="space-y-3" role="list" aria-label="Λίστα επερχόμενων events">
               {loading ? (
-                <div className="text-center py-4 text-gray-500">Φόρτωση...</div>
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl animate-pulse">
+                      <div className="w-10 h-10 bg-muted rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-muted rounded w-3/4" />
+                        <div className="h-3 bg-muted rounded w-1/2" />
+                      </div>
+                      <div className="h-6 w-20 bg-muted rounded-full" />
+                    </div>
+                  ))}
+                </div>
               ) : upcomingEvents.length === 0 ? (
                 <div className="text-center py-4 text-gray-500">
                   Δεν υπάρχουν επερχόμενα events
