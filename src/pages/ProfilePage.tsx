@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, Mail, Phone, MapPin, Edit2, Save, X, Bell, Shield, HelpCircle, LogOut } from 'lucide-react';
+import { Camera, Mail, Phone, MapPin, Edit2, Save, X, Bell, Shield, HelpCircle, LogOut, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +18,7 @@ const ProfilePage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [profileData, setProfileData] = useState({
     display_name: '',
     email: '',
@@ -179,6 +180,106 @@ const ProfilePage = () => {
     }
   };
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Σφάλμα",
+        description: "Η φωτογραφία είναι πολύ μεγάλη. Μέγιστο μέγεθος: 5MB",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Σφάλμα",
+        description: "Παρακαλώ επιλέξτε μια φωτογραφία",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Delete old avatar if exists
+      if (profileData.avatar_url) {
+        const oldPath = profileData.avatar_url.split('/').pop();
+        if (oldPath) {
+          await supabase.storage
+            .from('avatars')
+            .remove([`${user.id}/${oldPath}`]);
+        }
+      }
+
+      // Upload new avatar
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const avatarUrl = data.publicUrl;
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .upsert({
+          user_id: user.id,
+          display_name: profileData.display_name,
+          email: profileData.email,
+          avatar_url: avatarUrl,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Update local state
+      const updatedProfile = { ...profileData, avatar_url: avatarUrl };
+      setProfileData(updatedProfile);
+      setEditData(updatedProfile);
+
+      toast({
+        title: "Επιτυχία",
+        description: "Η φωτογραφία προφίλ ενημερώθηκε επιτυχώς!",
+      });
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      toast({
+        title: "Σφάλμα",
+        description: "Αδυναμία ανεβάσματος φωτογραφίας",
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+      // Reset input
+      event.target.value = '';
+    }
+  };
+
+  const triggerFileInput = () => {
+    document.getElementById('avatar-upload')?.click();
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -229,10 +330,23 @@ const ProfilePage = () => {
                   size="icon"
                   variant="outline"
                   className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full"
+                  onClick={triggerFileInput}
+                  disabled={uploading}
                 >
-                  <Camera className="h-4 w-4" />
+                  {uploading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                  ) : (
+                    <Camera className="h-4 w-4" />
+                  )}
                 </Button>
-              </div>
+                <input
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                />
+               </div>
               
               {!isEditing ? (
                 <div className="text-center space-y-2">
