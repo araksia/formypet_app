@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { differenceInYears } from 'date-fns';
+import { PetCardSkeleton } from '@/components/ui/skeleton';
 
 const PetsPage = () => {
   const navigate = useNavigate();
@@ -256,16 +257,22 @@ const PetsPage = () => {
 
         {/* Loading State */}
         {loading && (
-          <div className="text-center py-8">
-            <p>Φόρτωση κατοικιδίων...</p>
+          <div className="grid gap-3 sm:gap-4">
+            {[1, 2, 3].map((i) => (
+              <PetCardSkeleton key={i} />
+            ))}
           </div>
         )}
 
         {/* Pets Grid/List */}
         {!loading && pets.length > 0 ? (
           <div className="grid gap-3 sm:gap-4">
-            {pets.map((pet) => (
-              <Card key={pet.id} className="overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+            {pets.map((pet, index) => (
+              <Card 
+                key={pet.id} 
+                className="overflow-hidden card-hover stagger-fade"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
                 <CardContent className="p-0">
                   <div className="flex flex-col sm:flex-row h-full">
                     {/* Pet Image */}
@@ -317,7 +324,7 @@ const PetsPage = () => {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8 hover:bg-green-50 hover:text-green-600"
+                              className="h-8 w-8 button-hover hover:bg-green-50 hover:text-green-600 transition-colors"
                               onClick={() => navigate(`/pet/${pet.id}?edit=true`)}
                               title="Επεξεργασία κατοικιδίου"
                             >
@@ -326,7 +333,7 @@ const PetsPage = () => {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
+                              className="h-8 w-8 button-hover hover:bg-red-50 hover:text-red-600 transition-colors"
                               onClick={() => openDeleteDialog(pet)}
                               title="Διαγραφή κατοικιδίου"
                             >
@@ -335,7 +342,7 @@ const PetsPage = () => {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8 hover:bg-purple-50 hover:text-purple-600"
+                              className="h-8 w-8 button-hover hover:bg-purple-50 hover:text-purple-600 transition-colors"
                               onClick={() => navigate(`/pet/${pet.id}/medical`)}
                               title="Ιατρικά στοιχεία"
                             >
@@ -351,12 +358,12 @@ const PetsPage = () => {
             ))}
           </div>
         ) : !loading && pets.length === 0 ? (
-          <Card className="p-8">
+          <Card className="p-8 bounce-in">
             <div className="text-center space-y-4">
-              <div className="text-6xl">🐾</div>
+              <div className="text-6xl animate-bounce">🐾</div>
               <h3 className="text-lg font-semibold">Δεν έχετε κατοικίδια ακόμα</h3>
               <p className="text-muted-foreground">Προσθέστε το πρώτο σας κατοικίδιο για να ξεκινήσετε!</p>
-              <Button onClick={() => navigate('/add-pet')} className="w-full sm:w-auto">
+              <Button onClick={() => navigate('/add-pet')} className="w-full sm:w-auto button-hover">
                 <Plus className="h-4 w-4 mr-2" />
                 Προσθήκη Κατοικιδίου
               </Button>
@@ -399,7 +406,7 @@ const PetsPage = () => {
       <Button
         onClick={() => navigate('/add-pet')}
         size="lg"
-        className="fixed bottom-20 right-4 rounded-full w-14 h-14 shadow-lg hover:shadow-xl transition-shadow z-40"
+        className="fixed bottom-20 right-4 rounded-full w-14 h-14 shadow-lg hover:shadow-xl button-hover transition-all z-40 bg-primary hover:bg-primary/90"
       >
         <Plus className="h-6 w-6" />
       </Button>

@@ -25,6 +25,7 @@ import { PieChart as RechartsePieChart, Pie, Cell, ResponsiveContainer, BarChart
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { supabase } from '@/integrations/supabase/client';
+import { ExpenseItemSkeleton, StatsCardSkeleton } from '@/components/ui/skeleton';
 
 // Type definitions
 type Expense = {
@@ -208,8 +209,15 @@ const ExpensesPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 p-2 sm:p-4">
         <div className="max-w-7xl mx-auto space-y-4">
-          <div className="flex justify-center items-center h-32">
-            <p>Φόρτωση εξόδων...</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+            {[1, 2, 3, 4].map((i) => (
+              <StatsCardSkeleton key={i} />
+            ))}
+          </div>
+          <div className="space-y-2 sm:space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <ExpenseItemSkeleton key={i} />
+            ))}
           </div>
         </div>
       </div>
@@ -356,7 +364,7 @@ const ExpensesPage = () => {
 
         {/* Overview Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-          <Card className="p-2 sm:p-3">
+          <Card className="p-2 sm:p-3 card-hover stagger-fade">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <Euro className="h-4 w-4 text-muted-foreground mb-1 sm:mb-0" />
               <div className="text-left sm:text-right">
@@ -366,7 +374,7 @@ const ExpensesPage = () => {
             </div>
           </Card>
           
-          <Card className="p-2 sm:p-3">
+          <Card className="p-2 sm:p-3 card-hover stagger-fade" style={{ animationDelay: '0.1s' }}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <PieChart className="h-4 w-4 text-muted-foreground mb-1 sm:mb-0" />
               <div className="text-left sm:text-right">
@@ -376,7 +384,7 @@ const ExpensesPage = () => {
             </div>
           </Card>
           
-          <Card className="p-2 sm:p-3">
+          <Card className="p-2 sm:p-3 card-hover stagger-fade" style={{ animationDelay: '0.2s' }}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <BarChart3 className="h-4 w-4 text-muted-foreground mb-1 sm:mb-0" />
               <div className="text-left sm:text-right">
@@ -386,7 +394,7 @@ const ExpensesPage = () => {
             </div>
           </Card>
           
-          <Card className="p-2 sm:p-3">
+          <Card className="p-2 sm:p-3 card-hover stagger-fade" style={{ animationDelay: '0.3s' }}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <Calendar className="h-4 w-4 text-muted-foreground mb-1 sm:mb-0" />
               <div className="text-left sm:text-right">
@@ -454,8 +462,12 @@ const ExpensesPage = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2 sm:space-y-3 max-h-64 sm:max-h-80 overflow-y-auto">
-              {filteredExpenses.length > 0 ? filteredExpenses.map((expense) => (
-                <div key={expense.id} className="flex items-center justify-between p-2 sm:p-3 bg-muted/50 rounded-md">
+              {filteredExpenses.length > 0 ? filteredExpenses.map((expense, index) => (
+                <div 
+                  key={expense.id} 
+                  className="flex items-center justify-between p-2 sm:p-3 bg-muted/50 rounded-md card-hover stagger-fade"
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div className="p-1 sm:p-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: `${categoryColors[expense.category as keyof typeof categoryColors]}20` }}>
                       <Euro className="h-3 w-3 sm:h-4 sm:w-4" style={{ color: categoryColors[expense.category as keyof typeof categoryColors] }} />
