@@ -273,8 +273,18 @@ const ProfilePage = () => {
                     <Label htmlFor="name">Όνομα</Label>
                     <Input
                       id="name"
-                       value={editData.display_name}
-                       onChange={(e) => setEditData(prev => ({ ...prev, display_name: e.target.value }))}
+                      value={editData.display_name}
+                      onChange={(e) => setEditData(prev => ({ ...prev, display_name: e.target.value }))}
+                      onFocus={(e) => {
+                        // Enhanced iPhone keyboard handling
+                        setTimeout(() => {
+                          e.target.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'center',
+                            inline: 'nearest'
+                          });
+                        }, 500);
+                      }}
                     />
                   </div>
                   <div className="space-y-2">
@@ -283,6 +293,16 @@ const ProfilePage = () => {
                       id="bio"
                       value={editData.bio}
                       onChange={(e) => setEditData(prev => ({ ...prev, bio: e.target.value }))}
+                      onFocus={(e) => {
+                        // Enhanced iPhone keyboard handling
+                        setTimeout(() => {
+                          e.target.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'center',
+                            inline: 'nearest'
+                          });
+                        }, 500);
+                      }}
                     />
                   </div>
                   <div className="flex gap-2">
