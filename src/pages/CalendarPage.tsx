@@ -435,8 +435,9 @@ const CalendarPage = () => {
                     {selectedDateEvents.map((event, index) => (
                       <div 
                         key={event.id} 
-                        className="flex items-center gap-3 p-3 bg-muted rounded-lg stagger-fade card-hover"
+                        className="flex items-center gap-3 p-3 bg-muted rounded-lg stagger-fade card-hover cursor-pointer hover:bg-muted/80 transition-colors"
                         style={{ animationDelay: `${index * 0.1}s` }}
+                        onClick={() => navigate(`/add-event?edit=${event.id}`)}
                       >
                         <div className={`p-2 rounded-full ${eventTypeColors[event.event_type as keyof typeof eventTypeColors]} text-white`}>
                           {renderEventIcon(event.event_type)}
