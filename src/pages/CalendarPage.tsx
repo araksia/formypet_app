@@ -128,9 +128,11 @@ const CalendarPage = () => {
     }
   };
 
-  // Filter events για την επιλεγμένη ημερομηνία (μόνο για σήμερα)
-  const today = new Date();
-  const todayEvents = events.filter(event => isToday(event.date));
+  // Filter events για την επιλεγμένη ημερομηνία
+  const selectedDateEvents = events.filter(event => 
+    selectedDate ? isSameDay(event.date, selectedDate) : isToday(event.date)
+  );
+  const displayDate = selectedDate || new Date();
 
   const loadNotifications = async () => {
     if (!user) return;
@@ -420,17 +422,17 @@ const CalendarPage = () => {
               </CardContent>
             </Card>
 
-            {/* Events μόνο για σήμερα */}
+            {/* Events για την επιλεγμένη ημερομηνία */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">
-                  Events για σήμερα ({format(today, 'dd MMMM yyyy', { locale: el })})
+                  Events για {isToday(displayDate) ? 'σήμερα' : format(displayDate, 'dd MMMM yyyy', { locale: el })}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {todayEvents.length > 0 ? (
+                {selectedDateEvents.length > 0 ? (
                   <div className="space-y-3">
-                    {todayEvents.map((event, index) => (
+                    {selectedDateEvents.map((event, index) => (
                       <div 
                         key={event.id} 
                         className="flex items-center gap-3 p-3 bg-muted rounded-lg stagger-fade card-hover"
@@ -454,7 +456,7 @@ const CalendarPage = () => {
                   </div>
                 ) : (
                   <p className="text-muted-foreground text-center py-4">
-                    Δεν υπάρχουν events για σήμερα
+                    Δεν υπάρχουν events για {isToday(displayDate) ? 'σήμερα' : 'αυτή την ημερομηνία'}
                   </p>
                 )}
               </CardContent>
