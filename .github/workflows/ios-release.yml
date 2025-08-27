@@ -180,8 +180,8 @@ jobs:
           
       - name: Show Xcode schemes and build settings
         run: |
-        xcodebuild -list -workspace ios/App/App.xcworkspace
-        xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER|SWIFT_VERSION|IPHONEOS_DEPLOYMENT_TARGET'
+          xcodebuild -list -workspace ios/App/App.xcworkspace
+          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER|SWIFT_VERSION|IPHONEOS_DEPLOYMENT_TARGET'
 
 
       # 8) Build & Release μέσω fastlane (lane: ios release)
