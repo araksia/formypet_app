@@ -58,7 +58,7 @@ jobs:
           cache: 'npm'
 
       - name: Configure npm auth (optional but recommended)
-        if: ${{ secrets.NPM_TOKEN != '' }}
+        if: ${{ env.NPM_TOKEN != '' }}
         run: |
           npm config set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
           npm config set audit false
