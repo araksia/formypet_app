@@ -16,8 +16,8 @@ jobs:
       BUNDLE_PATH: vendor/bundle
       LC_ALL: en_US.UTF-8
       LANG: en_US.UTF-8
-      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}          # << ΕΔΩ στο job
-      APP_BUNDLE_ID: gr.formypet.app   # 👈 εδώ
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      APP_BUNDLE_ID: gr.formypet.app
 
     steps:
       # 1) Checkout
@@ -30,8 +30,8 @@ jobs:
       - name: Select Xcode 16
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.*'   # ή 16.1 / 16.2 κ.λπ.
-      
+          xcode-version: '16.*'
+
       - name: Show selected Xcode / SDK
         run: |
           xcodebuild -version
@@ -48,24 +48,28 @@ jobs:
         working-directory: ios/App
         run: |
           bundle install --jobs 4 --retry 3
-          
-      # Node.js για Capacitor/JS
+
+      # Node.js για Capacitor/JS (ΜΟΝΟ ένα step)
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'   # εξαναγκάζει npmjs
-          cache: 'npm'    
-          
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Configure npm auth (optional but recommended)
+        if: ${{ secrets.NPM_TOKEN != '' }}
+        run: |
+          npm config set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
+          npm config set audit false
+          npm config set fund false
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Install JS dependencies
         run: |
           if [ -f package-lock.json ]; then
-            npm ci
+            npm ci --prefer-online || (echo "retry…" && sleep 5 && npm ci --prefer-online)
           elif [ -f yarn.lock ]; then
             corepack enable
             yarn install --frozen-lockfile
@@ -75,16 +79,15 @@ jobs:
 
       - name: Build web assets (create ./dist)
         run: npm run build
-          
+
       # Συγχρονισμός Capacitor -> iOS (χωρίς pod install εδώ)
       - name: Sync Capacitor iOS (skip pods)
         env:
           CAPACITOR_SKIP_POD_INSTALL: '1'
         run: npx cap sync ios
-        
+
       - name: Ensure xcodeproj gem
         run: gem install xcodeproj -N
-
 
       # --- γράφουμε το GoogleService-Info.plist από secret ---
       - name: Write GoogleService-Info.plist
@@ -92,10 +95,11 @@ jobs:
           mkdir -p ios/App/App
           echo "$FIREBASE_IOS_PLIST_BASE64" | base64 --decode > ios/App/App/GoogleService-Info.plist
           /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist
+          /usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" ios/App/App/GoogleService-Info.plist
         env:
           FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
 
-      # --- προσθήκη στο target Resources (χωρίς να ανοίξεις Xcode) ---
+      # --- προσθήκη στο target Resources ---
       - name: Add plist to Xcode target (if missing)
         working-directory: ios/App
         run: |
@@ -107,10 +111,69 @@ jobs:
           ref=proj.main_group.find_file_by_path(path) || proj.main_group.new_file(path);
           unless t.resources_build_phase.files_references.include?(ref)
             t.add_resources([ref]); puts 'Added GoogleService-Info.plist to Resources';
+          else
+            puts 'GoogleService-Info.plist already in Resources';
           end
           proj.save"
-      
-      
+
+      # --- Lint του App Info.plist & auto-fix template αν είναι κατεστραμμένο ---
+      - name: Lint App Info.plist (fail early if broken)
+        run: |
+          if ! /usr/bin/plutil -lint ios/App/App/Info.plist >/dev/null 2>&1; then
+            echo "❌ ios/App/App/Info.plist is invalid. Replacing with safe template…"
+            cat > ios/App/App/Info.plist <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+  <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>CFBundleName</key><string>$(PRODUCT_NAME)</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+  <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+  <key>UILaunchStoryboardName</key><string>LaunchScreen</string>
+  <key>UIMainStoryboardFile</key><string>Main</string>
+  <key>UIRequiredDeviceCapabilities</key>
+  <array><string>arm64</string></array>
+  <key>UISupportedInterfaceOrientations</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
+  <key>UISupportedInterfaceOrientations~ipad</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
+  <key>UIApplicationSceneManifest</key>
+  <dict>
+    <key>UIApplicationSupportsMultipleScenes</key><false/>
+    <key>UISceneConfigurations</key>
+    <dict>
+      <key>UIWindowSceneSessionRoleApplication</key>
+      <array>
+        <dict>
+          <key>UISceneConfigurationName</key><string>Default Configuration</string>
+          <key>UISceneDelegateClassName</key><string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+          <key>UISceneStoryboardFile</key><string>Main</string>
+        </dict>
+      </array>
+    </dict>
+  </dict>
+  <!-- add any NS*UsageDescription you χρειάζεσαι -->
+</dict>
+</plist>
+PLIST
+            /usr/bin/plutil -lint ios/App/App/Info.plist
+          else
+            echo "✅ ios/App/App/Info.plist is valid."
+          fi
 
       # 4) CocoaPods
       - name: Install CocoaPods
@@ -124,7 +187,7 @@ jobs:
           pod repo update
           bundle exec pod install --repo-update || pod install --repo-update
 
-      # 5) Αν δεν υπάρχει shared scheme, αντιγράφουμε πιθανό user scheme σε shared
+      # 5) Ensure shared scheme exists
       - name: Ensure shared scheme exists
         working-directory: ios/App
         run: |
@@ -137,17 +200,14 @@ jobs:
             cp "$USERDIR/xcschemes/"*.xcscheme "$SHARE"/ || true
             echo "Copied user schemes to shared."
           else
-            echo "No user schemes to copy (if archive fails, share the 'App' scheme locally and commit)."
+            echo "No user schemes to copy."
           fi
 
-      # 6) Γρήγορος έλεγχος (δεν μπλοκάρει)
-      - name: Sanity check workspace & signing
+      # 6) Δείξε workspace & build settings (διάγνωση)
+      - name: Show Xcode schemes and build settings
         run: |
-          ls -la ios/App
-          /usr/bin/xcodebuild -list -workspace ios/App/App.xcworkspace || true
-          /usr/bin/xcodebuild -showBuildSettings \
-            -workspace ios/App/App.xcworkspace \
-            -scheme App | egrep 'PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER|IPHONEOS_DEPLOYMENT_TARGET' || true
+          xcodebuild -list -workspace ios/App/App.xcworkspace
+          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'INFOPLIST_FILE|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER|SWIFT_VERSION|IPHONEOS_DEPLOYMENT_TARGET'
 
       # 7) SSH για το match repo (deploy key)
       - name: Start ssh-agent (for match repo)
@@ -165,44 +225,45 @@ jobs:
           git config --global user.email "ci@github.actions"
           git config --global user.name "GitHub Actions"
 
-      # (προαιρετικό) Έλεγχος πρόσβασης στο certs repo
       - name: Check access to match repo
         env:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
         run: git ls-remote "$MATCH_GIT_URL" -h
-        
+
+      # 8) Build & Release μέσω fastlane
+      - name: Build & Release with fastlane
+        working-directory: ios/App
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BRANCH: main
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: bundle exec fastlane release
+
+      # --- Σε αποτυχία: τύπωσε το πλήρες xcodebuild/gym log ---
+      - name: Print last gym log on failure
+        if: failure()
+        run: |
+          LOG=$(ls -t ~/Library/Logs/gym/App-*.log | head -n1 || true)
+          if [ -n "$LOG" ]; then
+            echo "== Dumping $LOG ==" && tail -n +1 "$LOG"
+          else
+            echo "No gym log found"
+          fi
+
+      # Μετακίνησε το upload logs ΕΔΩ
       - name: Upload Xcode logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: xcode-logs
-          path: ~/Library/Logs/gym/*
-          
-      - name: Show Xcode schemes and build settings
-        run: |
-          xcodebuild -list -workspace ios/App/App.xcworkspace
-          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER|SWIFT_VERSION|IPHONEOS_DEPLOYMENT_TARGET'
-
-
-      # 8) Build & Release μέσω fastlane (lane: ios release)
-      - name: Build & Release with fastlane
-        working-directory: ios/App
-        env:
-          # match (SSH + branch main)
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}       # π.χ. git@github.com:araksia/formypet-ios-certificates.git
-          MATCH_GIT_BRANCH: main
-          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}   # <—
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }} 
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}   # <— ΝΕΟ
-
-
-          # App Store Connect API key (το .p8 περιεχόμενο σε αυτό το secret)
-          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
-
-          # Team & bundle id που διαβάζει ο Fastfile
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
-          BUILD_NUMBER: ${{ github.run_number }}   # <-- προσθήκη
-        run: bundle exec fastlane release
+          path: |
+            ~/Library/Logs/gym/*
+            ~/Library/Developer/Xcode/DerivedData/**/Logs/**
