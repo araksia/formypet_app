@@ -83,7 +83,7 @@ jobs:
           if grep -nE 'href="/|src="/' dist/index.html; then
             sed -i.bak -E 's#href="/#href="./#g; s#src="/#src="./#g' dist/index.html
           fi
-          head -n 40 dist/index.html
+          head -n 40 dist/index.html || true
 
       - name: Show Capacitor config
         run: |
@@ -97,47 +97,41 @@ jobs:
           CAPACITOR_SKIP_POD_INSTALL: "1"
         run: npx cap sync ios
 
-      - name: Inject debug helpers inside index.html (safe)
+      - name: Verify iOS public (either layout)
         run: |
           set -e
-          HTML=""
+          FOUND=""
           for P in ios/App/App/public ios/App/public; do
-            if [ -f "$P/index.html" ]; then HTML="$P/index.html"; break; fi
+            if [ -d "$P" ]; then
+              echo "Found public at: $P"
+              ls -la "$P" | head -50
+              test -f "$P/index.html" || { echo "$P/index.html missing"; exit 1; }
+              echo "== head $P/index.html =="
+              head -n 40 "$P/index.html"
+              FOUND="yes"
+              break
+            fi
           done
-          test -n "$HTML" || { echo "public/index.html missing"; exit 1; }
-
-          cat > /tmp/insert_head.html <<'HEADBLOCK'
-<script>try{alert("DEBUG: index.html loaded");}catch(e){}</script>
-<script>
-window.onerror=function(m,s,l,c,e){alert("JS Error: "+m+" @ "+(s||"")+":"+(+l||0))};
-window.addEventListener("unhandledrejection",function(ev){var r=ev&&ev.reason;alert("UnhandledRejection: "+(r&&(r.message||r)))});
-</script>
-<style>html,body,#root{height:100%;min-height:100%;margin:0;background:#fff}</style>
-HEADBLOCK
-
-          awk 'BEGIN{ins=0} ins==0 && /<head>/ { print; system("cat /tmp/insert_head.html"); ins=1; next } { print }' "$HTML" > "$HTML.tmp" && mv "$HTML.tmp" "$HTML"
-
-          cat > /tmp/insert_body.html <<'BODYBLOCK'
-<div style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#c00;color:#fff;padding:8px;text-align:center;font-weight:bold">DEBUG BUILD: index.html LOADED</div>
-BODYBLOCK
-
-          awk 'BEGIN{ins=0} ins==0 && /<body>/ { print; system("cat /tmp/insert_body.html"); ins=1; next } { print }' "$HTML" > "$HTML.tmp" && mv "$HTML.tmp" "$HTML"
-
-          # strip crossorigin on local files
-          /usr/bin/sed -i '' -E 's/ crossorigin//g' "$HTML"
-
-          head -n 40 "$HTML"
+          if [ -z "$FOUND" ]; then
+            echo "public folder not found under ios/App/App/public nor ios/App/public"
+            exit 1
+          fi
 
       - name: Ensure JS bundle exists
         run: |
           set -e
-          ASSETS="ios/App/App/public/assets"
-          test -d "$ASSETS" || { echo "$ASSETS missing"; exit 1; }
-          HTML="ios/App/App/public/index.html"
-          MAIN=$(grep -oE './assets/[A-Za-z0-9._-]+\.js' "$HTML" | head -n1 | sed 's|^\./||')
-          test -n "$MAIN" || { echo "no main js in index.html"; exit 1; }
-          test -s "ios/App/App/public/$MAIN" || { echo "main bundle is empty"; exit 1; }
-          head -n 30 "ios/App/App/public/$MAIN" || true
+          HTML=""
+          for P in ios/App/App/public ios/App/public; do
+            [ -f "$P/index.html" ] && HTML="$P/index.html"
+          done
+          test -n "$HTML" || { echo "public/index.html missing"; exit 1; }
+          ASSETS_DIR="$(dirname "$HTML")/assets"
+          test -d "$ASSETS_DIR" || { echo "$ASSETS_DIR missing"; exit 1; }
+          MAIN_REL=$(grep -oE './assets/[A-Za-z0-9._-]+\.js' "$HTML" | head -n1 | sed 's|^\./||')
+          test -n "$MAIN_REL" || { echo "no main js in index.html"; exit 1; }
+          MAIN="$(dirname "$HTML")/$MAIN_REL"
+          test -s "$MAIN" || { echo "main bundle is empty"; exit 1; }
+          head -n 30 "$MAIN" || true
 
       - name: Ensure xcodeproj gem
         run: gem install xcodeproj -N
