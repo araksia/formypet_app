@@ -47,7 +47,8 @@ jobs:
 
       - name: Install gems
         working-directory: ios/App
-        run: bundle install --jobs 4 --retry 3
+        run: |
+          bundle install --jobs 4 --retry 3
 
       # 4) Node / npm
       - name: Set up Node
@@ -79,31 +80,51 @@ jobs:
       - name: Build web assets (create ./dist)
         run: npm run build
 
-      # Check build output
       - name: Check dist/ contents
         run: |
+          echo "== dist =="
           ls -la dist | head -50
           test -f dist/index.html || { echo "❌ dist/index.html missing"; exit 1; }
 
       - name: Scan index.html for absolute asset paths
         run: |
+          echo "== scan for href=\"/ or src=\"/ in dist/index.html =="
           if grep -nE 'href="/|src="/' dist/index.html; then
-            echo "⚠️ Found absolute paths. Fix vite.config.ts with base: ''"
+            echo "⚠️ Found absolute paths. In Capacitor use relative paths."
+            echo "   Αν έχεις Vite, βάλε base: '' στο vite.config.ts για production mobile build."
           else
             echo "✅ No absolute paths detected."
           fi
 
-      # 5) Capacitor sync
+      # 5) Capacitor sync (χωρίς pods)
       - name: Sync Capacitor iOS (skip pods)
         env:
           CAPACITOR_SKIP_POD_INSTALL: '1'
         run: npx cap sync ios
 
-      # ✅ ΤΩΡΑ υπάρχει ios/App/public
-      - name: Check ios/App/public contents
+      # Επιβεβαίωση ότι τα assets πέρασαν σωστά
+      - name: Confirm webDir setting in capacitor config
         run: |
-          ls -la ios/App/public | head -50
-          test -f ios/App/public/index.html || { echo "❌ ios/App/public/index.html missing"; exit 1; }
+          echo "== grep webDir in capacitor.config.* =="
+          grep -R --line-number "webDir" capacitor.config.* || echo "ℹ️ No explicit webDir, default is 'dist'"
+
+      - name: Check iOS public folder (handles both layouts)
+        run: |
+          set -e
+          FOUND=""
+          for P in ios/App/App/public ios/App/public; do
+            if [ -d "$P" ]; then
+              echo "✅ Found public at: $P"
+              ls -la "$P" | head -50
+              test -f "$P/index.html" || { echo "❌ $P/index.html missing"; exit 1; }
+              FOUND="yes"
+              break
+            fi
+          done
+          if [ -z "$FOUND" ]; then
+            echo "❌ public folder not found under ios/App/App/public nor ios/App/public"
+            exit 1
+          fi
 
       # 6) Firebase plist από secret
       - name: Ensure xcodeproj gem
@@ -150,6 +171,7 @@ jobs:
       - name: Ensure shared scheme exists
         working-directory: ios/App
         run: |
+          set -euo pipefail
           PROJ="App.xcodeproj"
           SHARE="$PROJ/xcshareddata/xcschemes"
           USERDIR=$(ls -1d "$PROJ"/xcuserdata/* 2>/dev/null | head -n1 || true)
@@ -161,20 +183,22 @@ jobs:
             echo "No user schemes to copy."
           fi
 
-      # 9) Show build settings (diagnostic)
+      # 9) Δείξε workspace & build settings (διάγνωση)
       - name: Show Xcode schemes and build settings
         run: |
           xcodebuild -list -workspace ios/App/App.xcworkspace
-          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'INFOPLIST_FILE|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|SWIFT_VERSION|IPHONEOS_DEPLOYMENT_TARGET'
+          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'INFOPLIST_FILE|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER|SWIFT_VERSION|IPHONEOS_DEPLOYMENT_TARGET'
 
-      # 10) SSH for match repo
+      # 10) SSH για το match repo
       - name: Start ssh-agent (for match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
 
       - name: Add github.com to known_hosts
-        run: ssh-keyscan github.com >> ~/.ssh/known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
 
       - name: Configure Git for match
         run: |
@@ -186,7 +210,7 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
         run: git ls-remote "$MATCH_GIT_URL" -h
 
-      # 11) Build & Release with fastlane
+      # 11) Build & Release μέσω fastlane
       - name: Build & Release with fastlane
         working-directory: ios/App
         env:
@@ -203,7 +227,7 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
         run: bundle exec fastlane release
 
-      # 12) Debug logs if fail
+      # 12) Αν αποτύχει: τύπωσε το πλήρες gym log
       - name: Print last gym log on failure
         if: failure()
         run: |
@@ -214,7 +238,7 @@ jobs:
             echo "No gym log found"
           fi
 
-      # 13) Always upload logs
+      # 13) Πάντα ανέβασε logs
       - name: Upload Xcode logs
         if: always()
         uses: actions/upload-artifact@v4
