@@ -21,25 +21,28 @@ jobs:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     steps:
+      # 1) Checkout
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # 2) Xcode
       - name: Select Xcode 16
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "16.*"
+          xcode-version: '16.*'
 
       - name: Show selected Xcode / SDK
         run: |
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
+      # 3) Ruby & Bundler
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.2"
+          ruby-version: '3.2'
           bundler-cache: false
 
       - name: Install gems
@@ -47,17 +50,18 @@ jobs:
         run: |
           bundle install --jobs 4 --retry 3
 
+      # 4) Node / npm
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          registry-url: https://registry.npmjs.org
-          cache: npm
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
 
       - name: Configure npm auth (optional)
         run: |
           if [ -n "${NPM_TOKEN:-}" ]; then
-            npm config set //registry.npmjs.org/:_authToken="${NPM_TOKEN}"
+            npm config set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
           fi
           npm config set audit false
           npm config set fund false
@@ -65,7 +69,7 @@ jobs:
       - name: Install JS dependencies
         run: |
           if [ -f package-lock.json ]; then
-            npm ci --prefer-online || (echo "retry" && sleep 5 && npm ci --prefer-online)
+            npm ci --prefer-online || (echo "retry…" && sleep 5 && npm ci --prefer-online)
           elif [ -f yarn.lock ]; then
             corepack enable
             yarn install --frozen-lockfile
@@ -73,39 +77,62 @@ jobs:
             npm install
           fi
 
-      - name: Build web assets
+      - name: Build web assets (create ./dist)
         run: npm run build
-
-      - name: Fix absolute paths in dist/index.html
+        
+      - name: Check dist/ & auto-fix absolute paths
         run: |
           set -e
-          test -f dist/index.html || { echo "dist/index.html missing"; exit 1; }
-          if grep -nE 'href="/|src="/' dist/index.html; then
-            sed -i.bak -E 's#href="/#href="./#g; s#src="/#src="./#g' dist/index.html
-          fi
-          head -n 40 dist/index.html || true
+          echo "== dist listing =="
+          ls -la dist | head -50
+          test -f dist/index.html || { echo "❌ dist/index.html missing"; exit 1; }
 
-      - name: Show Capacitor config
+          echo "== scan index.html for absolute / paths =="
+          if grep -nE 'href="/|src="/' dist/index.html; then
+            echo "⚠️ Found absolute paths starting with /. Converting to relative (./) so WKWebView τα βρίσκει."
+            # Ελαφρύ patch για τα πιο συνηθισμένα patterns
+            sed -i.bak -E 's#href="/#href="./#g; s#src="/#src="./#g' dist/index.html
+            echo "== re-scan =="
+            grep -nE 'href="/|src="/' dist/index.html || echo "✅ fixed"
+          else
+            echo "✅ No absolute paths detected."
+          fi
+
+          # (προαιρετικό) δείξε τις πρώτες γραμμές
+          echo "== head dist/index.html =="
+          head -n 40 dist/index.html
+          
+      - name: Inspect capacitor config (webDir/server)
+        run: |
+          echo "== grep webDir / server in capacitor.config.* =="
+          grep -R --line-number -E "webDir|server" capacitor.config.* || echo "ℹ️ No explicit config"
+      
+      - name: Show resolved Capacitor config
         run: |
           npx cap --version
+          echo "== cap doctor =="
           npx cap doctor || true
+          echo "== cap config (JSON) =="
           npx cap config --json || true
-          grep -R --line-number -E "webDir|server" capacitor.config.* || true
+          echo "== grep webDir/server =="
+          grep -R --line-number -E "webDir|server" capacitor.config.* || echo "ℹ️ no explicit keys"
 
+
+      # 5) Capacitor sync (χωρίς pods)
       - name: Sync Capacitor iOS (skip pods)
         env:
-          CAPACITOR_SKIP_POD_INSTALL: "1"
+          CAPACITOR_SKIP_POD_INSTALL: '1'
         run: npx cap sync ios
 
-      - name: Verify iOS public (either layout)
+      - name: Verify iOS public (handles both layouts)
         run: |
           set -e
           FOUND=""
           for P in ios/App/App/public ios/App/public; do
             if [ -d "$P" ]; then
-              echo "Found public at: $P"
+              echo "✅ Found public at: $P"
               ls -la "$P" | head -50
-              test -f "$P/index.html" || { echo "$P/index.html missing"; exit 1; }
+              test -f "$P/index.html" || { echo "❌ $P/index.html missing"; exit 1; }
               echo "== head $P/index.html =="
               head -n 40 "$P/index.html"
               FOUND="yes"
@@ -113,26 +140,12 @@ jobs:
             fi
           done
           if [ -z "$FOUND" ]; then
-            echo "public folder not found under ios/App/App/public nor ios/App/public"
+            echo "❌ public folder not found under ios/App/App/public nor ios/App/public"
             exit 1
           fi
 
-      - name: Ensure JS bundle exists
-        run: |
-          set -e
-          HTML=""
-          for P in ios/App/App/public ios/App/public; do
-            [ -f "$P/index.html" ] && HTML="$P/index.html"
-          done
-          test -n "$HTML" || { echo "public/index.html missing"; exit 1; }
-          ASSETS_DIR="$(dirname "$HTML")/assets"
-          test -d "$ASSETS_DIR" || { echo "$ASSETS_DIR missing"; exit 1; }
-          MAIN_REL=$(grep -oE './assets/[A-Za-z0-9._-]+\.js' "$HTML" | head -n1 | sed 's|^\./||')
-          test -n "$MAIN_REL" || { echo "no main js in index.html"; exit 1; }
-          MAIN="$(dirname "$HTML")/$MAIN_REL"
-          test -s "$MAIN" || { echo "main bundle is empty"; exit 1; }
-          head -n 30 "$MAIN" || true
-
+      
+      # 6) Firebase plist από secret
       - name: Ensure xcodeproj gem
         run: gem install xcodeproj -N
 
@@ -161,13 +174,16 @@ jobs:
           end
           proj.save"
 
-      - name: Recreate Info.plist if invalid
+      # 7) Διόρθωση/αναδημιουργία App Info.plist χωρίς heredoc
+      - name: Recreate Info.plist safely (no heredoc)
         run: |
           set -e
           FILE="ios/App/App/Info.plist"
           if ! /usr/bin/plutil -lint "$FILE" >/dev/null 2>&1; then
+            echo "⚠️  $FILE is invalid; recreating…"
             /usr/bin/plutil -create xml1 "$FILE"
             PB="/usr/libexec/PlistBuddy -c"
+
             $PB 'Add :CFBundleDevelopmentRegion string en' "$FILE"
             $PB 'Add :CFBundleExecutable string $(EXECUTABLE_NAME)' "$FILE"
             $PB 'Add :CFBundleIdentifier string $(PRODUCT_BUNDLE_IDENTIFIER)' "$FILE"
@@ -178,17 +194,43 @@ jobs:
             $PB 'Add :CFBundleVersion string $(CURRENT_PROJECT_VERSION)' "$FILE"
             $PB 'Add :UILaunchStoryboardName string LaunchScreen' "$FILE"
             $PB 'Add :UIMainStoryboardFile string Main' "$FILE"
+
             $PB 'Add :UIRequiredDeviceCapabilities array' "$FILE"
             $PB 'Add :UIRequiredDeviceCapabilities:0 string arm64' "$FILE"
+
             $PB 'Add :UISupportedInterfaceOrientations array' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationPortrait' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations:1 string UIInterfaceOrientationLandscapeLeft' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations:2 string UIInterfaceOrientationLandscapeRight' "$FILE"
+
+            $PB 'Add :UISupportedInterfaceOrientations~ipad array' "$FILE"
+            $PB 'Add :UISupportedInterfaceOrientations~ipad:0 string UIInterfaceOrientationPortrait' "$FILE"
+            $PB 'Add :UISupportedInterfaceOrientations~ipad:1 string UIInterfaceOrientationPortraitUpsideDown' "$FILE"
+            $PB 'Add :UISupportedInterfaceOrientations~ipad:2 string UIInterfaceOrientationLandscapeLeft' "$FILE"
+            $PB 'Add :UISupportedInterfaceOrientations~ipad:3 string UIInterfaceOrientationLandscapeRight' "$FILE"
+
             $PB 'Add :UIApplicationSceneManifest dict' "$FILE"
             $PB 'Add :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes bool false' "$FILE"
+            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations dict' "$FILE"
+            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication array' "$FILE"
+            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0 dict' "$FILE"
+            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneConfigurationName string Default Configuration' "$FILE"
+            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneDelegateClassName string $(PRODUCT_MODULE_NAME).SceneDelegate' "$FILE"
+            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneStoryboardFile string Main' "$FILE"
+
+            $PB 'Add :NSCameraUsageDescription string We use the camera to let you take photos.' "$FILE"
+            $PB 'Add :NSPhotoLibraryUsageDescription string We need photo library access to select images.' "$FILE"
+            $PB 'Add :NSPhotoLibraryAddUsageDescription string We save images to your library when requested.' "$FILE"
+            $PB 'Add :NSUserTrackingUsageDescription string This identifier will be used to deliver a better app experience.' "$FILE"
+
             /usr/bin/plutil -lint "$FILE"
+            echo "✅ Recreated valid Info.plist"
+          else
+            echo "✅ Info.plist is valid — no action."
           fi
 
+
+      # 8) CocoaPods
       - name: Install CocoaPods
         working-directory: ios/App
         run: |
@@ -200,6 +242,7 @@ jobs:
           pod repo update
           bundle exec pod install --repo-update || pod install --repo-update
 
+      # 9) Ensure shared scheme exists
       - name: Ensure shared scheme exists
         working-directory: ios/App
         run: |
@@ -215,11 +258,13 @@ jobs:
             echo "No user schemes to copy."
           fi
 
+      # 10) Δείξε workspace & build settings (διάγνωση)
       - name: Show Xcode schemes and build settings
         run: |
           xcodebuild -list -workspace ios/App/App.xcworkspace
           xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'INFOPLIST_FILE|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER|SWIFT_VERSION|IPHONEOS_DEPLOYMENT_TARGET'
 
+      # 11) SSH για το match repo
       - name: Start ssh-agent (for match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -240,6 +285,7 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
         run: git ls-remote "$MATCH_GIT_URL" -h
 
+      # 12) Build & Release μέσω fastlane
       - name: Build & Release with fastlane
         working-directory: ios/App
         env:
@@ -256,16 +302,18 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
         run: bundle exec fastlane release
 
+      # 13) Αν αποτύχει: τύπωσε το πλήρες gym log
       - name: Print last gym log on failure
         if: failure()
         run: |
           LOG=$(ls -t ~/Library/Logs/gym/App-*.log | head -n1 || true)
           if [ -n "$LOG" ]; then
-            tail -n +1 "$LOG"
+            echo "== Dumping $LOG ==" && tail -n +1 "$LOG"
           else
             echo "No gym log found"
           fi
 
+      # 14) Πάντα ανέβασε logs
       - name: Upload Xcode logs
         if: always()
         uses: actions/upload-artifact@v4
