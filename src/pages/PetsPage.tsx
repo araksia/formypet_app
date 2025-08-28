@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Plus, Stethoscope, Copy, Check, Info, Edit, Trash2 } from 'lucide-react';
+import { Plus, Stethoscope, Copy, Check, Info, Edit, Trash2, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -325,6 +325,15 @@ const PetsPage = () => {
                         {/* Action Buttons */}
                         <div className="flex flex-wrap gap-1 sm:flex-col sm:gap-1">
                           <div className="flex gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 button-hover hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                              onClick={() => navigate(`/calendar?petId=${pet.id}`)}
+                              title="Ημερολόγιο κατοικιδίου"
+                            >
+                              <Calendar className="h-4 w-4" />
+                            </Button>
                             <Button 
                               variant="ghost" 
                               size="icon" 
