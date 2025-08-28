@@ -179,19 +179,11 @@ jobs:
           echo "----- raw head (top 20 lines) -----"
           head -20 ios/App/App/GoogleService-Info.plist || true
 
-      - name: Print BUNDLE_ID key (fail if missing)
+      - name: Find manual FirebaseApp.configure in project
         run: |
-          set -e
-          if ! /usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" ios/App/App/GoogleService-Info.plist; then
-            echo "❌ Key :BUNDLE_ID not found in GoogleService-Info.plist"
-            exit 1
-          fi
+          echo "Searching for FirebaseApp.configure…"
+          grep -R --line-number "FirebaseApp\.configure" ios/App/App || echo "No manual configure found"
 
-      - name: Show build’s PRODUCT_BUNDLE_IDENTIFIER
-        run: |
-          xcodebuild -showBuildSettings \
-            -workspace ios/App/App.xcworkspace \
-            -scheme App -configuration Release | egrep 'PRODUCT_BUNDLE_IDENTIFIER|INFOPLIST_FILE'
 
 
       # 8) CocoaPods
