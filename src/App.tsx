@@ -28,8 +28,6 @@ import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
 import NotFound from "./pages/NotFound";
 import ScreenshotsPage from "./pages/ScreenshotsPage";
-import DemoPage from "./pages/DemoPage";
-import VideoGuide from "./pages/VideoGuide";
 
 const queryClient = new QueryClient();
 
@@ -46,8 +44,6 @@ const AppContent = () => {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
           <Route path="/screenshots" element={<ScreenshotsPage />} />
-          <Route path="/demo" element={<DemoPage />} />
-          <Route path="/video-guide" element={<VideoGuide />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/" element={
