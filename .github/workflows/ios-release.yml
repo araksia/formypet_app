@@ -170,6 +170,18 @@ jobs:
             echo "✅ Info.plist is valid — no action."
           fi
 
+      - name: Debug check GoogleService-Info.plist
+        run: |
+          echo ">>> Listing plist file:"
+          ls -la ios/App/App/GoogleService-Info.plist || echo "❌ Missing plist"
+          if [ -f ios/App/App/GoogleService-Info.plist ]; then
+            echo ">>> First 15 lines of GoogleService-Info.plist:"
+            head -15 ios/App/App/GoogleService-Info.plist
+            echo ">>> BUNDLE_ID inside plist:"
+            /usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" ios/App/App/GoogleService-Info.plist
+          fi
+
+
       # 8) CocoaPods
       - name: Install CocoaPods
         working-directory: ios/App
