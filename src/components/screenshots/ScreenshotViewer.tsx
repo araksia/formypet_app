@@ -9,11 +9,13 @@ import AddPetScreenshot from './AddPetScreenshot';
 import ExpensesScreenshot from './ExpensesScreenshot';
 import SettingsScreenshot from './SettingsScreenshot';
 import MedicalRecordsScreenshot from './MedicalRecordsScreenshot';
+import LoginScreenshot from './LoginScreenshot';
+import NotificationsScreenshot from './NotificationsScreenshot';
 import Tablet7Screenshot from './Tablet7Screenshot';
 import Tablet10Screenshot from './Tablet10Screenshot';
 
 const ScreenshotViewer = () => {
-  const [currentView, setCurrentView] = useState<'phone-dashboard' | 'phone-pets' | 'phone-calendar' | 'phone-add-pet' | 'phone-expenses' | 'phone-settings' | 'phone-medical' | 'tablet-7' | 'tablet-10'>('phone-dashboard');
+  const [currentView, setCurrentView] = useState<'phone-dashboard' | 'phone-pets' | 'phone-calendar' | 'phone-add-pet' | 'phone-expenses' | 'phone-settings' | 'phone-medical' | 'phone-login' | 'phone-notifications' | 'tablet-7' | 'tablet-10'>('phone-dashboard');
 
   const downloadPNG = (elementId: string, filename: string) => {
     const element = document.getElementById(elementId);
@@ -80,6 +82,18 @@ const ScreenshotViewer = () => {
             <MedicalRecordsScreenshot />
           </div>
         );
+      case 'phone-login':
+        return (
+          <div id="phone-login-screenshot" className="inline-block">
+            <LoginScreenshot />
+          </div>
+        );
+      case 'phone-notifications':
+        return (
+          <div id="phone-notifications-screenshot" className="inline-block">
+            <NotificationsScreenshot />
+          </div>
+        );
       case 'tablet-7':
         return (
           <div id="tablet-7-screenshot" className="inline-block">
@@ -113,6 +127,10 @@ const ScreenshotViewer = () => {
         return 'formypet-phone-settings.png';
       case 'phone-medical':
         return 'formypet-phone-medical.png';
+      case 'phone-login':
+        return 'formypet-phone-login.png';
+      case 'phone-notifications':
+        return 'formypet-phone-notifications.png';
       case 'tablet-7':
         return 'formypet-tablet-7inch.png';
       case 'tablet-10':
@@ -179,6 +197,20 @@ const ScreenshotViewer = () => {
               className="text-sm"
             >
               🏥 Medical
+            </Button>
+            <Button
+              variant={currentView === 'phone-login' ? 'default' : 'outline'}
+              onClick={() => setCurrentView('phone-login')}
+              className="text-sm"
+            >
+              🔐 Login
+            </Button>
+            <Button
+              variant={currentView === 'phone-notifications' ? 'default' : 'outline'}
+              onClick={() => setCurrentView('phone-notifications')}
+              className="text-sm"
+            >
+              🔔 Notifications
             </Button>
             <Button
               variant={currentView === 'tablet-7' ? 'default' : 'outline'}
