@@ -170,16 +170,29 @@ jobs:
             echo "✅ Info.plist is valid — no action."
           fi
 
-      - name: Debug BUNDLE_ID inside GoogleService-Info.plist
+      - name: Dump GoogleService-Info.plist (first lines)
         run: |
-          /usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" ios/App/App/GoogleService-Info.plist
+          test -f ios/App/App/GoogleService-Info.plist || (echo "❌ Missing plist" && exit 1)
+          /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist
+          echo "----- plutil -p (top 40 lines) -----"
+          /usr/bin/plutil -p ios/App/App/GoogleService-Info.plist | head -40 || true
+          echo "----- raw head (top 20 lines) -----"
+          head -20 ios/App/App/GoogleService-Info.plist || true
 
-      - name: Ensure single GoogleService-Info.plist in repo
+      - name: Print BUNDLE_ID key (fail if missing)
         run: |
-          echo "All GoogleService-Info.plist in repo:"
-          find ios -name "GoogleService-Info.plist" -print
-          # κρατάμε ΜΟΝΟ το ios/App/App/GoogleService-Info.plist
-          find ios -name "GoogleService-Info.plist" ! -path "ios/App/App/GoogleService-Info.plist" -print -delete || true
+          set -e
+          if ! /usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" ios/App/App/GoogleService-Info.plist; then
+            echo "❌ Key :BUNDLE_ID not found in GoogleService-Info.plist"
+            exit 1
+          fi
+
+      - name: Show build’s PRODUCT_BUNDLE_IDENTIFIER
+        run: |
+          xcodebuild -showBuildSettings \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App -configuration Release | egrep 'PRODUCT_BUNDLE_IDENTIFIER|INFOPLIST_FILE'
+
 
       # 8) CocoaPods
       - name: Install CocoaPods
