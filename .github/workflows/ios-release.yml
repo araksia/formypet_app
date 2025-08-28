@@ -123,27 +123,6 @@ jobs:
         env:
           CAPACITOR_SKIP_POD_INSTALL: '1'
         run: npx cap sync ios
-
-      - name: Verify iOS public (handles both layouts)
-        run: |
-          set -e
-          FOUND=""
-          for P in ios/App/App/public ios/App/public; do
-            if [ -d "$P" ]; then
-              echo "✅ Found public at: $P"
-              ls -la "$P" | head -50
-              test -f "$P/index.html" || { echo "❌ $P/index.html missing"; exit 1; }
-              echo "== head $P/index.html =="
-              head -n 40 "$P/index.html"
-              FOUND="yes"
-              break
-            fi
-          done
-          if [ -z "$FOUND" ]; then
-            echo "❌ public folder not found under ios/App/App/public nor ios/App/public"
-            exit 1
-          fi
-
       
       # 6) Firebase plist από secret
       - name: Ensure xcodeproj gem
