@@ -79,6 +79,34 @@ jobs:
 
       - name: Build web assets (create ./dist)
         run: npm run build
+        
+      - name: Check dist/ & auto-fix absolute paths
+        run: |
+          set -e
+          echo "== dist listing =="
+          ls -la dist | head -50
+          test -f dist/index.html || { echo "❌ dist/index.html missing"; exit 1; }
+
+          echo "== scan index.html for absolute / paths =="
+          if grep -nE 'href="/|src="/' dist/index.html; then
+            echo "⚠️ Found absolute paths starting with /. Converting to relative (./) so WKWebView τα βρίσκει."
+            # Ελαφρύ patch για τα πιο συνηθισμένα patterns
+            sed -i.bak -E 's#href="/#href="./#g; s#src="/#src="./#g' dist/index.html
+            echo "== re-scan =="
+            grep -nE 'href="/|src="/' dist/index.html || echo "✅ fixed"
+          else
+            echo "✅ No absolute paths detected."
+          fi
+
+          # (προαιρετικό) δείξε τις πρώτες γραμμές
+          echo "== head dist/index.html =="
+          head -n 40 dist/index.html
+          
+      - name: Inspect capacitor config (webDir/server)
+        run: |
+          echo "== grep webDir / server in capacitor.config.* =="
+          grep -R --line-number -E "webDir|server" capacitor.config.* || echo "ℹ️ No explicit config"
+
 
       # 5) Capacitor sync (χωρίς pods)
       - name: Sync Capacitor iOS (skip pods)
@@ -86,6 +114,27 @@ jobs:
           CAPACITOR_SKIP_POD_INSTALL: '1'
         run: npx cap sync ios
 
+      - name: Verify iOS public (handles both layouts)
+        run: |
+          set -e
+          FOUND=""
+          for P in ios/App/App/public ios/App/public; do
+            if [ -d "$P" ]; then
+              echo "✅ Found public at: $P"
+              ls -la "$P" | head -50
+              test -f "$P/index.html" || { echo "❌ $P/index.html missing"; exit 1; }
+              echo "== head $P/index.html =="
+              head -n 40 "$P/index.html"
+              FOUND="yes"
+              break
+            fi
+          done
+          if [ -z "$FOUND" ]; then
+            echo "❌ public folder not found under ios/App/App/public nor ios/App/public"
+            exit 1
+          fi
+
+      
       # 6) Firebase plist από secret
       - name: Ensure xcodeproj gem
         run: gem install xcodeproj -N
