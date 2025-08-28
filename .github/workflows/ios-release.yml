@@ -83,22 +83,17 @@ jobs:
       - name: Check dist/ & auto-fix absolute paths
         run: |
           set -e
-          echo "== dist listing =="
-          ls -la dist | head -50
+          echo "== dist listing ==" && ls -la dist | head -50
           test -f dist/index.html || { echo "❌ dist/index.html missing"; exit 1; }
-
           echo "== scan index.html for absolute / paths =="
           if grep -nE 'href="/|src="/' dist/index.html; then
-            echo "⚠️ Found absolute paths starting with /. Converting to relative (./)…"
+            echo "⚠️ Found absolute paths. Converting to relative ./"
             sed -i.bak -E 's#href="/#href="./#g; s#src="/#src="./#g' dist/index.html
-            echo "== re-scan =="
-            grep -nE 'href="/|src="/' dist/index.html || echo "✅ fixed"
+            echo "== re-scan =="; grep -nE 'href="/|src="/' dist/index.html || echo "✅ fixed"
           else
             echo "✅ No absolute paths detected."
           fi
-
-          echo "== head dist/index.html =="
-          head -n 40 dist/index.html
+          echo "== head dist/index.html ==" && head -n 40 dist/index.html
 
       - name: Inspect capacitor config (webDir/server)
         run: |
@@ -108,12 +103,9 @@ jobs:
       - name: Show resolved Capacitor config
         run: |
           npx cap --version
-          echo "== cap doctor =="
-          npx cap doctor || true
-          echo "== cap config (JSON) =="
-          npx cap config --json || true
-          echo "== grep webDir/server =="
-          grep -R --line-number -E "webDir|server" capacitor.config.* || echo "ℹ️ no explicit keys"
+          echo "== cap doctor ==" && npx cap doctor || true
+          echo "== cap config (JSON) ==" && npx cap config --json || true
+          echo "== grep webDir/server ==" && grep -R --line-number -E "webDir|server" capacitor.config.* || echo "ℹ️ no explicit keys"
 
       # 5) Capacitor sync (χωρίς pods)
       - name: Sync Capacitor iOS (skip pods)
@@ -121,7 +113,7 @@ jobs:
           CAPACITOR_SKIP_POD_INSTALL: '1'
         run: npx cap sync ios
 
-      # ---- DEBUG HELPERS (ασφαλές inject χωρίς να σπάει το DOCTYPE) ----
+      # Debug helpers μέσα στο index.html (ασφαλές, χωρίς περίπλοκα regex)
       - name: Inject debug helpers inside index.html (safe)
         run: |
           set -e
@@ -130,40 +122,31 @@ jobs:
             [ -f "$P/index.html" ] && HTML="$P/index.html"
           done
           test -n "$HTML" || { echo "❌ public/index.html missing"; exit 1; }
-
           echo "Editing $HTML"
-          # Early alert μέσα στο <head>
-          /usr/bin/perl -0777 -pe 's|<head>|<head><script>try{alert("DEBUG: index.html loaded");}catch(e){}</script>|i' -i "$HTML"
-          # Global handlers
-          /usr/bin/perl -0777 -pe 's|<head>|<head><script>window.onerror=function(m,s,l,c,e){alert("JS Error: "+m+" @ "+(s||"")+":"+(+l||0))};window.addEventListener("unhandledrejection",function(ev){var r=ev&&ev.reason;alert("UnhandledRejection: "+(r&&(r.message||r)))})</script>|i' -i "$HTML"
-          # Banner ΜΕΤΑ το <body>
-          /usr/bin/perl -0777 -pe 's|<body>|<body>\n<div style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#c00;color:#fff;padding:8px;text-align:center;font-weight:bold">DEBUG BUILD: index.html LOADED</div>|i' -i "$HTML"
 
-          echo "== head $HTML =="
-          head -n 40 "$HTML"
+          # Περιεχόμενο που περνάει μέσα στο <head>
+          cat > /tmp/insert_head.html <<'HEADBLOCK'
+<script>try{alert("DEBUG: index.html loaded");}catch(e){}</script>
+<script>
+window.onerror=function(m,s,l,c,e){alert("JS Error: "+m+" @ "+(s||"")+":"+(+l||0))};
+window.addEventListener("unhandledrejection",function(ev){var r=ev&&ev.reason;alert("UnhandledRejection: "+(r&&(r.message||r)))});
+</script>
+<style>html,body,#root{height:100%;min-height:100%;margin:0;background:#fff}</style>
+HEADBLOCK
 
-      - name: Strip crossorigin from local assets
-        run: |
-          set -e
-          HTML=""
-          for P in ios/App/App/public ios/App/public; do
-            [ -f "$P/index.html" ] && HTML="$P/index.html"
-          done
-          test -n "$HTML" || { echo "❌ public/index.html missing"; exit 1; }
-          /usr/bin/perl -0777 -pe 's/ crossorigin//gi' -i "$HTML"
-          echo "== head after strip =="
-          head -n 40 "$HTML"
+          awk 'BEGIN{ins=0} ins==0 && /<head>/ { print; system("cat /tmp/insert_head.html"); ins=1; next } { print }' "$HTML" > "$HTML.tmp" && mv "$HTML.tmp" "$HTML"
 
-      - name: Ensure full-height CSS for #root
-        run: |
-          set -e
-          HTML=""
-          for P in ios/App/App/public ios/App/public; do
-            [ -f "$P/index.html" ] && HTML="$P/index.html"
-          done
-          test -n "$HTML" || { echo "❌ public/index.html missing"; exit 1; }
-          /usr/bin/perl -0777 -pe 's|</head>|<style>html,body,#root{height:100%;min-height:100%;margin:0;background:#fff}</style></head>|i' -i "$HTML"
-          head -n 40 "$HTML"
+          # Banner μετά το <body>
+          cat > /tmp/insert_body.html <<'BODYBLOCK'
+<div style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#c00;color:#fff;padding:8px;text-align:center;font-weight:bold">DEBUG BUILD: index.html LOADED</div>
+BODYBLOCK
+
+          awk 'BEGIN{ins=0} ins==0 && /<body>/ { print; system("cat /tmp/insert_body.html"); ins=1; next } { print }' "$HTML" > "$HTML.tmp" && mv "$HTML.tmp" "$HTML"
+
+          # Αφαίρεσε crossorigin από local script/link για να μη μπλοκάρει
+          /usr/bin/sed -i '' -E 's/ crossorigin//g' "$HTML"
+
+          echo "== head $HTML ==" && head -n 40 "$HTML"
 
       - name: Ensure JS bundle exists and is non-empty
         run: |
@@ -187,8 +170,7 @@ jobs:
               echo "✅ Found public at: $P"
               ls -la "$P" | head -50
               test -f "$P/index.html" || { echo "❌ $P/index.html missing"; exit 1; }
-              echo "== head $P/index.html =="
-              head -n 40 "$P/index.html"
+              echo "== head $P/index.html ==" && head -n 40 "$P/index.html"
               FOUND="yes"
               break
             fi
@@ -227,7 +209,7 @@ jobs:
           end
           proj.save"
 
-      # 7) Recreate/validate Info.plist (χωρίς heredoc)
+      # 7) Διόρθωση/αναδημιουργία App Info.plist αν είναι κατεστραμμένο
       - name: Recreate Info.plist safely (no heredoc)
         run: |
           set -e
@@ -236,7 +218,6 @@ jobs:
             echo "⚠️  $FILE is invalid; recreating…"
             /usr/bin/plutil -create xml1 "$FILE"
             PB="/usr/libexec/PlistBuddy -c"
-
             $PB 'Add :CFBundleDevelopmentRegion string en' "$FILE"
             $PB 'Add :CFBundleExecutable string $(EXECUTABLE_NAME)' "$FILE"
             $PB 'Add :CFBundleIdentifier string $(PRODUCT_BUNDLE_IDENTIFIER)' "$FILE"
@@ -247,21 +228,17 @@ jobs:
             $PB 'Add :CFBundleVersion string $(CURRENT_PROJECT_VERSION)' "$FILE"
             $PB 'Add :UILaunchStoryboardName string LaunchScreen' "$FILE"
             $PB 'Add :UIMainStoryboardFile string Main' "$FILE"
-
             $PB 'Add :UIRequiredDeviceCapabilities array' "$FILE"
             $PB 'Add :UIRequiredDeviceCapabilities:0 string arm64' "$FILE"
-
             $PB 'Add :UISupportedInterfaceOrientations array' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationPortrait' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations:1 string UIInterfaceOrientationLandscapeLeft' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations:2 string UIInterfaceOrientationLandscapeRight' "$FILE"
-
             $PB 'Add :UISupportedInterfaceOrientations~ipad array' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations~ipad:0 string UIInterfaceOrientationPortrait' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations~ipad:1 string UIInterfaceOrientationPortraitUpsideDown' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations~ipad:2 string UIInterfaceOrientationLandscapeLeft' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations~ipad:3 string UIInterfaceOrientationLandscapeRight' "$FILE"
-
             $PB 'Add :UIApplicationSceneManifest dict' "$FILE"
             $PB 'Add :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes bool false' "$FILE"
             $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations dict' "$FILE"
@@ -270,12 +247,10 @@ jobs:
             $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneConfigurationName string Default Configuration' "$FILE"
             $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneDelegateClassName string $(PRODUCT_MODULE_NAME).SceneDelegate' "$FILE"
             $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneStoryboardFile string Main' "$FILE"
-
             $PB 'Add :NSCameraUsageDescription string We use the camera to let you take photos.' "$FILE"
             $PB 'Add :NSPhotoLibraryUsageDescription string We need photo library access to select images.' "$FILE"
             $PB 'Add :NSPhotoLibraryAddUsageDescription string We save images to your library when requested.' "$FILE"
             $PB 'Add :NSUserTrackingUsageDescription string This identifier will be used to deliver a better app experience.' "$FILE"
-
             /usr/bin/plutil -lint "$FILE"
             echo "✅ Recreated valid Info.plist"
           else
@@ -354,23 +329,7 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
         run: bundle exec fastlane release
 
-      # 13) Έλεγχος ότι τα web assets είναι μέσα στο .app του archive
-      - name: Inspect latest archive for public files
-        if: always()
-        run: |
-          set -e
-          ARCH=$(ls -dt ~/Library/Developer/Xcode/Archives/*/*App*.xcarchive 2>/dev/null | head -n1 || true)
-          if [ -z "$ARCH" ]; then
-            echo "⚠️ No .xcarchive found (fastlane may have exported/uploaded directly)"; exit 0
-          fi
-          echo "Archive: $ARCH"
-          APP="$ARCH/Products/Applications"
-          ls -la "$APP" || true
-          APP_BUNDLE=$(ls "$APP" | head -n1)
-          echo "App bundle: $APP_BUNDLE"
-          find "$APP/$APP_BUNDLE" -maxdepth 2 -type d -name public -print -exec ls -la {} \; || true
-
-      # 14) Αν αποτύχει: τύπωσε το πλήρες gym log
+      # 13) Αν αποτύχει: τύπωσε το πλήρες gym log
       - name: Print last gym log on failure
         if: failure()
         run: |
@@ -381,7 +340,7 @@ jobs:
             echo "No gym log found"
           fi
 
-      # 15) Πάντα ανέβασε logs
+      # 14) Πάντα ανέβασε logs
       - name: Upload Xcode logs
         if: always()
         uses: actions/upload-artifact@v4
