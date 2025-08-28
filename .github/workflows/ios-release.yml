@@ -1,13 +1,128 @@
-      # --- Lint & (αν χρειαστεί) αναδημιουργία του ios/App/App/Info.plist χωρίς heredoc ---
-      - name: Recreate Info.plist safely (no heredoc)
+name: Build and Release iOS
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - ios-v*
+
+jobs:
+  ios:
+    runs-on: macos-14
+    defaults:
+      run:
         shell: bash
+    env:
+      BUNDLE_PATH: vendor/bundle
+      LC_ALL: en_US.UTF-8
+      LANG: en_US.UTF-8
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      APP_BUNDLE_ID: gr.formypet.app
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+    steps:
+      # 1) Checkout
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2) Xcode
+      - name: Select Xcode 16
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.*'
+
+      - name: Show selected Xcode / SDK
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      # 3) Ruby & Bundler
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: false
+
+      - name: Install gems
+        working-directory: ios/App
+        run: |
+          bundle install --jobs 4 --retry 3
+
+      # 4) Node / npm
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Configure npm auth (optional)
+        run: |
+          if [ -n "${NPM_TOKEN:-}" ]; then
+            npm config set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
+          fi
+          npm config set audit false
+          npm config set fund false
+
+      - name: Install JS dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --prefer-online || (echo "retry…" && sleep 5 && npm ci --prefer-online)
+          elif [ -f yarn.lock ]; then
+            corepack enable
+            yarn install --frozen-lockfile
+          else
+            npm install
+          fi
+
+      - name: Build web assets (create ./dist)
+        run: npm run build
+
+      # 5) Capacitor sync (χωρίς pods)
+      - name: Sync Capacitor iOS (skip pods)
+        env:
+          CAPACITOR_SKIP_POD_INSTALL: '1'
+        run: npx cap sync ios
+
+      # 6) Firebase plist από secret
+      - name: Ensure xcodeproj gem
+        run: gem install xcodeproj -N
+
+      - name: Write GoogleService-Info.plist
+        run: |
+          mkdir -p ios/App/App
+          echo "$FIREBASE_IOS_PLIST_BASE64" | base64 --decode > ios/App/App/GoogleService-Info.plist
+          /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist
+          /usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" ios/App/App/GoogleService-Info.plist
+        env:
+          FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
+
+      - name: Add plist to Xcode target (if missing)
+        working-directory: ios/App
+        run: |
+          ruby -e "require 'xcodeproj';
+          p='App.xcodeproj';
+          proj=Xcodeproj::Project.open(p);
+          t=proj.targets.find{|t| t.name=='App'} or abort('No target App');
+          path='App/GoogleService-Info.plist';
+          ref=proj.main_group.find_file_by_path(path) || proj.main_group.new_file(path);
+          unless t.resources_build_phase.files_references.include?(ref)
+            t.add_resources([ref]); puts 'Added GoogleService-Info.plist to Resources';
+          else
+            puts 'GoogleService-Info.plist already in Resources';
+          end
+          proj.save"
+
+      # 7) Διόρθωση/αναδημιουργία App Info.plist χωρίς heredoc
+      - name: Recreate Info.plist safely (no heredoc)
         run: |
           set -e
           FILE="ios/App/App/Info.plist"
           if ! /usr/bin/plutil -lint "$FILE" >/dev/null 2>&1; then
             echo "⚠️  $FILE is invalid; recreating…"
             /usr/bin/plutil -create xml1 "$FILE"
-            # Συντομογραφία για λιγότερο copy-paste
             PB="/usr/libexec/PlistBuddy -c"
 
             $PB 'Add :CFBundleDevelopmentRegion string en' "$FILE"
@@ -21,7 +136,6 @@
             $PB 'Add :UILaunchStoryboardName string LaunchScreen' "$FILE"
             $PB 'Add :UIMainStoryboardFile string Main' "$FILE"
 
-            # Capabilities / orientations
             $PB 'Add :UIRequiredDeviceCapabilities array' "$FILE"
             $PB 'Add :UIRequiredDeviceCapabilities:0 string arm64' "$FILE"
 
@@ -36,7 +150,6 @@
             $PB 'Add :UISupportedInterfaceOrientations~ipad:2 string UIInterfaceOrientationLandscapeLeft' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations~ipad:3 string UIInterfaceOrientationLandscapeRight' "$FILE"
 
-            # Scene manifest (Capacitor)
             $PB 'Add :UIApplicationSceneManifest dict' "$FILE"
             $PB 'Add :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes bool false' "$FILE"
             $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations dict' "$FILE"
@@ -46,7 +159,6 @@
             $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneDelegateClassName string $(PRODUCT_MODULE_NAME).SceneDelegate' "$FILE"
             $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneStoryboardFile string Main' "$FILE"
 
-            # Usage descriptions (πρόσθεσε κι άλλα αν χρειάζεσαι)
             $PB 'Add :NSCameraUsageDescription string We use the camera to let you take photos.' "$FILE"
             $PB 'Add :NSPhotoLibraryUsageDescription string We need photo library access to select images.' "$FILE"
             $PB 'Add :NSPhotoLibraryAddUsageDescription string We save images to your library when requested.' "$FILE"
@@ -57,3 +169,96 @@
           else
             echo "✅ Info.plist is valid — no action."
           fi
+
+      # 8) CocoaPods
+      - name: Install CocoaPods
+        working-directory: ios/App
+        run: |
+          if bundle exec pod --version >/dev/null 2>&1; then
+            echo "Using CocoaPods from Gemfile"
+          else
+            gem install cocoapods -N
+          fi
+          pod repo update
+          bundle exec pod install --repo-update || pod install --repo-update
+
+      # 9) Ensure shared scheme exists
+      - name: Ensure shared scheme exists
+        working-directory: ios/App
+        run: |
+          set -euo pipefail
+          PROJ="App.xcodeproj"
+          SHARE="$PROJ/xcshareddata/xcschemes"
+          USERDIR=$(ls -1d "$PROJ"/xcuserdata/* 2>/dev/null | head -n1 || true)
+          if [ -n "$USERDIR" ] && [ -d "$USERDIR/xcschemes" ]; then
+            mkdir -p "$SHARE"
+            cp "$USERDIR/xcschemes/"*.xcscheme "$SHARE"/ || true
+            echo "Copied user schemes to shared."
+          else
+            echo "No user schemes to copy."
+          fi
+
+      # 10) Δείξε workspace & build settings (διάγνωση)
+      - name: Show Xcode schemes and build settings
+        run: |
+          xcodebuild -list -workspace ios/App/App.xcworkspace
+          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'INFOPLIST_FILE|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER|SWIFT_VERSION|IPHONEOS_DEPLOYMENT_TARGET'
+
+      # 11) SSH για το match repo
+      - name: Start ssh-agent (for match repo)
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
+
+      - name: Add github.com to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Configure Git for match
+        run: |
+          git config --global user.email "ci@github.actions"
+          git config --global user.name "GitHub Actions"
+
+      - name: Check access to match repo
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+        run: git ls-remote "$MATCH_GIT_URL" -h
+
+      # 12) Build & Release μέσω fastlane
+      - name: Build & Release with fastlane
+        working-directory: ios/App
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BRANCH: main
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: bundle exec fastlane release
+
+      # 13) Αν αποτύχει: τύπωσε το πλήρες gym log
+      - name: Print last gym log on failure
+        if: failure()
+        run: |
+          LOG=$(ls -t ~/Library/Logs/gym/App-*.log | head -n1 || true)
+          if [ -n "$LOG" ]; then
+            echo "== Dumping $LOG ==" && tail -n +1 "$LOG"
+          else
+            echo "No gym log found"
+          fi
+
+      # 14) Πάντα ανέβασε logs
+      - name: Upload Xcode logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcode-logs
+          path: |
+            ~/Library/Logs/gym/*
+            ~/Library/Developer/Xcode/DerivedData/**/Logs/**
