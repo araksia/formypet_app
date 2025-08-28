@@ -31,7 +31,7 @@ jobs:
       - name: Select Xcode 16
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.*'
+          xcode-version: "16.*"
 
       - name: Show selected Xcode / SDK
         run: |
@@ -42,7 +42,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: "3.2"
           bundler-cache: false
 
       - name: Install gems
@@ -54,9 +54,9 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
-          cache: 'npm'
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: "npm"
 
       - name: Configure npm auth (optional)
         run: |
@@ -79,50 +79,78 @@ jobs:
 
       - name: Build web assets (create ./dist)
         run: npm run build
-        
+
       - name: Check dist/ & auto-fix absolute paths
         run: |
           set -e
-          echo "== dist listing =="
-          ls -la dist | head -50
+          echo "== dist listing ==" && ls -la dist | head -50
           test -f dist/index.html || { echo "❌ dist/index.html missing"; exit 1; }
 
           echo "== scan index.html for absolute / paths =="
           if grep -nE 'href="/|src="/' dist/index.html; then
-            echo "⚠️ Found absolute paths starting with /. Converting to relative (./) so WKWebView τα βρίσκει."
-            # Ελαφρύ patch για τα πιο συνηθισμένα patterns
-            sed -i.bak -E 's#href="/#href="./#g; s#src="/#src="./#g' dist/index.html
-            echo "== re-scan =="
-            grep -nE 'href="/|src="/' dist/index.html || echo "✅ fixed"
+            echo "⚠️ Found absolute paths. Converting to relative (./)"
+            /usr/bin/sed -i.bak -E 's#href="/#href="./#g; s#src="/#src="./#g' dist/index.html
+            echo "== re-scan ==" && (grep -nE 'href="/|src="/' dist/index.html || echo "✅ fixed")
           else
             echo "✅ No absolute paths detected."
           fi
+          echo "== head dist/index.html ==" && head -n 40 dist/index.html
 
-          # (προαιρετικό) δείξε τις πρώτες γραμμές
-          echo "== head dist/index.html =="
-          head -n 40 dist/index.html
-          
       - name: Inspect capacitor config (webDir/server)
         run: |
           echo "== grep webDir / server in capacitor.config.* =="
           grep -R --line-number -E "webDir|server" capacitor.config.* || echo "ℹ️ No explicit config"
-      
+
       - name: Show resolved Capacitor config
         run: |
           npx cap --version
-          echo "== cap doctor =="
-          npx cap doctor || true
-          echo "== cap config (JSON) =="
-          npx cap config --json || true
-          echo "== grep webDir/server =="
-          grep -R --line-number -E "webDir|server" capacitor.config.* || echo "ℹ️ no explicit keys"
-
+          echo "== cap doctor ==" && npx cap doctor || true
+          echo "== cap config (JSON) ==" && npx cap config --json || true
+          echo "== grep webDir/server ==" && (grep -R --line-number -E "webDir|server" capacitor.config.* || echo "ℹ️ no explicit keys")
 
       # 5) Capacitor sync (χωρίς pods)
       - name: Sync Capacitor iOS (skip pods)
         env:
-          CAPACITOR_SKIP_POD_INSTALL: '1'
+          CAPACITOR_SKIP_POD_INSTALL: "1"
         run: npx cap sync ios
+
+      # --- DEBUG για μαύρη οθόνη: inject error handlers & strip crossorigin ---
+      - name: Inject onerror & strip crossorigin in iOS public index.html
+        run: |
+          set -e
+          HTML=""
+          for P in ios/App/App/public ios/App/public; do
+            [ -f "$P/index.html" ] && HTML="$P/index.html"
+          done
+          test -n "$HTML" || { echo "❌ public/index.html missing"; exit 1; }
+
+          echo "Editing $HTML"
+          # 1) Προσθήκη global error handlers (με perl για ασφαλές inline)
+          /usr/bin/perl -0777 -i -pe 's|<head>|<head><script>window.onerror=function(m,s,l,c,e){alert("JS Error: "+m+" @ "+(s||"")+":"+l)};window.addEventListener("unhandledrejection",function(ev){var r=ev&&ev.reason;alert("UnhandledRejection: "+(r&&r.message||r))});</script>|' "$HTML"
+
+          # 2) Αφαίρεση crossorigin από local script/link
+          /usr/bin/sed -i '' -E 's/ crossorigin//g' "$HTML"
+
+          echo "== head after patch ==" && head -n 40 "$HTML"
+
+      - name: Ensure JS bundle exists and is non-empty
+        run: |
+          set -e
+          HTML="ios/App/App/public/index.html"
+          [ -f "$HTML" ] || HTML="ios/App/public/index.html"
+          test -f "$HTML" || { echo "❌ index.html not found"; exit 1; }
+
+          ASSETS_DIR="$(dirname "$HTML")/assets"
+          test -d "$ASSETS_DIR" || { echo "❌ $ASSETS_DIR missing"; exit 1; }
+          ls -lh "$ASSETS_DIR" | head -50
+
+          MAIN_REL=$(grep -oE './assets/[A-Za-z0-9._-]+\.js' "$HTML" | head -n1 | sed 's|^\./||')
+          test -n "$MAIN_REL" || { echo "❌ no main js in index.html"; exit 1; }
+
+          MAIN_PATH="$(dirname "$HTML")/$MAIN_REL"
+          test -s "$MAIN_PATH" || { echo "❌ main bundle is empty: $MAIN_PATH"; exit 1; }
+          echo "✅ Found main: $MAIN_REL (non-empty)"
+          head -n 30 "$MAIN_PATH" || true
 
       - name: Verify iOS public (handles both layouts)
         run: |
@@ -133,36 +161,25 @@ jobs:
               echo "✅ Found public at: $P"
               ls -la "$P" | head -50
               test -f "$P/index.html" || { echo "❌ $P/index.html missing"; exit 1; }
-              echo "== head $P/index.html =="
-              head -n 40 "$P/index.html"
-              FOUND="yes"
-              break
+              echo "== head $P/index.html ==" && head -n 40 "$P/index.html"
+              FOUND="yes"; break
             fi
           done
-          if [ -z "$FOUND" ]; then
-            echo "❌ public folder not found under ios/App/App/public nor ios/App/public"
-            exit 1
-          fi
-          
+          [ -n "$FOUND" ] || { echo "❌ public folder not found"; exit 1; }
+
       - name: Inject debug banner/alert into iOS public index.html
         run: |
           set -e
           HTML=""
           for P in ios/App/App/public ios/App/public; do
-            if [ -f "$P/index.html" ]; then HTML="$P/index.html"; break; fi
+            [ -f "$P/index.html" ] && HTML="$P/index.html"
           done
-          if [ -z "$HTML" ]; then
-            echo "❌ public/index.html not found"; exit 1
-          fi
-          echo "Editing $HTML"
-          # 1) Βάλε κόκκινο banner στην κορυφή
-          sed -i.bak '1s|^|<div style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#c00;color:#fff;padding:8px;text-align:center;font-weight:bold">DEBUG BUILD: index.html LOADED</div>\n|;' "$HTML"
-          # 2) Alert πολύ νωρίς, πριν φορτωθεί το bundle
-          sed -i '' 's|<head>|<head><script>try{alert("DEBUG: index.html loaded");}catch(e){}</script>|' "$HTML"
-          echo "== head $HTML =="
-          head -n 40 "$HTML"
+          test -n "$HTML" || { echo "❌ public/index.html not found"; exit 1; }
 
-      
+          /usr/bin/sed -i.bak '1s|^|<div style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#c00;color:#fff;padding:8px;text-align:center;font-weight:bold">DEBUG BUILD: index.html LOADED</div>\n|;' "$HTML"
+          /usr/bin/sed -i '' 's|<head>|<head><script>try{alert("DEBUG: index.html loaded");}catch(e){}</script>|' "$HTML"
+          echo "== head $HTML ==" && head -n 40 "$HTML"
+
       # 6) Firebase plist από secret
       - name: Ensure xcodeproj gem
         run: gem install xcodeproj -N
@@ -192,7 +209,7 @@ jobs:
           end
           proj.save"
 
-      # 7) Διόρθωση/αναδημιουργία App Info.plist χωρίς heredoc
+      # 7) Διόρθωση/αναδημιουργία App Info.plist (χωρίς heredoc)
       - name: Recreate Info.plist safely (no heredoc)
         run: |
           set -e
@@ -201,7 +218,6 @@ jobs:
             echo "⚠️  $FILE is invalid; recreating…"
             /usr/bin/plutil -create xml1 "$FILE"
             PB="/usr/libexec/PlistBuddy -c"
-
             $PB 'Add :CFBundleDevelopmentRegion string en' "$FILE"
             $PB 'Add :CFBundleExecutable string $(EXECUTABLE_NAME)' "$FILE"
             $PB 'Add :CFBundleIdentifier string $(PRODUCT_BUNDLE_IDENTIFIER)' "$FILE"
@@ -212,21 +228,17 @@ jobs:
             $PB 'Add :CFBundleVersion string $(CURRENT_PROJECT_VERSION)' "$FILE"
             $PB 'Add :UILaunchStoryboardName string LaunchScreen' "$FILE"
             $PB 'Add :UIMainStoryboardFile string Main' "$FILE"
-
             $PB 'Add :UIRequiredDeviceCapabilities array' "$FILE"
             $PB 'Add :UIRequiredDeviceCapabilities:0 string arm64' "$FILE"
-
             $PB 'Add :UISupportedInterfaceOrientations array' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationPortrait' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations:1 string UIInterfaceOrientationLandscapeLeft' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations:2 string UIInterfaceOrientationLandscapeRight' "$FILE"
-
             $PB 'Add :UISupportedInterfaceOrientations~ipad array' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations~ipad:0 string UIInterfaceOrientationPortrait' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations~ipad:1 string UIInterfaceOrientationPortraitUpsideDown' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations~ipad:2 string UIInterfaceOrientationLandscapeLeft' "$FILE"
             $PB 'Add :UISupportedInterfaceOrientations~ipad:3 string UIInterfaceOrientationLandscapeRight' "$FILE"
-
             $PB 'Add :UIApplicationSceneManifest dict' "$FILE"
             $PB 'Add :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes bool false' "$FILE"
             $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations dict' "$FILE"
@@ -235,18 +247,15 @@ jobs:
             $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneConfigurationName string Default Configuration' "$FILE"
             $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneDelegateClassName string $(PRODUCT_MODULE_NAME).SceneDelegate' "$FILE"
             $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneStoryboardFile string Main' "$FILE"
-
             $PB 'Add :NSCameraUsageDescription string We use the camera to let you take photos.' "$FILE"
             $PB 'Add :NSPhotoLibraryUsageDescription string We need photo library access to select images.' "$FILE"
             $PB 'Add :NSPhotoLibraryAddUsageDescription string We save images to your library when requested.' "$FILE"
             $PB 'Add :NSUserTrackingUsageDescription string This identifier will be used to deliver a better app experience.' "$FILE"
-
             /usr/bin/plutil -lint "$FILE"
             echo "✅ Recreated valid Info.plist"
           else
             echo "✅ Info.plist is valid — no action."
           fi
-
 
       # 8) CocoaPods
       - name: Install CocoaPods
@@ -276,7 +285,7 @@ jobs:
             echo "No user schemes to copy."
           fi
 
-      # 10) Δείξε workspace & build settings (διάγνωση)
+      # 10) Δείξε workspace & build settings
       - name: Show Xcode schemes and build settings
         run: |
           xcodebuild -list -workspace ios/App/App.xcworkspace
