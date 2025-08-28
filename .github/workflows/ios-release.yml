@@ -106,6 +106,16 @@ jobs:
         run: |
           echo "== grep webDir / server in capacitor.config.* =="
           grep -R --line-number -E "webDir|server" capacitor.config.* || echo "ℹ️ No explicit config"
+      
+      - name: Show resolved Capacitor config
+        run: |
+          npx cap --version
+          echo "== cap doctor =="
+          npx cap doctor || true
+          echo "== cap config (JSON) =="
+          npx cap config --json || true
+          echo "== grep webDir/server =="
+          grep -R --line-number -E "webDir|server" capacitor.config.* || echo "ℹ️ no explicit keys"
 
 
       # 5) Capacitor sync (χωρίς pods)
@@ -133,6 +143,24 @@ jobs:
             echo "❌ public folder not found under ios/App/App/public nor ios/App/public"
             exit 1
           fi
+          
+      - name: Inject debug banner/alert into iOS public index.html
+        run: |
+          set -e
+          HTML=""
+          for P in ios/App/App/public ios/App/public; do
+            if [ -f "$P/index.html" ]; then HTML="$P/index.html"; break; fi
+          done
+          if [ -z "$HTML" ]; then
+            echo "❌ public/index.html not found"; exit 1
+          fi
+          echo "Editing $HTML"
+          # 1) Βάλε κόκκινο banner στην κορυφή
+          sed -i.bak '1s|^|<div style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#c00;color:#fff;padding:8px;text-align:center;font-weight:bold">DEBUG BUILD: index.html LOADED</div>\n|;' "$HTML"
+          # 2) Alert πολύ νωρίς, πριν φορτωθεί το bundle
+          sed -i '' 's|<head>|<head><script>try{alert("DEBUG: index.html loaded");}catch(e){}</script>|' "$HTML"
+          echo "== head $HTML =="
+          head -n 40 "$HTML"
 
       
       # 6) Firebase plist από secret
