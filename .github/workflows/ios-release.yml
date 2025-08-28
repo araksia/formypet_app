@@ -79,6 +79,33 @@ jobs:
 
       - name: Build web assets (create ./dist)
         run: npm run build
+        
+      # Μετά το `npm run build`
+      - name: Check dist/ contents
+        run: |
+          echo "== dist =="
+          ls -la dist | head -50
+          test -f dist/index.html || { echo "❌ dist/index.html missing"; exit 1; }
+
+      # Ανίχνευση ΑΠΟΛΥΤΩΝ paths που σπάνε σε Capacitor
+      - name: Scan index.html for absolute asset paths
+        run: |
+          echo "== scan for href=\"/ or src=\"/ in dist/index.html =="
+          if grep -nE 'href="/|src="/' dist/index.html; then
+            echo "⚠️ Found absolute paths. In Capacitor use relative paths."
+            echo "   Αν έχεις Vite, βάλε base: '' στο vite.config.ts για production mobile build."
+          else
+            echo "✅ No absolute paths detected."
+          fi
+
+      # Μετά το `npx cap sync ios`
+      - name: Check ios/App/public contents
+        run: |
+          echo "== ios/App/public =="
+          ls -la ios/App/public | head -50
+          test -f ios/App/public/index.html || { echo "❌ ios/App/public/index.html missing"; exit 1; }
+
+
 
       # 5) Capacitor sync (χωρίς pods)
       - name: Sync Capacitor iOS (skip pods)
@@ -114,75 +141,6 @@ jobs:
             puts 'GoogleService-Info.plist already in Resources';
           end
           proj.save"
-
-      # 7) Διόρθωση/αναδημιουργία App Info.plist χωρίς heredoc
-      - name: Recreate Info.plist safely (no heredoc)
-        run: |
-          set -e
-          FILE="ios/App/App/Info.plist"
-          if ! /usr/bin/plutil -lint "$FILE" >/dev/null 2>&1; then
-            echo "⚠️  $FILE is invalid; recreating…"
-            /usr/bin/plutil -create xml1 "$FILE"
-            PB="/usr/libexec/PlistBuddy -c"
-
-            $PB 'Add :CFBundleDevelopmentRegion string en' "$FILE"
-            $PB 'Add :CFBundleExecutable string $(EXECUTABLE_NAME)' "$FILE"
-            $PB 'Add :CFBundleIdentifier string $(PRODUCT_BUNDLE_IDENTIFIER)' "$FILE"
-            $PB 'Add :CFBundleInfoDictionaryVersion string 6.0' "$FILE"
-            $PB 'Add :CFBundleName string $(PRODUCT_NAME)' "$FILE"
-            $PB 'Add :CFBundlePackageType string APPL' "$FILE"
-            $PB 'Add :CFBundleShortVersionString string $(MARKETING_VERSION)' "$FILE"
-            $PB 'Add :CFBundleVersion string $(CURRENT_PROJECT_VERSION)' "$FILE"
-            $PB 'Add :UILaunchStoryboardName string LaunchScreen' "$FILE"
-            $PB 'Add :UIMainStoryboardFile string Main' "$FILE"
-
-            $PB 'Add :UIRequiredDeviceCapabilities array' "$FILE"
-            $PB 'Add :UIRequiredDeviceCapabilities:0 string arm64' "$FILE"
-
-            $PB 'Add :UISupportedInterfaceOrientations array' "$FILE"
-            $PB 'Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationPortrait' "$FILE"
-            $PB 'Add :UISupportedInterfaceOrientations:1 string UIInterfaceOrientationLandscapeLeft' "$FILE"
-            $PB 'Add :UISupportedInterfaceOrientations:2 string UIInterfaceOrientationLandscapeRight' "$FILE"
-
-            $PB 'Add :UISupportedInterfaceOrientations~ipad array' "$FILE"
-            $PB 'Add :UISupportedInterfaceOrientations~ipad:0 string UIInterfaceOrientationPortrait' "$FILE"
-            $PB 'Add :UISupportedInterfaceOrientations~ipad:1 string UIInterfaceOrientationPortraitUpsideDown' "$FILE"
-            $PB 'Add :UISupportedInterfaceOrientations~ipad:2 string UIInterfaceOrientationLandscapeLeft' "$FILE"
-            $PB 'Add :UISupportedInterfaceOrientations~ipad:3 string UIInterfaceOrientationLandscapeRight' "$FILE"
-
-            $PB 'Add :UIApplicationSceneManifest dict' "$FILE"
-            $PB 'Add :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes bool false' "$FILE"
-            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations dict' "$FILE"
-            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication array' "$FILE"
-            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0 dict' "$FILE"
-            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneConfigurationName string Default Configuration' "$FILE"
-            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneDelegateClassName string $(PRODUCT_MODULE_NAME).SceneDelegate' "$FILE"
-            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneStoryboardFile string Main' "$FILE"
-
-            $PB 'Add :NSCameraUsageDescription string We use the camera to let you take photos.' "$FILE"
-            $PB 'Add :NSPhotoLibraryUsageDescription string We need photo library access to select images.' "$FILE"
-            $PB 'Add :NSPhotoLibraryAddUsageDescription string We save images to your library when requested.' "$FILE"
-            $PB 'Add :NSUserTrackingUsageDescription string This identifier will be used to deliver a better app experience.' "$FILE"
-
-            /usr/bin/plutil -lint "$FILE"
-            echo "✅ Recreated valid Info.plist"
-          else
-            echo "✅ Info.plist is valid — no action."
-          fi
-
-      - name: Dump GoogleService-Info.plist (first lines)
-        run: |
-          test -f ios/App/App/GoogleService-Info.plist || (echo "❌ Missing plist" && exit 1)
-          /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist
-          echo "----- plutil -p (top 40 lines) -----"
-          /usr/bin/plutil -p ios/App/App/GoogleService-Info.plist | head -40 || true
-          echo "----- raw head (top 20 lines) -----"
-          head -20 ios/App/App/GoogleService-Info.plist || true
-
-      - name: Find manual FirebaseApp.configure in project
-        run: |
-          echo "Searching for FirebaseApp.configure…"
-          grep -R --line-number "FirebaseApp\.configure" ios/App/App || echo "No manual configure found"
 
 
 
