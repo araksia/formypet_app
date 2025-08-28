@@ -170,17 +170,16 @@ jobs:
             echo "✅ Info.plist is valid — no action."
           fi
 
-      - name: Debug check GoogleService-Info.plist
+      - name: Debug BUNDLE_ID inside GoogleService-Info.plist
         run: |
-          echo ">>> Listing plist file:"
-          ls -la ios/App/App/GoogleService-Info.plist || echo "❌ Missing plist"
-          if [ -f ios/App/App/GoogleService-Info.plist ]; then
-            echo ">>> First 15 lines of GoogleService-Info.plist:"
-            head -15 ios/App/App/GoogleService-Info.plist
-            echo ">>> BUNDLE_ID inside plist:"
-            /usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" ios/App/App/GoogleService-Info.plist
-          fi
+          /usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" ios/App/App/GoogleService-Info.plist
 
+      - name: Ensure single GoogleService-Info.plist in repo
+        run: |
+          echo "All GoogleService-Info.plist in repo:"
+          find ios -name "GoogleService-Info.plist" -print
+          # κρατάμε ΜΟΝΟ το ios/App/App/GoogleService-Info.plist
+          find ios -name "GoogleService-Info.plist" ! -path "ios/App/App/GoogleService-Info.plist" -print -delete || true
 
       # 8) CocoaPods
       - name: Install CocoaPods
