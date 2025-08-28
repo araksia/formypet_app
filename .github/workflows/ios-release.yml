@@ -29,7 +29,7 @@ jobs:
       - name: Select Xcode 16
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.*'
+          xcode-version: "16.*"
 
       - name: Show selected Xcode / SDK
         run: |
@@ -39,7 +39,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: "3.2"
           bundler-cache: false
 
       - name: Install gems
@@ -50,14 +50,14 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
           registry-url: https://registry.npmjs.org
-          cache: 'npm'
+          cache: npm
 
       - name: Configure npm auth (optional)
         run: |
           if [ -n "${NPM_TOKEN:-}" ]; then
-            npm config set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
+            npm config set //registry.npmjs.org/:_authToken="${NPM_TOKEN}"
           fi
           npm config set audit false
           npm config set fund false
@@ -65,7 +65,7 @@ jobs:
       - name: Install JS dependencies
         run: |
           if [ -f package-lock.json ]; then
-            npm ci --prefer-online || (echo "retry…" && sleep 5 && npm ci --prefer-online)
+            npm ci --prefer-online || (echo "retry" && sleep 5 && npm ci --prefer-online)
           elif [ -f yarn.lock ]; then
             corepack enable
             yarn install --frozen-lockfile
@@ -94,7 +94,7 @@ jobs:
 
       - name: Sync Capacitor iOS (skip pods)
         env:
-          CAPACITOR_SKIP_POD_INSTALL: '1'
+          CAPACITOR_SKIP_POD_INSTALL: "1"
         run: npx cap sync ios
 
       - name: Inject debug helpers inside index.html (safe)
@@ -102,11 +102,10 @@ jobs:
           set -e
           HTML=""
           for P in ios/App/App/public ios/App/public; do
-            [ -f "$P/index.html" ] && HTML="$P/index.html"
+            if [ -f "$P/index.html" ]; then HTML="$P/index.html"; break; fi
           done
           test -n "$HTML" || { echo "public/index.html missing"; exit 1; }
 
-          # περιεχόμενο για <head>
           cat > /tmp/insert_head.html <<'HEADBLOCK'
 <script>try{alert("DEBUG: index.html loaded");}catch(e){}</script>
 <script>
@@ -118,14 +117,13 @@ HEADBLOCK
 
           awk 'BEGIN{ins=0} ins==0 && /<head>/ { print; system("cat /tmp/insert_head.html"); ins=1; next } { print }' "$HTML" > "$HTML.tmp" && mv "$HTML.tmp" "$HTML"
 
-          # banner μετά το <body>
           cat > /tmp/insert_body.html <<'BODYBLOCK'
 <div style="position:fixed;top:0;left:0;right:0;z-index:99999;background:#c00;color:#fff;padding:8px;text-align:center;font-weight:bold">DEBUG BUILD: index.html LOADED</div>
 BODYBLOCK
 
           awk 'BEGIN{ins=0} ins==0 && /<body>/ { print; system("cat /tmp/insert_body.html"); ins=1; next } { print }' "$HTML" > "$HTML.tmp" && mv "$HTML.tmp" "$HTML"
 
-          # αφαίρεσε crossorigin για local αρχεία
+          # strip crossorigin on local files
           /usr/bin/sed -i '' -E 's/ crossorigin//g' "$HTML"
 
           head -n 40 "$HTML"
