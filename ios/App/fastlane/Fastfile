@@ -61,7 +61,9 @@ platform :ios do
       export_options: {
         signingStyle: "manual",
         provisioningProfiles: profiles_map
-      }
+      },
+	  buildlog_path: "~/Library/Logs/gym"
+
     )
 
 
