@@ -7,9 +7,14 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+  console.log("🛡️ ForMyPet: ProtectedRoute component rendering");
+  
   const { user, loading } = useAuth();
+  
+  console.log(`🔍 ForMyPet: ProtectedRoute state - User: ${user?.email || 'none'}, Loading: ${loading}`);
 
   if (loading) {
+    console.log("⏳ ForMyPet: ProtectedRoute showing loading screen");
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -24,9 +29,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   if (!user) {
+    console.log("🚫 ForMyPet: No user found, redirecting to login");
     return <Navigate to="/login" replace />;
   }
 
+  console.log("✅ ForMyPet: User authenticated, rendering protected content");
   return <>{children}</>;
 };
 

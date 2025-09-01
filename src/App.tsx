@@ -32,8 +32,18 @@ import ScreenshotsPage from "./pages/ScreenshotsPage";
 const queryClient = new QueryClient();
 
 const AppContent = () => {
+  console.log("🚀 ForMyPet: AppContent component mounting");
+  
   // Initialize analytics
-  useAnalytics();
+  try {
+    console.log("📊 ForMyPet: Initializing analytics");
+    useAnalytics();
+    console.log("✅ ForMyPet: Analytics initialized successfully");
+  } catch (error) {
+    console.error("❌ ForMyPet: Analytics initialization failed:", error);
+  }
+  
+  console.log("🌐 ForMyPet: Setting up BrowserRouter");
   
   return (
     <BrowserRouter>
@@ -136,14 +146,61 @@ const AppContent = () => {
   );
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AppContent />
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  console.log("🎯 ForMyPet: Main App component initializing");
+  
+  try {
+    console.log("⚙️ ForMyPet: Setting up QueryClient and providers");
+    
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <AppContent />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  } catch (error) {
+    console.error("💥 ForMyPet: Critical error in App component:", error);
+    
+    // Fallback error UI for iOS debugging
+    return (
+      <div style={{ 
+        backgroundColor: 'red', 
+        color: 'white', 
+        padding: '20px', 
+        textAlign: 'center',
+        fontSize: '18px',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'column'
+      }}>
+        <h1>ForMyPet Error</h1>
+        <p>Critical error occurred: {error?.message || 'Unknown error'}</p>
+        <p>Check Safari Console for details</p>
+      </div>
+    );
+  }
+};
+
+// Add global error handler for iOS debugging
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (event) => {
+    console.error('🚨 ForMyPet: Global Error:', event.error);
+    console.error('🚨 ForMyPet: Error details:', {
+      message: event.message,
+      filename: event.filename,
+      lineno: event.lineno,
+      colno: event.colno
+    });
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    console.error('🚨 ForMyPet: Unhandled Promise Rejection:', event.reason);
+  });
+}
 
 export default App;
