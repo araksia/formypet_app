@@ -7,6 +7,7 @@ import { AuthProvider } from "./components/AuthProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import { useAnalytics } from "./hooks/useAnalytics";
+import { remoteLogger } from "./utils/remoteLogger";
 import Dashboard from "./pages/Dashboard";
 import PetsPage from "./pages/PetsPage";
 import AddPetPage from "./pages/AddPetPage";
@@ -33,17 +34,22 @@ const queryClient = new QueryClient();
 
 const AppContent = () => {
   console.log("🚀 ForMyPet: AppContent component mounting");
+  remoteLogger.info("AppContent component mounting", "App");
   
   // Initialize analytics
   try {
     console.log("📊 ForMyPet: Initializing analytics");
+    remoteLogger.info("Initializing analytics", "App");
     useAnalytics();
     console.log("✅ ForMyPet: Analytics initialized successfully");
+    remoteLogger.info("Analytics initialized successfully", "App");
   } catch (error) {
     console.error("❌ ForMyPet: Analytics initialization failed:", error);
+    remoteLogger.error("Analytics initialization failed", "App", { error: error?.toString() });
   }
   
   console.log("🌐 ForMyPet: Setting up BrowserRouter");
+  remoteLogger.info("Setting up BrowserRouter", "App");
   
   return (
     <BrowserRouter>
@@ -148,9 +154,11 @@ const AppContent = () => {
 
 const App = () => {
   console.log("🎯 ForMyPet: Main App component initializing");
+  remoteLogger.info("Main App component initializing", "App");
   
   try {
     console.log("⚙️ ForMyPet: Setting up QueryClient and providers");
+    remoteLogger.info("Setting up QueryClient and providers", "App");
     
     return (
       <QueryClientProvider client={queryClient}>
@@ -163,6 +171,7 @@ const App = () => {
     );
   } catch (error) {
     console.error("💥 ForMyPet: Critical error in App component:", error);
+    remoteLogger.error("Critical error in App component", "App", { error: error?.toString() });
     
     // Fallback error UI for iOS debugging
     return (
@@ -196,10 +205,24 @@ if (typeof window !== 'undefined') {
       lineno: event.lineno,
       colno: event.colno
     });
+    
+    // Send to remote logging
+    remoteLogger.error('Global Error', "GlobalErrorHandler", {
+      message: event.message,
+      filename: event.filename,
+      lineno: event.lineno,
+      colno: event.colno,
+      error: event.error?.toString()
+    });
   });
 
   window.addEventListener('unhandledrejection', (event) => {
     console.error('🚨 ForMyPet: Unhandled Promise Rejection:', event.reason);
+    
+    // Send to remote logging
+    remoteLogger.error('Unhandled Promise Rejection', "GlobalErrorHandler", {
+      reason: event.reason?.toString()
+    });
   });
 }
 

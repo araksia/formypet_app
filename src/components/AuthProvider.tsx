@@ -3,6 +3,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useAnalytics, analyticsEvents } from '@/hooks/useAnalytics';
+import { remoteLogger } from '@/utils/remoteLogger';
 
 interface AuthContextType {
   user: User | null;
@@ -30,26 +31,34 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   console.log("🔐 ForMyPet: AuthProvider initializing");
+  remoteLogger.info("AuthProvider initializing", "AuthProvider");
   
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   
   console.log("📊 ForMyPet: Initializing analytics in AuthProvider");
+  remoteLogger.info("Initializing analytics in AuthProvider", "AuthProvider");
   const { trackEvent, setUserId } = useAnalytics();
 
   // Initialize push notifications when user is authenticated
   console.log("🔔 ForMyPet: Setting up push notifications");
+  remoteLogger.info("Setting up push notifications", "AuthProvider");
   usePushNotifications();
 
   useEffect(() => {
     console.log("🔄 ForMyPet: AuthProvider useEffect running");
+    remoteLogger.info("AuthProvider useEffect running", "AuthProvider");
     let mounted = true;
 
     // Set up auth state listener FIRST (this is critical)
     console.log("👂 ForMyPet: Setting up auth state listener");
+    remoteLogger.info("Setting up auth state listener", "AuthProvider");
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('🔄 ForMyPet: Auth state change:', event, session?.user?.email);
+        remoteLogger.info(`Auth state change: ${event}`, "AuthProvider", { 
+          userEmail: session?.user?.email || 'none' 
+        });
         
         if (mounted) {
           setUser(session?.user ?? null);
