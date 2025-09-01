@@ -29,28 +29,39 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  console.log("🔐 ForMyPet: AuthProvider initializing");
+  
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  console.log("📊 ForMyPet: Initializing analytics in AuthProvider");
   const { trackEvent, setUserId } = useAnalytics();
 
   // Initialize push notifications when user is authenticated
+  console.log("🔔 ForMyPet: Setting up push notifications");
   usePushNotifications();
 
   useEffect(() => {
+    console.log("🔄 ForMyPet: AuthProvider useEffect running");
     let mounted = true;
 
     // Set up auth state listener FIRST (this is critical)
+    console.log("👂 ForMyPet: Setting up auth state listener");
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('Auth state change:', event, session?.user?.email);
+        console.log('🔄 ForMyPet: Auth state change:', event, session?.user?.email);
         
         if (mounted) {
           setUser(session?.user ?? null);
           setLoading(false);
+          console.log(`✅ ForMyPet: User state updated - User: ${session?.user?.email || 'none'}, Loading: false`);
+        } else {
+          console.log('⚠️ ForMyPet: Component unmounted, skipping state update');
         }
 
         // Defer profile update to avoid deadlock
         if (event === 'SIGNED_IN' && session?.user) {
+          console.log('🎯 ForMyPet: User signed in, tracking event');
           // Track login event
           trackEvent(analyticsEvents.USER_LOGIN, {
             method: 'email',
@@ -62,7 +73,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           setTimeout(async () => {
             try {
-              console.log('Updating profile for user:', session.user.email);
+              console.log('👤 ForMyPet: Updating profile for user:', session.user.email);
               await supabase
                 .from('profiles')
                 .upsert({
@@ -72,8 +83,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 }, {
                   onConflict: 'user_id'
                 });
+              console.log('✅ ForMyPet: Profile updated successfully');
             } catch (error) {
-              console.error('Error updating profile:', error);
+              console.error('❌ ForMyPet: Error updating profile:', error);
             }
           }, 0);
         }
@@ -83,23 +95,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // THEN check for existing session (no timeout needed)
     const getSession = async () => {
       try {
-        console.log('Checking for existing session...');
+        console.log('🔍 ForMyPet: Checking for existing session...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('Session error:', error);
+          console.error('❌ ForMyPet: Session error:', error);
         } else {
-          console.log('Existing session found:', session?.user?.email || 'none');
+          console.log('✅ ForMyPet: Existing session found:', session?.user?.email || 'none');
         }
         
         if (mounted) {
           setUser(session?.user ?? null);
           setLoading(false);
+          console.log(`🔄 ForMyPet: Session check complete - User: ${session?.user?.email || 'none'}, Loading: false`);
         }
       } catch (error) {
-        console.error('Session check error:', error);
+        console.error('💥 ForMyPet: Session check error:', error);
         if (mounted) {
           setLoading(false);
+          console.log('⚠️ ForMyPet: Session check failed, setting loading to false');
         }
       }
     };
@@ -107,12 +121,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     getSession();
 
     return () => {
+      console.log('🧹 ForMyPet: AuthProvider cleanup');
       mounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
   const signOut = async () => {
+    console.log('👋 ForMyPet: User signing out');
     // Track logout event
     if (user) {
       trackEvent(analyticsEvents.USER_LOGOUT, {
