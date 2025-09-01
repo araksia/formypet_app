@@ -56,6 +56,39 @@ export type Database = {
         }
         Relationships: []
       }
+      debug_logs: {
+        Row: {
+          component: string | null
+          id: string
+          level: string
+          message: string
+          metadata: Json | null
+          timestamp: string
+          url: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          component?: string | null
+          id?: string
+          level?: string
+          message: string
+          metadata?: Json | null
+          timestamp?: string
+          url?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          component?: string | null
+          id?: string
+          level?: string
+          message?: string
+          metadata?: Json | null
+          timestamp?: string
+          url?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           created_at: string
