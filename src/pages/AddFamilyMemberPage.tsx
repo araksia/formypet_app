@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -136,11 +135,8 @@ const AddFamilyMemberPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
-      <Header title="Προσθήκη Μέλους Οικογένειας" />
-      
-      <div className="p-4">
-        <Card>
+    <div className="space-y-6">
+      <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-primary" />
@@ -286,7 +282,6 @@ const AddFamilyMemberPage = () => {
             </form>
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 };
