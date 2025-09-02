@@ -18,14 +18,17 @@
   "ios": {
     "scheme": "ForMyPet",
     "path": "ios",
-	"minVersion": "13.0"
+	"minVersion": "15.0"
   },
   "android": {
     "path": "android"
   },
   "plugins": {
     "Camera": {
-      "permissions": ["camera", "photos"]
+      "permissions": ["camera", "photos"],
+      "iosImageWillSave": true,
+      "iosImageSaveToGallery": false,
+      "androidImagePickerActivity": "com.getcapacitor.camera.CameraImagePickerActivity"
     },
     "LocalNotifications": {
       "smallIcon": "ic_stat_notification",
