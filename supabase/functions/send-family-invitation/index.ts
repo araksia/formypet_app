@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     }
     console.log('✅ Invitation stored in database')
 
-    const appUrl = Deno.env.get('APP_URL') || 'https://your-app.com'
+    const appUrl = 'https://formypet.gr'
     const acceptUrl = `${appUrl}/accept-invitation?token=${invitationToken}`
 
     console.log('📧 Rendering email template...')
@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
 
     console.log('📤 Sending email via Resend...')
     const { error } = await resend.emails.send({
-      from: 'ForMyPet <onboarding@resend.dev>',
+      from: 'ForMyPet <noreply@formypet.gr>',
       to: [invitedEmail],
       subject: `Πρόσκληση για διαχείριση του ${petName}`,
       html,
