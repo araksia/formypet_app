@@ -4,8 +4,6 @@ import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { FamilyInvitationEmail } from './_templates/family-invitation.tsx'
 
-const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -39,6 +37,9 @@ Deno.serve(async (req) => {
       throw new Error('RESEND_API_KEY not configured')
     }
     console.log('✅ RESEND_API_KEY found')
+
+    // Initialize Resend client
+    const resend = new Resend(resendApiKey)
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
