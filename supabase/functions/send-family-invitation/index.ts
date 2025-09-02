@@ -87,8 +87,10 @@ Deno.serve(async (req) => {
     }
     console.log('✅ Invitation stored in database')
 
-    const appUrl = 'https://formypet.gr'
-    const acceptUrl = `${appUrl}/accept-invitation?token=${invitationToken}`
+    // Create deep link URL for mobile app with fallback to web
+    const mobileScheme = 'formypet://accept-invitation'
+    const webUrl = 'https://formypet.gr/accept-invitation'
+    const acceptUrl = `${mobileScheme}?token=${invitationToken}&fallback=${encodeURIComponent(webUrl + '?token=' + invitationToken)}`
 
     console.log('📧 Rendering email template...')
     const html = await renderAsync(

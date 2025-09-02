@@ -2,12 +2,15 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
 import { AuthProvider } from "./components/AuthProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import { useAnalytics } from "./hooks/useAnalytics";
 import { remoteLogger } from "./utils/remoteLogger";
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+import { useEffect } from 'react';
 import Dashboard from "./pages/Dashboard";
 import PetsPage from "./pages/PetsPage";
 import AddPetPage from "./pages/AddPetPage";
@@ -35,6 +38,40 @@ const queryClient = new QueryClient();
 const AppContent = () => {
   console.log("🚀 ForMyPet: AppContent component mounting");
   remoteLogger.info("AppContent component mounting", "App");
+  
+  const navigate = useNavigate();
+  
+  // Handle deep links
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    
+    const handleDeepLink = async (urlObj: { url: string }) => {
+      console.log('🔗 Deep link received:', urlObj.url);
+      
+      try {
+        const url = new URL(urlObj.url);
+        const path = url.pathname;
+        const params = url.searchParams;
+        
+        if (path === '/accept-invitation') {
+          const token = params.get('token');
+          if (token) {
+            console.log('🔗 Navigating to accept invitation with token:', token);
+            navigate(`/accept-invitation?token=${token}`);
+          }
+        }
+      } catch (error) {
+        console.error('🔗 Error handling deep link:', error);
+      }
+    };
+    
+    // Listen for app URL events
+    CapacitorApp.addListener('appUrlOpen', handleDeepLink);
+    
+    return () => {
+      CapacitorApp.removeAllListeners();
+    };
+  }, [navigate]);
   
   // Initialize analytics
   try {
