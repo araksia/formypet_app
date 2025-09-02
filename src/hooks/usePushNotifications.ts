@@ -14,36 +14,54 @@ export const usePushNotifications = () => {
     
     if (!Capacitor.isNativePlatform()) {
       console.log('🔔 Push notifications not available on web platform - tokens will only be saved on mobile app');
+      toast({
+        title: "Web Platform Detected",
+        description: "Push notifications μόνο στη mobile εφαρμογή",
+        variant: "destructive"
+      });
       return;
     }
 
     const initializePushNotifications = async () => {
       try {
-        console.log('Initializing push notifications...');
+        console.log('🔔 Initializing push notifications...');
         
         // Έλεγχος τρέχουσας κατάστασης permissions πρώτα
         const currentStatus = await PushNotifications.checkPermissions();
-        console.log('Current permission status:', currentStatus);
+        console.log('🔔 Current permission status:', currentStatus);
         
         if (currentStatus.receive !== 'granted') {
+          console.log('🔔 Requesting permissions...');
           // Αίτηση permissions μόνο αν δεν τα έχουμε ήδη
           const permStatus = await PushNotifications.requestPermissions();
-          console.log('Requested permission status:', permStatus);
+          console.log('🔔 Requested permission status:', permStatus);
           
           if (permStatus.receive === 'granted') {
+            console.log('🔔 Registering for push notifications...');
             await PushNotifications.register();
-            console.log('Push notifications registered successfully after permission grant');
+            console.log('🔔 Push notifications registered successfully after permission grant');
           } else {
-            console.log('Push notification permissions denied');
+            console.log('🔔 Push notification permissions denied');
+            toast({
+              title: "Permissions Denied",
+              description: "Δεν δόθηκαν άδειες για push notifications",
+              variant: "destructive"
+            });
             return;
           }
         } else {
+          console.log('🔔 Already have permissions, registering...');
           // Αν έχουμε ήδη permissions, κάνε register
           await PushNotifications.register();
-          console.log('Push notifications registered successfully with existing permissions');
+          console.log('🔔 Push notifications registered successfully with existing permissions');
         }
       } catch (error) {
-        console.error('Error initializing push notifications:', error);
+        console.error('🔔 Error initializing push notifications:', error);
+        toast({
+          title: "Push Notification Error",
+          description: `Σφάλμα: ${error.message}`,
+          variant: "destructive"
+        });
       }
     };
 
