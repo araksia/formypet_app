@@ -8,8 +8,6 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import { useAnalytics } from "./hooks/useAnalytics";
 import { remoteLogger } from "./utils/remoteLogger";
-import { App as CapacitorApp } from '@capacitor/app';
-import { Capacitor } from '@capacitor/core';
 import { useEffect } from 'react';
 import Dashboard from "./pages/Dashboard";
 import PetsPage from "./pages/PetsPage";
@@ -35,43 +33,69 @@ import ScreenshotsPage from "./pages/ScreenshotsPage";
 
 const queryClient = new QueryClient();
 
-const AppContent = () => {
-  console.log("🚀 ForMyPet: AppContent component mounting");
-  remoteLogger.info("AppContent component mounting", "App");
-  
+// Deep Link Handler Component
+const DeepLinkHandler = () => {
   const navigate = useNavigate();
   
-  // Handle deep links
   useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
+    let cleanup: (() => void) | undefined;
     
-    const handleDeepLink = async (urlObj: { url: string }) => {
-      console.log('🔗 Deep link received:', urlObj.url);
-      
+    const initializeDeepLinks = async () => {
       try {
-        const url = new URL(urlObj.url);
-        const path = url.pathname;
-        const params = url.searchParams;
+        // Check if we're on native platform and capacitor modules are available
+        const { Capacitor } = await import('@capacitor/core');
         
-        if (path === '/accept-invitation') {
-          const token = params.get('token');
-          if (token) {
-            console.log('🔗 Navigating to accept invitation with token:', token);
-            navigate(`/accept-invitation?token=${token}`);
-          }
+        if (!Capacitor.isNativePlatform()) {
+          console.log('🔗 Not on native platform, skipping deep link setup');
+          return;
         }
+        
+        const { App: CapacitorApp } = await import('@capacitor/app');
+        
+        const handleDeepLink = async (urlObj: { url: string }) => {
+          console.log('🔗 Deep link received:', urlObj.url);
+          
+          try {
+            const url = new URL(urlObj.url);
+            const path = url.pathname;
+            const params = url.searchParams;
+            
+            if (path === '/accept-invitation') {
+              const token = params.get('token');
+              if (token) {
+                console.log('🔗 Navigating to accept invitation with token:', token);
+                navigate(`/accept-invitation?token=${token}`);
+              }
+            }
+          } catch (error) {
+            console.error('🔗 Error handling deep link:', error);
+          }
+        };
+        
+        // Listen for app URL events
+        await CapacitorApp.addListener('appUrlOpen', handleDeepLink);
+        
+        cleanup = () => {
+          CapacitorApp.removeAllListeners();
+        };
       } catch (error) {
-        console.error('🔗 Error handling deep link:', error);
+        console.log('🔗 Capacitor modules not available, skipping deep link setup:', error);
       }
     };
     
-    // Listen for app URL events
-    CapacitorApp.addListener('appUrlOpen', handleDeepLink);
+    initializeDeepLinks();
     
     return () => {
-      CapacitorApp.removeAllListeners();
+      if (cleanup) cleanup();
     };
   }, [navigate]);
+  
+  return null; // This component doesn't render anything
+};
+
+const AppRoutes = () => {
+  console.log("🚀 ForMyPet: AppRoutes component mounting");
+  remoteLogger.info("AppRoutes component mounting", "App");
   
   // Initialize analytics
   try {
@@ -85,107 +109,103 @@ const AppContent = () => {
     remoteLogger.error("Analytics initialization failed", "App", { error: error?.toString() });
   }
   
-  console.log("🌐 ForMyPet: Setting up BrowserRouter");
-  remoteLogger.info("Setting up BrowserRouter", "App");
-  
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignUpPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
-          <Route path="/screenshots" element={<ScreenshotsPage />} />
-          <Route path="/privacy" element={<PrivacyPolicyPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/" element={
-            <ProtectedRoute>
-              <Layout>
-                <Dashboard />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/pets" element={
-            <ProtectedRoute>
-              <Layout>
-                <PetsPage />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/add-pet" element={
-            <ProtectedRoute>
-              <AddPetPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/calendar" element={
-            <ProtectedRoute>
-              <Layout>
-                <CalendarPage />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/add-event" element={
-            <ProtectedRoute>
-              <AddEventPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/pet/:petId" element={
-            <ProtectedRoute>
-              <Layout>
-                <PetProfilePage />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/pet/:petId/medical" element={
-            <ProtectedRoute>
-              <Layout>
-                <MedicalRecordsPage />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/expenses" element={
-            <ProtectedRoute>
-              <Layout>
-                <ExpensesPage />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/achievements" element={
-            <ProtectedRoute>
-              <Layout>
-                <AchievementsPage />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/add-expense" element={
-            <ProtectedRoute>
-              <AddExpensePage />
-            </ProtectedRoute>
-          } />
-          <Route path="/add-family-member" element={
-            <ProtectedRoute>
-              <AddFamilyMemberPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              <Layout>
-                <ProfilePage />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="/settings" element={
-            <ProtectedRoute>
-              <Layout>
-                <SettingsPage />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+    <AuthProvider>
+      <DeepLinkHandler />
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+        <Route path="/screenshots" element={<ScreenshotsPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/" element={
+          <ProtectedRoute>
+            <Layout>
+              <Dashboard />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/pets" element={
+          <ProtectedRoute>
+            <Layout>
+              <PetsPage />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/add-pet" element={
+          <ProtectedRoute>
+            <AddPetPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/calendar" element={
+          <ProtectedRoute>
+            <Layout>
+              <CalendarPage />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/add-event" element={
+          <ProtectedRoute>
+            <AddEventPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/pet/:petId" element={
+          <ProtectedRoute>
+            <Layout>
+              <PetProfilePage />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/pet/:petId/medical" element={
+          <ProtectedRoute>
+            <Layout>
+              <MedicalRecordsPage />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/expenses" element={
+          <ProtectedRoute>
+            <Layout>
+              <ExpensesPage />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/achievements" element={
+          <ProtectedRoute>
+            <Layout>
+              <AchievementsPage />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/add-expense" element={
+          <ProtectedRoute>
+            <AddExpensePage />
+          </ProtectedRoute>
+        } />
+        <Route path="/add-family-member" element={
+          <ProtectedRoute>
+            <AddFamilyMemberPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <Layout>
+              <ProfilePage />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <Layout>
+              <SettingsPage />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AuthProvider>
   );
 };
 
@@ -202,7 +222,9 @@ const App = () => {
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <AppContent />
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
         </TooltipProvider>
       </QueryClientProvider>
     );
