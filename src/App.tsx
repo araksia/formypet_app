@@ -93,21 +93,22 @@ const DeepLinkHandler = () => {
   return null; // This component doesn't render anything
 };
 
+// Analytics Wrapper Component
+const AnalyticsWrapper = ({ children }: { children: React.ReactNode }) => {
+  console.log("📊 ForMyPet: Initializing analytics");
+  remoteLogger.info("Initializing analytics", "App");
+  
+  useAnalytics(); // This is now called properly within a component
+  
+  console.log("✅ ForMyPet: Analytics initialized successfully");
+  remoteLogger.info("Analytics initialized successfully", "App");
+  
+  return <>{children}</>;
+};
+
 const AppRoutes = () => {
   console.log("🚀 ForMyPet: AppRoutes component mounting");
   remoteLogger.info("AppRoutes component mounting", "App");
-  
-  // Initialize analytics
-  try {
-    console.log("📊 ForMyPet: Initializing analytics");
-    remoteLogger.info("Initializing analytics", "App");
-    useAnalytics();
-    console.log("✅ ForMyPet: Analytics initialized successfully");
-    remoteLogger.info("Analytics initialized successfully", "App");
-  } catch (error) {
-    console.error("❌ ForMyPet: Analytics initialization failed:", error);
-    remoteLogger.error("Analytics initialization failed", "App", { error: error?.toString() });
-  }
   
   return (
     <AuthProvider>
@@ -223,7 +224,9 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <AppRoutes />
+            <AnalyticsWrapper>
+              <AppRoutes />
+            </AnalyticsWrapper>
           </BrowserRouter>
         </TooltipProvider>
       </QueryClientProvider>
