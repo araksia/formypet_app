@@ -217,7 +217,6 @@ const App = () => {
   try {
     console.log("⚙️ ForMyPet: Setting up QueryClient and providers");
     remoteLogger.info("Setting up QueryClient and providers", "App");
-    
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
