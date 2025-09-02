@@ -31,6 +31,15 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('🚀 send-family-invitation function called')
+    
+    // Check if RESEND_API_KEY exists
+    const resendApiKey = Deno.env.get('RESEND_API_KEY')
+    if (!resendApiKey) {
+      throw new Error('RESEND_API_KEY not configured')
+    }
+    console.log('✅ RESEND_API_KEY found')
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -46,8 +55,10 @@ Deno.serve(async (req) => {
     if (!user) {
       throw new Error('Unauthorized')
     }
+    console.log('✅ User authenticated:', user.id)
 
     const { invitedEmail, petId, petName, inviterName, role, message }: InvitationRequest = await req.json()
+    console.log('📧 Invitation request:', { invitedEmail, petId, petName, role })
 
     // Create invitation token
     const invitationToken = crypto.randomUUID()
@@ -55,6 +66,7 @@ Deno.serve(async (req) => {
     expiresAt.setDate(expiresAt.getDate() + 7) // 7 days expiry
 
     // Store invitation in database
+    console.log('💾 Storing invitation in database...')
     const { error: inviteError } = await supabaseClient
       .from('family_invitations')
       .insert({
@@ -69,12 +81,15 @@ Deno.serve(async (req) => {
       })
 
     if (inviteError) {
+      console.error('❌ Database error:', inviteError)
       throw new Error(`Failed to create invitation: ${inviteError.message}`)
     }
+    console.log('✅ Invitation stored in database')
 
     const appUrl = Deno.env.get('APP_URL') || 'https://your-app.com'
     const acceptUrl = `${appUrl}/accept-invitation?token=${invitationToken}`
 
+    console.log('📧 Rendering email template...')
     const html = await renderAsync(
       React.createElement(FamilyInvitationEmail, {
         invitedEmail,
@@ -85,7 +100,9 @@ Deno.serve(async (req) => {
         acceptUrl
       })
     )
+    console.log('✅ Email template rendered')
 
+    console.log('📤 Sending email via Resend...')
     const { error } = await resend.emails.send({
       from: 'ForMyPet <onboarding@resend.dev>',
       to: [invitedEmail],
@@ -94,8 +111,10 @@ Deno.serve(async (req) => {
     })
 
     if (error) {
+      console.error('❌ Resend error:', error)
       throw error
     }
+    console.log('✅ Email sent successfully!')
 
     return new Response(
       JSON.stringify({ success: true, message: 'Invitation sent successfully' }),
@@ -105,7 +124,7 @@ Deno.serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('Error sending invitation:', error)
+    console.error('❌ Error sending invitation:', error)
     return new Response(
       JSON.stringify({
         error: {
