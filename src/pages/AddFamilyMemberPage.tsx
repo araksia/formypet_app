@@ -112,8 +112,8 @@ const AddFamilyMemberPage = () => {
       if (error) throw error;
 
       toast({
-        title: "Πρόσκληση στάλθηκε!",
-        description: `Η πρόσκληση στάλθηκε στο ${formData.email}. Θα λάβουν email με οδηγίες.`,
+        title: "✅ Επιτυχής αποστολή!",
+        description: `Η πρόσκληση στάλθηκε επιτυχώς στο ${formData.email}. Θα λάβουν email με το σύνδεσμο για να δεχθούν την πρόσκληση.`,
       });
       navigate('/');
     } catch (error: any) {

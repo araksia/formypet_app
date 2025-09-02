@@ -20,11 +20,14 @@ const Layout = ({ children }: LayoutProps) => {
   return (
     <div className="min-h-screen bg-background">
       <main 
-        className={`pt-safe-top pb-nav safe-area-left safe-area-right keyboard-adjust ${isKeyboardOpen ? 'mb-4' : ''}`}
+        className={`keyboard-adjust ${isKeyboardOpen ? 'mb-4' : ''}`}
         style={{ 
           transform: isKeyboardOpen ? `translateY(-${Math.max(0, keyboardHeight - 100)}px)` : 'none',
           minHeight: isKeyboardOpen ? 'auto' : '100vh',
-          paddingBottom: 'calc(4rem + env(safe-area-inset-bottom))'
+          paddingTop: 'calc(5rem + env(safe-area-inset-top))',
+          paddingBottom: 'calc(5rem + env(safe-area-inset-bottom))',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)'
         }}
       >
         {children}

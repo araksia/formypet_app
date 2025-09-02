@@ -22,10 +22,7 @@ const ProfilePage = () => {
   const [profileData, setProfileData] = useState({
     display_name: '',
     email: '',
-    avatar_url: '',
-    phone: '',
-    location: '',
-    bio: ''
+    avatar_url: ''
   });
   const [editData, setEditData] = useState(profileData);
   const [stats, setStats] = useState({
@@ -66,10 +63,7 @@ const ProfilePage = () => {
         const profileInfo = {
           display_name: profile.display_name || '',
           email: profile.email || user.email || '',
-          avatar_url: profile.avatar_url || '',
-          phone: '',
-          location: '',
-          bio: ''
+          avatar_url: profile.avatar_url || ''
         };
         setProfileData(profileInfo);
         setEditData(profileInfo);
@@ -78,10 +72,7 @@ const ProfilePage = () => {
         const profileInfo = {
           display_name: user.email?.split('@')[0] || '',
           email: user.email || '',
-          avatar_url: '',
-          phone: '',
-          location: '',
-          bio: ''
+          avatar_url: ''
         };
         setProfileData(profileInfo);
         setEditData(profileInfo);
@@ -348,10 +339,9 @@ const ProfilePage = () => {
                 />
                </div>
               
-              {!isEditing ? (
+               {!isEditing ? (
                 <div className="text-center space-y-2">
                   <h1 className="text-2xl font-bold">{profileData.display_name || profileData.email}</h1>
-                  <p className="text-muted-foreground">{profileData.bio}</p>
                   <Button onClick={handleEdit} className="mt-4">
                     <Edit2 className="h-4 w-4 mr-2" />
                     Επεξεργασία Προφίλ
@@ -365,24 +355,6 @@ const ProfilePage = () => {
                       id="name"
                       value={editData.display_name}
                       onChange={(e) => setEditData(prev => ({ ...prev, display_name: e.target.value }))}
-                      onFocus={(e) => {
-                        // Enhanced iPhone keyboard handling
-                        setTimeout(() => {
-                          e.target.scrollIntoView({ 
-                            behavior: 'smooth', 
-                            block: 'center',
-                            inline: 'nearest'
-                          });
-                        }, 500);
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="bio">Βιογραφικό</Label>
-                    <Input
-                      id="bio"
-                      value={editData.bio}
-                      onChange={(e) => setEditData(prev => ({ ...prev, bio: e.target.value }))}
                       onFocus={(e) => {
                         // Enhanced iPhone keyboard handling
                         setTimeout(() => {

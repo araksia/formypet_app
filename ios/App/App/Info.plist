@@ -56,11 +56,26 @@
 	<!-- Εάν χρησιμοποιείς κάμερα (π.χ. CapacitorCamera για λήψη) -->
 	<key>NSCameraUsageDescription</key>
 	<string>Χρειαζόμαστε πρόσβαση στην κάμερα για να τραβήξεις φωτογραφίες του κατοικιδίου σου.</string>
+	
+	<!-- Για Face ID / Touch ID αν χρειάζεται -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Χρησιμοποιούμε Face ID/Touch ID για ασφάλεια.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
 	</array>
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>gr.formypet.app.deeplink</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>formypet</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

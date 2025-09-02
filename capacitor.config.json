@@ -18,14 +18,21 @@
   "ios": {
     "scheme": "ForMyPet",
     "path": "ios",
-	"minVersion": "13.0"
+	"minVersion": "15.0"
   },
   "android": {
     "path": "android"
   },
+  "server": {
+    "url": "https://10732186-1e70-4126-96ce-f1530f104a69.lovableproject.com?forceHideBadge=true",
+    "cleartext": true
+  },
   "plugins": {
     "Camera": {
-      "permissions": ["camera", "photos"]
+      "permissions": ["camera", "photos"],
+      "iosImageWillSave": true,
+      "iosImageSaveToGallery": false,
+      "androidImagePickerActivity": "com.getcapacitor.camera.CameraImagePickerActivity"
     },
     "LocalNotifications": {
       "smallIcon": "ic_stat_notification",
