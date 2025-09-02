@@ -6,6 +6,11 @@ import { FamilyInvitationEmail } from './_templates/family-invitation.tsx'
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 interface InvitationRequest {
   invitedEmail: string
   petId: string
@@ -16,8 +21,13 @@ interface InvitationRequest {
 }
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 })
+    return new Response('Method not allowed', { status: 405, headers: corsHeaders })
   }
 
   try {
@@ -30,6 +40,12 @@ Deno.serve(async (req) => {
         },
       }
     )
+
+    // Get current user
+    const { data: { user } } = await supabaseClient.auth.getUser()
+    if (!user) {
+      throw new Error('Unauthorized')
+    }
 
     const { invitedEmail, petId, petName, inviterName, role, message }: InvitationRequest = await req.json()
 
@@ -45,6 +61,7 @@ Deno.serve(async (req) => {
         token: invitationToken,
         invited_email: invitedEmail,
         pet_id: petId,
+        invited_by: user.id,
         role: role,
         message: message,
         expires_at: expiresAt.toISOString(),
@@ -84,7 +101,7 @@ Deno.serve(async (req) => {
       JSON.stringify({ success: true, message: 'Invitation sent successfully' }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       }
     )
   } catch (error) {
@@ -97,7 +114,7 @@ Deno.serve(async (req) => {
       }),
       {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       }
     )
   }
