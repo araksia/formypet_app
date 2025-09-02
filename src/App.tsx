@@ -93,167 +93,118 @@ const DeepLinkHandler = () => {
   return null; // This component doesn't render anything
 };
 
-// Analytics Wrapper Component
-const AnalyticsWrapper = ({ children }: { children: React.ReactNode }) => {
-  console.log("📊 ForMyPet: Initializing analytics");
-  remoteLogger.info("Initializing analytics", "App");
-  
-  useAnalytics(); // This is now called properly within a component
-  
-  console.log("✅ ForMyPet: Analytics initialized successfully");
-  remoteLogger.info("Analytics initialized successfully", "App");
-  
-  return <>{children}</>;
-};
-
-const AppRoutes = () => {
-  console.log("🚀 ForMyPet: AppRoutes component mounting");
-  remoteLogger.info("AppRoutes component mounting", "App");
-  
-  return (
-    <AuthProvider>
-      <DeepLinkHandler />
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignUpPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
-        <Route path="/screenshots" element={<ScreenshotsPage />} />
-        <Route path="/privacy" element={<PrivacyPolicyPage />} />
-        <Route path="/terms" element={<TermsPage />} />
-        <Route path="/" element={
-          <ProtectedRoute>
-            <Layout>
-              <Dashboard />
-            </Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/pets" element={
-          <ProtectedRoute>
-            <Layout>
-              <PetsPage />
-            </Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/add-pet" element={
-          <ProtectedRoute>
-            <AddPetPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/calendar" element={
-          <ProtectedRoute>
-            <Layout>
-              <CalendarPage />
-            </Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/add-event" element={
-          <ProtectedRoute>
-            <AddEventPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/pet/:petId" element={
-          <ProtectedRoute>
-            <Layout>
-              <PetProfilePage />
-            </Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/pet/:petId/medical" element={
-          <ProtectedRoute>
-            <Layout>
-              <MedicalRecordsPage />
-            </Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/expenses" element={
-          <ProtectedRoute>
-            <Layout>
-              <ExpensesPage />
-            </Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/achievements" element={
-          <ProtectedRoute>
-            <Layout>
-              <AchievementsPage />
-            </Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/add-expense" element={
-          <ProtectedRoute>
-            <AddExpensePage />
-          </ProtectedRoute>
-        } />
-        <Route path="/add-family-member" element={
-          <ProtectedRoute>
-            <AddFamilyMemberPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/profile" element={
-          <ProtectedRoute>
-            <Layout>
-              <ProfilePage />
-            </Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/settings" element={
-          <ProtectedRoute>
-            <Layout>
-              <SettingsPage />
-            </Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </AuthProvider>
-  );
-};
-
 const App = () => {
   console.log("🎯 ForMyPet: Main App component initializing");
   remoteLogger.info("Main App component initializing", "App");
   
-  try {
-    console.log("⚙️ ForMyPet: Setting up QueryClient and providers");
-    remoteLogger.info("Setting up QueryClient and providers", "App");
-    return (
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AnalyticsWrapper>
-              <AppRoutes />
-            </AnalyticsWrapper>
-          </BrowserRouter>
-        </TooltipProvider>
-      </QueryClientProvider>
-    );
-  } catch (error) {
-    console.error("💥 ForMyPet: Critical error in App component:", error);
-    remoteLogger.error("Critical error in App component", "App", { error: error?.toString() });
-    
-    // Fallback error UI for iOS debugging
-    return (
-      <div style={{ 
-        backgroundColor: 'red', 
-        color: 'white', 
-        padding: '20px', 
-        textAlign: 'center',
-        fontSize: '18px',
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'column'
-      }}>
-        <h1>ForMyPet Error</h1>
-        <p>Critical error occurred: {error?.message || 'Unknown error'}</p>
-        <p>Check Safari Console for details</p>
-      </div>
-    );
-  }
+  useAnalytics(); // Initialize analytics here properly
+  
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <DeepLinkHandler />
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<SignUpPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
+              <Route path="/screenshots" element={<ScreenshotsPage />} />
+              <Route path="/privacy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Dashboard />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/pets" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <PetsPage />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/add-pet" element={
+                <ProtectedRoute>
+                  <AddPetPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/calendar" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <CalendarPage />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/add-event" element={
+                <ProtectedRoute>
+                  <AddEventPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/pet/:petId" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <PetProfilePage />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/pet/:petId/medical" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <MedicalRecordsPage />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/expenses" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ExpensesPage />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/achievements" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AchievementsPage />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/add-expense" element={
+                <ProtectedRoute>
+                  <AddExpensePage />
+                </ProtectedRoute>
+              } />
+              <Route path="/add-family-member" element={
+                <ProtectedRoute>
+                  <AddFamilyMemberPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ProfilePage />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <SettingsPage />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
 };
 
 // Add global error handler for iOS debugging
