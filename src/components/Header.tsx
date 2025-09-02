@@ -244,121 +244,6 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {/* Hamburger Menu */}
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="p-2 focus-enhanced"
-                aria-label="Άνοιγμα κεντρικού μενού"
-                aria-expanded="false"
-              >
-                <Menu className="h-5 w-5 text-gray-600" aria-hidden="true" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent 
-              side="right" 
-              className="w-80"
-              role="dialog"
-              aria-labelledby="menu-title"
-            >
-              <SheetHeader>
-                <SheetTitle id="menu-title">Μενού Εφαρμογής</SheetTitle>
-              </SheetHeader>
-              <nav className="mt-6 space-y-6" role="navigation" aria-label="Δευτερεύουσα περιήγηση">
-                {/* Gamification Section */}
-                <section aria-labelledby="gamification-heading">
-                  <h3 id="gamification-heading" className="text-sm font-medium text-muted-foreground mb-3">
-                    Gamification
-                  </h3>
-                  <div className="space-y-2" role="list">
-                    <Link 
-                      to="/achievements" 
-                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors focus-enhanced"
-                      aria-label="Προβολή στόχων και επιτευγμάτων"
-                      role="listitem"
-                    >
-                      <Trophy className="h-5 w-5 text-primary" aria-hidden="true" />
-                      <span>Στόχοι & Επιτεύγματα</span>
-                    </Link>
-                  </div>
-                </section>
-
-                {/* Family Section */}
-                <section aria-labelledby="family-heading">
-                  <h3 id="family-heading" className="text-sm font-medium text-muted-foreground mb-3">
-                    Οικογένεια
-                  </h3>
-                  <div className="space-y-2" role="list">
-                    <Link 
-                      to="/family" 
-                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors focus-enhanced"
-                      aria-label="Διαχείριση οικογένειας κατοικιδίων"
-                      role="listitem"
-                    >
-                      <Users className="h-5 w-5 text-primary" aria-hidden="true" />
-                      <span>Διαχείριση Οικογένειας</span>
-                    </Link>
-                  </div>
-                </section>
-
-                {/* Account Section */}
-                <section aria-labelledby="account-heading">
-                  <h3 id="account-heading" className="text-sm font-medium text-muted-foreground mb-3">
-                    Λογαριασμός
-                  </h3>
-                  <div className="space-y-2" role="list">
-                    <Link 
-                      to="/profile" 
-                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors focus-enhanced"
-                      aria-label="Προβολή και επεξεργασία προφίλ"
-                      role="listitem"
-                    >
-                      <User className="h-5 w-5 text-primary" aria-hidden="true" />
-                      <span>Προφίλ</span>
-                    </Link>
-                    <Link 
-                      to="/settings" 
-                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors focus-enhanced"
-                      aria-label="Ρυθμίσεις εφαρμογής"
-                      role="listitem"
-                    >
-                      <Settings className="h-5 w-5 text-primary" aria-hidden="true" />
-                      <span>Ρυθμίσεις</span>
-                    </Link>
-                  </div>
-                </section>
-
-                {/* Legal Section */}
-                <section aria-labelledby="legal-heading">
-                  <h3 id="legal-heading" className="text-sm font-medium text-muted-foreground mb-3">
-                    Νομικά
-                  </h3>
-                  <div className="space-y-2" role="list">
-                    <Link 
-                      to="/privacy" 
-                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors focus-enhanced"
-                      aria-label="Διάβασμα πολιτικής απορρήτου"
-                      role="listitem"
-                    >
-                      <FileText className="h-5 w-5 text-primary" aria-hidden="true" />
-                      <span>Πολιτική Απορρήτου</span>
-                    </Link>
-                    <Link 
-                      to="/terms" 
-                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors focus-enhanced"
-                      aria-label="Διάβασμα όρων χρήσης"
-                      role="listitem"
-                    >
-                      <FileText className="h-5 w-5 text-primary" aria-hidden="true" />
-                      <span>Όροι Χρήσης</span>
-                    </Link>
-                  </div>
-                </section>
-              </nav>
-            </SheetContent>
-          </Sheet>
 
           {/* Notifications */}
           {showNotifications && (
@@ -448,7 +333,7 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {/* Profile Dropdown - Simplified */}
+          {/* Profile Dropdown - Complete */}
           {showProfile && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -471,9 +356,49 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
                   {user?.email || 'Χρήστης'}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                
+                <DropdownMenuItem asChild>
+                  <Link to="/profile" className="flex items-center w-full">
+                    <User className="mr-2 h-4 w-4" aria-hidden="true" />
+                    <span>Προφίλ</span>
+                  </Link>
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem asChild>
+                  <Link to="/settings" className="flex items-center w-full">
+                    <Settings className="mr-2 h-4 w-4" aria-hidden="true" />
+                    <span>Ρυθμίσεις</span>
+                  </Link>
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem asChild>
+                  <Link to="/family" className="flex items-center w-full">
+                    <Users className="mr-2 h-4 w-4" aria-hidden="true" />
+                    <span>Διαχείριση Οικογένειας</span>
+                  </Link>
+                </DropdownMenuItem>
+                
+                <DropdownMenuSeparator />
+                
+                <DropdownMenuItem asChild>
+                  <Link to="/privacy" className="flex items-center w-full">
+                    <FileText className="mr-2 h-4 w-4" aria-hidden="true" />
+                    <span>Πολιτική Απορρήτου</span>
+                  </Link>
+                </DropdownMenuItem>
+                
+                <DropdownMenuItem asChild>
+                  <Link to="/terms" className="flex items-center w-full">
+                    <FileText className="mr-2 h-4 w-4" aria-hidden="true" />
+                    <span>Όροι Χρήσης</span>
+                  </Link>
+                </DropdownMenuItem>
+                
+                <DropdownMenuSeparator />
+                
                 <DropdownMenuItem 
                   onClick={handleSignOut} 
-                  className="text-red-600 focus-enhanced"
+                  className="text-destructive focus:text-destructive focus-enhanced"
                   role="menuitem"
                   aria-label="Αποσύνδεση από την εφαρμογή"
                 >
