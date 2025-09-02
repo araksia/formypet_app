@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     )
 
     const { error } = await resend.emails.send({
-      from: 'PetHelper <noreply@your-domain.com>',
+      from: 'ForMyPet <onboarding@resend.dev>',
       to: [invitedEmail],
       subject: `Πρόσκληση για διαχείριση του ${petName}`,
       html,
