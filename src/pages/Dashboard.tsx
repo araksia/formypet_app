@@ -75,7 +75,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
+    <>
       {/* Skip to main content link for accessibility */}
       <a 
         href="#main-content" 
@@ -91,7 +91,7 @@ const Dashboard = () => {
       
       <Header title="For My Pet" />
       
-      <main 
+      <div 
         id="main-content"
         className="p-4 space-y-6"
         role="main"
@@ -117,8 +117,8 @@ const Dashboard = () => {
           onViewAll={handleViewAllEvents}
           onEventClick={handleEventClick}
         />
-      </main>
-    </div>
+      </div>
+    </>
   );
 };
 
