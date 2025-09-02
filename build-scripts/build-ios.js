@@ -12,30 +12,57 @@ const capacitorConfig = {
   appName: "ForMyPet",
   webDir: "dist",
   bundledWebRuntime: false,
+  resources: {
+    icon: {
+      source: "public/app-icon.png",
+      foreground: "public/app-icon.png",
+      background: "#ffffff"
+    },
+    splash: {
+      source: "public/splash-paws.png",
+      backgroundColor: "#ffffff"
+    }
+  },
   ios: {
     scheme: "ForMyPet",
-    path: "ios"
+    path: "ios",
+    minVersion: "15.0"
   },
   android: {
     path: "android"
   },
   plugins: {
     Camera: {
-      permissions: ["camera", "photos"]
+      permissions: ["camera", "photos"],
+      iosImageWillSave: true,
+      iosImageSaveToGallery: false,
+      androidImagePickerActivity: "com.getcapacitor.camera.CameraImagePickerActivity"
     },
     LocalNotifications: {
-      smallIcon: "ic_stat_icon_config_sample",
-      iconColor: "#488AFF"
+      smallIcon: "ic_stat_notification",
+      iconColor: "#4ADE80"
     },
     PushNotifications: {
-      presentationOptions: ["badge", "sound", "alert"]
+      presentationOptions: ["badge", "sound", "alert"],
+      useFcm: true,
+      iconColor: "#4ADE80"
+    },
+    FirebaseAnalytics: {
+      enabled: true
     },
     SplashScreen: {
-      launchShowDuration: 2000,
+      launchShowDuration: 3000,
       launchAutoHide: true,
-      backgroundColor: "#ffffffff",
+      backgroundColor: "#ffffff",
       androidScaleType: "CENTER_CROP",
-      showSpinner: false
+      showSpinner: false,
+      spinnerColor: "#999999",
+      iosSpinnerStyle: "small",
+      splashFullScreen: true,
+      splashImmersive: true
+    },
+    Browser: {
+      windowName: "_system"
     }
   }
 };

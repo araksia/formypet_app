@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Header from '@/components/Header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -275,20 +274,17 @@ const AddEventPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
-      <Header title={isEditMode ? "Επεξεργασία Event" : "Προσθήκη Event"} showNotifications={false} />
-      
-      <div className="p-4">
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate(-1)}
-          className="mb-4 p-0 h-auto"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Πίσω
-        </Button>
+    <div className="space-y-6">
+      <Button 
+        variant="ghost" 
+        onClick={() => navigate(-1)}
+        className="mb-4 p-0 h-auto"
+      >
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Πίσω
+      </Button>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
           {/* Event Type */}
           <Card>
             <CardHeader>
@@ -425,7 +421,6 @@ const AddEventPage = () => {
             {loading ? 'Αποθήκευση...' : (isEditMode ? 'Ενημέρωση Event' : 'Αποθήκευση Event')}
           </Button>
         </form>
-      </div>
     </div>
   );
 };

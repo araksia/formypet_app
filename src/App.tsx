@@ -131,7 +131,9 @@ const App = () => {
               } />
               <Route path="/add-pet" element={
                 <ProtectedRoute>
-                  <AddPetPage />
+                  <Layout>
+                    <AddPetPage />
+                  </Layout>
                 </ProtectedRoute>
               } />
               <Route path="/calendar" element={
@@ -143,7 +145,9 @@ const App = () => {
               } />
               <Route path="/add-event" element={
                 <ProtectedRoute>
-                  <AddEventPage />
+                  <Layout>
+                    <AddEventPage />
+                  </Layout>
                 </ProtectedRoute>
               } />
               <Route path="/pet/:petId" element={
@@ -176,12 +180,16 @@ const App = () => {
               } />
               <Route path="/add-expense" element={
                 <ProtectedRoute>
-                  <AddExpensePage />
+                  <Layout>
+                    <AddExpensePage />
+                  </Layout>
                 </ProtectedRoute>
               } />
               <Route path="/add-family-member" element={
                 <ProtectedRoute>
-                  <AddFamilyMemberPage />
+                  <Layout>
+                    <AddFamilyMemberPage />
+                  </Layout>
                 </ProtectedRoute>
               } />
               <Route path="/profile" element={

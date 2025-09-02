@@ -23,10 +23,6 @@
   "android": {
     "path": "android"
   },
-  "server": {
-    "url": "https://10732186-1e70-4126-96ce-f1530f104a69.lovableproject.com?forceHideBadge=true",
-    "cleartext": true
-  },
   "plugins": {
     "Camera": {
       "permissions": ["camera", "photos"],
