@@ -1,6 +1,5 @@
 
 import React, { useEffect } from 'react';
-import Header from '@/components/Header';
 import { PawPrint, Calendar, Euro, Users, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
@@ -75,50 +74,33 @@ const Dashboard = () => {
   };
 
   return (
-    <>
-      {/* Skip to main content link for accessibility */}
-      <a 
-        href="#main-content" 
-        className="skip-to-main"
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            document.getElementById('main-content')?.focus();
-          }
-        }}
-      >
-        Μετάβαση στο κύριο περιεχόμενο
-      </a>
-      
-      <Header title="For My Pet" />
-      
-      <div 
-        id="main-content"
-        className="p-4 space-y-6"
-        role="main"
-        aria-label="Κεντρική σελίδα εφαρμογής"
-        tabIndex={-1}
-      >
-        <WelcomeBanner />
+    <div 
+      id="main-content"
+      className="space-y-6"
+      role="main"
+      aria-label="Κεντρική σελίδα εφαρμογής"
+      tabIndex={-1}
+    >
+      <WelcomeBanner />
 
-        <QuickActions actions={quickActions} />
+      <QuickActions actions={quickActions} />
 
-        <StatsSection statsData={statsData} />
+      <StatsSection statsData={statsData} />
 
-        <AchievementsSection 
-          userAchievements={userAchievements}
-          achievements={achievements}
-          loading={achievementsLoading}
-          onViewAll={handleViewAllAchievements}
-        />
+      <AchievementsSection 
+        userAchievements={userAchievements}
+        achievements={achievements}
+        loading={achievementsLoading}
+        onViewAll={handleViewAllAchievements}
+      />
 
-        <UpcomingEventsSection 
-          events={upcomingEvents}
-          loading={loading}
-          onViewAll={handleViewAllEvents}
-          onEventClick={handleEventClick}
-        />
-      </div>
-    </>
+      <UpcomingEventsSection 
+        events={upcomingEvents}
+        loading={loading}
+        onViewAll={handleViewAllEvents}
+        onEventClick={handleEventClick}
+      />
+    </div>
   );
 };
 
