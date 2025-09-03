@@ -18,6 +18,13 @@ export const usePushNotifications = () => {
     if (!Capacitor.isNativePlatform()) {
       console.log('🔔 ForMyPet: Push notifications not available on web platform');
       remoteLogger.info("Push notifications not available on web platform", "PushNotifications");
+      
+      // Show a toast to inform user they need the mobile app
+      toast({
+        title: "📱 Mobile App Required",
+        description: "Τα push notifications δουλεύουν μόνο στη mobile εφαρμογή στο iPhone/Android",
+        duration: 8000
+      });
       return;
     }
 
@@ -192,18 +199,54 @@ export const usePushNotifications = () => {
     
     if (!Capacitor.isNativePlatform()) {
       toast({
-        title: "Test ειδοποίηση",
-        description: "Αυτό είναι ένα test για push notifications (μόνο σε web).",
+        title: "📱 Web Browser",
+        description: "Πηγαίνετε στη mobile εφαρμογή iPhone/Android για να δοκιμάσετε τα push notifications",
+        variant: "destructive",
+        duration: 8000
       });
       return;
     }
 
-    // In a real app, you would send this to your backend server
-    // which would then send the push notification via FCM/APNS
-    toast({
-      title: "Test στάλθηκε",
-      description: "Το test push notification στάλθηκε.",
-    });
+    // Test the actual push notification function
+    try {
+      console.log('🔔 ForMyPet: Testing push notification via backend...');
+      remoteLogger.info("Testing push notification via backend", "PushNotifications");
+      
+      const { data, error } = await supabase.functions.invoke('send-push-notification', {
+        body: {
+          action: 'send_notification',
+          title: '🧪 Test Notification',
+          body: 'Αυτό είναι ένα test push notification από το ForMyPet!',
+          data: { test: true }
+        }
+      });
+
+      if (error) {
+        console.error('🔔 ForMyPet: Error sending test notification:', error);
+        remoteLogger.error(`Error sending test notification: ${error.message}`, "PushNotifications");
+        toast({
+          title: "❌ Σφάλμα Test",
+          description: `Δεν στάλθηκε το test: ${error.message}`,
+          variant: "destructive"
+        });
+      } else {
+        console.log('🔔 ForMyPet: Test notification sent successfully:', data);
+        remoteLogger.info(`Test notification sent successfully: ${JSON.stringify(data)}`, "PushNotifications");
+        toast({
+          title: "✅ Test στάλθηκε",
+          description: "Το test push notification στάλθηκε επιτυχώς!",
+          duration: 5000
+        });
+      }
+    } catch (error) {
+      console.error('🔔 ForMyPet: Error calling test notification:', error);
+      remoteLogger.error(`Error calling test notification: ${error.message}`, "PushNotifications");
+      toast({
+        title: "❌ Σφάλμα",
+        description: `Γενικό σφάλμα: ${error.message}`,
+        variant: "destructive"
+      });
+    }
   };
 
   const enablePushNotifications = async () => {
@@ -214,9 +257,10 @@ export const usePushNotifications = () => {
       console.log('🔔 ForMyPet: Not on native platform, showing web message');
       remoteLogger.info("Not on native platform, showing web message", "PushNotifications");
       toast({
-        title: "Web Platform",
-        description: "Οι push notifications είναι διαθέσιμες μόνο στη mobile εφαρμογή.",
-        variant: "destructive"
+        title: "📱 Mobile App Required",
+        description: "Οι push notifications είναι διαθέσιμες μόνο στη mobile εφαρμογή iPhone/Android. Κάντε export το project και τρέξτε το με Capacitor.",
+        variant: "destructive",
+        duration: 10000
       });
       return;
     }
