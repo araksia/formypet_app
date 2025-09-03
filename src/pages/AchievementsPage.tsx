@@ -82,17 +82,16 @@ const AchievementsPage = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      {/* Summary Stats */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Επιτεύγματα</h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Παρακολουθήστε την πρόοδό σας και ξεκλειδώστε νέα badges
           </p>
         </div>
-        <Badge variant="secondary" className="text-lg px-4 py-2">
-          <Trophy className="h-4 w-4 mr-2" />
+        <Badge variant="secondary" className="text-sm px-3 py-1 w-fit">
+          <Trophy className="h-3 w-3 mr-1" />
           {completedCount}/{totalCount}
         </Badge>
       </div>
@@ -140,51 +139,55 @@ const AchievementsPage = () => {
         <div className="flex flex-col space-y-4">
           {/* Pet Filter */}
           {pets.length > 1 && (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={selectedPet === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedPet('all')}
-                className="text-xs"
-              >
-                <Star className="h-3 w-3 mr-1" />
-                Όλα τα ζώα
-              </Button>
-              {pets.map(pet => (
+            <div className="overflow-x-auto">
+              <div className="flex gap-2 min-w-max pb-2">
                 <Button
-                  key={pet.id}
-                  variant={selectedPet === pet.id ? 'default' : 'outline'}
+                  variant={selectedPet === 'all' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setSelectedPet(pet.id)}
-                  className="text-xs"
+                  onClick={() => setSelectedPet('all')}
+                  className="text-xs flex-shrink-0"
                 >
-                  <Dog className="h-3 w-3 mr-1" />
-                  {pet.name}
+                  <Star className="h-3 w-3 mr-1" />
+                  Όλα τα ζώα
                 </Button>
-              ))}
+                {pets.map(pet => (
+                  <Button
+                    key={pet.id}
+                    variant={selectedPet === pet.id ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedPet(pet.id)}
+                    className="text-xs flex-shrink-0"
+                  >
+                    <Dog className="h-3 w-3 mr-1" />
+                    {pet.name}
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
           
           {/* Category Tabs - Mobile Responsive */}
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
-            {categories.map(category => {
-              const Icon = category.icon;
-              return (
-                <TabsTrigger 
-                  key={category.id} 
-                  value={category.id}
-                  className="flex flex-col sm:flex-row items-center justify-center sm:space-x-1 text-xs p-2"
-                >
-                  <Icon className="h-3 w-3 mb-1 sm:mb-0" />
-                  <span className="text-[10px] sm:text-xs">{category.label}</span>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
+          <div className="overflow-x-auto">
+            <TabsList className="grid w-full min-w-max grid-cols-7 gap-1">
+              {categories.map(category => {
+                const Icon = category.icon;
+                return (
+                  <TabsTrigger 
+                    key={category.id} 
+                    value={category.id}
+                    className="flex flex-col items-center justify-center p-2 min-w-[60px] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  >
+                    <Icon className="h-3 w-3 mb-1" />
+                    <span className="text-[10px] leading-tight text-center">{category.label}</span>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </div>
         </div>
 
         <TabsContent value={selectedCategory} className="mt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredAchievements.map(achievement => {
               const userAchievement = selectedPet === 'all' 
                 ? userAchievements.find(ua => ua.achievement_id === achievement.id)

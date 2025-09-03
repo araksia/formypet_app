@@ -228,8 +228,16 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
   };
 
   return (
-    <div className="bg-white border-b border-gray-100 fixed top-0 left-0 right-0 z-50 shadow-sm" role="banner" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-      <div className="flex items-center justify-between px-4 py-6">
+    <div 
+      className="bg-background border-b border-border fixed top-0 left-0 right-0 z-50 shadow-sm" 
+      role="banner"
+      style={{ 
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)'
+      }}
+    >
+      <div className="flex items-center justify-between px-4 py-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full overflow-hidden">
             <img 
