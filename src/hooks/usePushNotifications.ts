@@ -207,44 +207,58 @@ export const usePushNotifications = () => {
       return;
     }
 
-    // Test the actual push notification function
+    // Test the push notification system directly
     try {
-      console.log('🔔 ForMyPet: Testing push notification via backend...');
-      remoteLogger.info("Testing push notification via backend", "PushNotifications");
+      console.log('🔔 ForMyPet: Testing push notification system...');
+      remoteLogger.info("Testing push notification system", "PushNotifications");
       
-      const { data, error } = await supabase.functions.invoke('send-push-notification', {
-        body: {
-          action: 'send_notification',
-          title: '🧪 Test Notification',
-          body: 'Αυτό είναι ένα test push notification από το ForMyPet!',
-          data: { test: true }
-        }
+      toast({
+        title: "🧪 Δοκιμάζουμε...",
+        description: "Ελέγχουμε το σύστημα push notifications...",
+        duration: 3000
+      });
+      
+      const { data, error } = await supabase.functions.invoke('test-push-direct', {
+        body: {}
       });
 
+      console.log('🔔 ForMyPet: Test result:', { data, error });
+      remoteLogger.info(`Test result: ${JSON.stringify({ data, error })}`, "PushNotifications");
+
       if (error) {
-        console.error('🔔 ForMyPet: Error sending test notification:', error);
-        remoteLogger.error(`Error sending test notification: ${error.message}`, "PushNotifications");
+        console.error('🔔 ForMyPet: Error in test:', error);
         toast({
           title: "❌ Σφάλμα Test",
-          description: `Δεν στάλθηκε το test: ${error.message}`,
-          variant: "destructive"
+          description: `Test failed: ${error.message}`,
+          variant: "destructive",
+          duration: 8000
         });
       } else {
-        console.log('🔔 ForMyPet: Test notification sent successfully:', data);
-        remoteLogger.info(`Test notification sent successfully: ${JSON.stringify(data)}`, "PushNotifications");
-        toast({
-          title: "✅ Test στάλθηκε",
-          description: "Το test push notification στάλθηκε επιτυχώς!",
-          duration: 5000
-        });
+        console.log('🔔 ForMyPet: Test completed:', data);
+        
+        if (data?.success) {
+          toast({
+            title: "✅ Test Επιτυχής",
+            description: `Firebase configured: ${data.firebaseConfigured ? '✅' : '❌'}, Token found: ${data.tokenFound ? '✅' : '❌'}`,
+            duration: 8000
+          });
+        } else {
+          toast({
+            title: "❌ Test Failed", 
+            description: data?.error || 'Unknown error',
+            variant: "destructive",
+            duration: 8000
+          });
+        }
       }
     } catch (error) {
-      console.error('🔔 ForMyPet: Error calling test notification:', error);
-      remoteLogger.error(`Error calling test notification: ${error.message}`, "PushNotifications");
+      console.error('🔔 ForMyPet: Error calling test:', error);
+      remoteLogger.error(`Error calling test: ${error.message}`, "PushNotifications");
       toast({
         title: "❌ Σφάλμα",
         description: `Γενικό σφάλμα: ${error.message}`,
-        variant: "destructive"
+        variant: "destructive",
+        duration: 8000
       });
     }
   };
