@@ -229,7 +229,12 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
 
   return (
     <div 
-      className="bg-background border-b border-border fixed top-0 left-0 right-0 z-50 shadow-sm safe-area-top safe-area-left safe-area-right" 
+      className="bg-background border-b border-border fixed top-0 left-0 right-0 z-50 shadow-sm" 
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)'
+      }}
       role="banner"
     >
       <div className="flex items-center justify-between px-4 py-4">

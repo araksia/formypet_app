@@ -50,10 +50,10 @@ const Layout = ({ children }: LayoutProps) => {
         showProfile={true}
       />
       <main 
-        className="px-4 pt-safe-top"
+        className="px-4"
         style={{ 
           minHeight: '100vh',
-          paddingTop: 'calc(100px + env(safe-area-inset-top))',
+          paddingTop: 'calc(84px + env(safe-area-inset-top))',
           paddingBottom: isKeyboardOpen ? `${keyboardHeight + 80}px` : 'calc(80px + env(safe-area-inset-bottom))'
         }}
       >

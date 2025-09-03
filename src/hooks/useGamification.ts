@@ -154,9 +154,94 @@ export const useGamification = () => {
     if (!user) return;
 
     try {
-      // This would typically be handled by database triggers
-      // but we can also manually check for achievements
-      // For now, we'll just reload the achievements
+      console.log('Checking achievements for user:', user.id);
+      
+      // Get user's data for achievement checking
+      const [eventsResult, expensesResult, medicalResult] = await Promise.all([
+        supabase.from('events').select('*').eq('user_id', user.id),
+        supabase.from('expenses').select('*').eq('user_id', user.id),
+        supabase.from('medical_records').select('*').eq('user_id', user.id)
+      ]);
+
+      const userEvents = eventsResult.data || [];
+      const userExpenses = expensesResult.data || [];
+      const userMedicalRecords = medicalResult.data || [];
+
+      console.log('User data:', { 
+        events: userEvents.length, 
+        expenses: userExpenses.length, 
+        medical: userMedicalRecords.length 
+      });
+
+      // Check each achievement
+      for (const achievement of achievements) {
+        const existingUserAchievement = userAchievements.find(ua => ua.achievement_id === achievement.id);
+        
+        if (existingUserAchievement?.is_completed) continue;
+
+        let progress = 0;
+        let isCompleted = false;
+
+        // Check achievement conditions
+        switch (achievement.key) {
+          case 'first_event':
+            progress = userEvents.length > 0 ? 100 : 0;
+            isCompleted = userEvents.length >= 1;
+            break;
+          case 'event_master':
+            progress = Math.min((userEvents.length / 10) * 100, 100);
+            isCompleted = userEvents.length >= 10;
+            break;
+          case 'medical_care':
+            progress = Math.min((userMedicalRecords.length / 3) * 100, 100);
+            isCompleted = userMedicalRecords.length >= 3;
+            break;
+          case 'expense_tracker':
+            progress = Math.min((userExpenses.length / 20) * 100, 100);
+            isCompleted = userExpenses.length >= 20;
+            break;
+          default:
+            // For more complex achievements like streaks, we'll implement later
+            continue;
+        }
+
+        console.log(`Achievement ${achievement.key}: progress=${progress}, completed=${isCompleted}`);
+
+        // Insert or update user achievement
+        if (existingUserAchievement) {
+          if (existingUserAchievement.progress !== progress || existingUserAchievement.is_completed !== isCompleted) {
+            await supabase
+              .from('user_achievements')
+              .update({
+                progress: Math.round(progress),
+                is_completed: isCompleted,
+                earned_at: isCompleted ? new Date().toISOString() : existingUserAchievement.earned_at
+              })
+              .eq('id', existingUserAchievement.id);
+          }
+        } else {
+          await supabase
+            .from('user_achievements')
+            .insert({
+              user_id: user.id,
+              achievement_id: achievement.id,
+              progress: Math.round(progress),
+              is_completed: isCompleted,
+              earned_at: new Date().toISOString()
+            });
+        }
+
+        // Show toast for new achievements
+        if (isCompleted && (!existingUserAchievement || !existingUserAchievement.is_completed)) {
+          toast({
+            title: '🏆 Νέο Επίτευγμα!',
+            description: `Κερδίσατε: ${achievement.title}`,
+            duration: 5000,
+          });
+        }
+      }
+
+      // Reload achievements to get updated data
       await loadAchievements();
     } catch (error) {
       console.error('Error checking achievements:', error);
@@ -178,8 +263,17 @@ export const useGamification = () => {
   };
 
   useEffect(() => {
-    loadAchievements();
+    if (user) {
+      loadAchievements();
+    }
   }, [user]);
+
+  // Check achievements after achievements and user achievements are loaded
+  useEffect(() => {
+    if (user && achievements.length > 0 && !loading) {
+      checkAchievements();
+    }
+  }, [user, achievements.length, loading]);
 
   return {
     achievements,
