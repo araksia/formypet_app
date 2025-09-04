@@ -47,3 +47,9 @@ verify_jwt = false
 
 [functions.test-notification-now]
 verify_jwt = false
+
+[functions.debug-push-test]
+verify_jwt = false
+
+[functions.test-push-direct]
+verify_jwt = false

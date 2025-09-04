@@ -218,7 +218,7 @@ export const usePushNotifications = () => {
         duration: 3000
       });
       
-      const { data, error } = await supabase.functions.invoke('test-push-direct', {
+      const { data, error } = await supabase.functions.invoke('debug-push-test', {
         body: {}
       });
 
