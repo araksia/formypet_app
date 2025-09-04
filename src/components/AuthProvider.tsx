@@ -39,11 +39,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   console.log("📊 ForMyPet: Initializing analytics in AuthProvider");
   remoteLogger.info("Initializing analytics in AuthProvider", "AuthProvider");
   const { trackEvent, setUserId } = useAnalytics();
-
-  // Initialize push notifications when user is authenticated
-  console.log("🔔 ForMyPet: Setting up push notifications");
-  remoteLogger.info("Setting up push notifications", "AuthProvider");
-  usePushNotifications();
+  
+  // Initialize push notifications hook
+  const { sendTestNotification, enablePushNotifications } = usePushNotifications();
 
   useEffect(() => {
     console.log("🔄 ForMyPet: AuthProvider useEffect running");
