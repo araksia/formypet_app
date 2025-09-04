@@ -15,10 +15,9 @@ const Navigation = () => {
 
   return (
     <nav 
-      className="fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50"
+      className="fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50 pb-5"
       role="navigation"
       aria-label="Κεντρική περιήγηση εφαρμογής"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="flex justify-around items-center h-16 px-2 safe-area-left safe-area-right">
         {navItems.map(({ icon: Icon, label, path }) => (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Trophy, Award, Target, Star, Filter, Dog } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,27 +45,38 @@ const AchievementsPage = () => {
     { id: 'happiness', label: 'Ευτυχία', icon: Star }
   ];
 
-  const filteredAchievements = achievements.filter(achievement => {
-    const categoryMatch = selectedCategory === 'all' || achievement.category === selectedCategory;
-    
-    if (selectedPet === 'all') return categoryMatch;
-    
-    // Check if this achievement has user progress for the selected pet
-    const userAchievement = userAchievements.find(ua => 
-      ua.achievement_id === achievement.id && ua.pet_id === selectedPet
-    );
-    
-    return categoryMatch && userAchievement;
-  });
+  const filteredAchievements = useMemo(() => {
+    return achievements.filter(achievement => {
+      const categoryMatch = selectedCategory === 'all' || achievement.category === selectedCategory;
+      
+      if (selectedPet === 'all') return categoryMatch;
+      
+      // Check if this achievement has user progress for the selected pet
+      const userAchievement = userAchievements.find(ua => 
+        ua.achievement_id === achievement.id && ua.pet_id === selectedPet
+      );
+      
+      return categoryMatch && userAchievement;
+    });
+  }, [achievements, selectedCategory, selectedPet, userAchievements]);
 
-  const completedCount = achievements.filter(isAchievementCompleted).length;
-  const totalCount = achievements.length;
-  const completionPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
-
-  const recentAchievements = userAchievements
-    .filter(ua => ua.is_completed)
-    .sort((a, b) => new Date(b.earned_at).getTime() - new Date(a.earned_at).getTime())
-    .slice(0, 3);
+  const { completedCount, totalCount, completionPercentage, recentAchievements } = useMemo(() => {
+    const completed = achievements.filter(isAchievementCompleted).length;
+    const total = achievements.length;
+    const percentage = total > 0 ? (completed / total) * 100 : 0;
+    
+    const recent = userAchievements
+      .filter(ua => ua.is_completed)
+      .sort((a, b) => new Date(b.earned_at).getTime() - new Date(a.earned_at).getTime())
+      .slice(0, 3);
+      
+    return {
+      completedCount: completed,
+      totalCount: total,
+      completionPercentage: percentage,
+      recentAchievements: recent
+    };
+  }, [achievements, userAchievements, isAchievementCompleted]);
 
   if (loading) {
     return (
