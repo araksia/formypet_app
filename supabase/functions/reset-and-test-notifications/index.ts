@@ -44,29 +44,22 @@ serve(async (req) => {
 
     console.log('RESET TEST: User authenticated:', user.id);
 
-    // Clean up old push tokens for this user (keep only the latest one)
-    const { data: tokensData } = await supabase
-      .from('push_notification_tokens')
-      .select('id, updated_at')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .order('updated_at', { ascending: false });
-
-    if (tokensData && tokensData.length > 1) {
-      // Keep the first (most recent) and deactivate the rest
-      const tokensToDeactivate = tokensData.slice(1).map(t => t.id);
-      await supabase
-        .from('push_notification_tokens')
-        .update({ is_active: false, updated_at: new Date().toISOString() })
-        .in('id', tokensToDeactivate);
-    }
-
     // Check if user has any active push tokens
-    const { data: activeTokens } = await supabase
+    const { data: activeTokens, error: tokensError } = await supabase
       .from('push_notification_tokens')
       .select('id')
       .eq('user_id', user.id)
       .eq('is_active', true);
+
+    console.log('RESET TEST: Active tokens check:', { activeTokens, tokensError });
+
+    if (tokensError) {
+      console.error('RESET TEST: Error checking tokens:', tokensError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Error checking push tokens' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!activeTokens || activeTokens.length === 0) {
       return new Response(
@@ -74,36 +67,45 @@ serve(async (req) => {
           success: false, 
           error: 'Δεν βρέθηκαν ενεργά push tokens. Παρακαλώ ανοίξτε την εφαρμογή στο iPhone για να καταχωρήσετε token.'
         }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Get user's first pet
-    const { data: pets } = await supabase
+    const { data: pets, error: petsError } = await supabase
       .from('pets')
       .select('id')
       .eq('owner_id', user.id)
       .limit(1);
 
-    if (!pets || pets.length === 0) {
+    console.log('RESET TEST: Pets check:', { pets, petsError });
+
+    if (petsError) {
+      console.error('RESET TEST: Error getting pets:', petsError);
       return new Response(
-        JSON.stringify({ success: false, error: 'No pets found for user' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: false, error: 'Error getting pets' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Reset existing events for today
-    await supabase
-      .from('events')
-      .update({ notification_sent: false, updated_at: new Date().toISOString() })
-      .eq('user_id', user.id)
-      .gte('event_date', new Date().toISOString().split('T')[0])
-      .lt('event_date', new Date(Date.now() + 24*60*60*1000).toISOString().split('T')[0]);
+    if (!pets || pets.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'No pets found for user' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Calculate time 3 minutes from now
+    // Get current date and time for Greece timezone
     const now = new Date();
-    const in3Minutes = new Date(now.getTime() + 3 * 60 * 1000);
-    const timeString = in3Minutes.toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
+    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    // Calculate time 3 minutes from now  
+    const futureTime = new Date(now.getTime() + 3 * 60 * 1000);
+    const hours = futureTime.getHours().toString().padStart(2, '0');
+    const minutes = futureTime.getMinutes().toString().padStart(2, '0');
+    const timeStr = `${hours}:${minutes}`;
+
+    console.log('RESET TEST: Time calculations:', { todayStr, timeStr });
 
     // Create test event
     const { data: newEvent, error: eventError } = await supabase
@@ -113,19 +115,21 @@ serve(async (req) => {
         pet_id: pets[0].id,
         event_type: 'feeding',
         title: 'TEST Push Notification',
-        event_date: now.toISOString().split('T')[0],
-        event_time: timeString,
+        event_date: todayStr,
+        event_time: timeStr,
         recurring: 'none',
         notes: 'Test notification από το iPhone! 🐾📱',
         notification_sent: false
       })
-      .select()
+      .select('id')
       .single();
+
+    console.log('RESET TEST: Event creation:', { newEvent, eventError });
 
     if (eventError) {
       console.error('RESET TEST: Event creation error:', eventError);
       return new Response(
-        JSON.stringify({ success: false, error: eventError.message }),
+        JSON.stringify({ success: false, error: `Event creation failed: ${eventError.message}` }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -133,7 +137,7 @@ serve(async (req) => {
     const data = {
       success: true,
       test_event_id: newEvent.id,
-      test_time: timeString,
+      test_time: timeStr,
       active_tokens: activeTokens.length,
       message: 'Το test event θα στείλει notification σε 3 λεπτά!'
     };
