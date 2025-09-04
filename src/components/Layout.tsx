@@ -52,9 +52,7 @@ const Layout = ({ children }: LayoutProps) => {
       <main 
         className="px-4"
         style={{ 
-          minHeight: '100vh',
-          paddingTop: '120px', // 72px header + 48px safe area
-          paddingBottom: isKeyboardOpen ? `${keyboardHeight + 100}px` : '100px' // 80px nav + 20px safe area
+          minHeight: '100vh'
         }}
       >
         {children}
