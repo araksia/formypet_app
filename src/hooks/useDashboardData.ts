@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { format, isAfter, addDays } from 'date-fns';
 import { el } from 'date-fns/locale';
@@ -31,7 +31,7 @@ export const useDashboardData = (userId: string | undefined) => {
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadStats = useCallback(async () => {
+  const loadStats = useMemo(() => async () => {
     if (!userId) return;
 
     try {
@@ -73,7 +73,7 @@ export const useDashboardData = (userId: string | undefined) => {
     }
   }, [userId]);
 
-  const loadUpcomingEvents = useCallback(async () => {
+  const loadUpcomingEvents = useMemo(() => async () => {
     if (!userId) return;
 
     try {
@@ -144,7 +144,7 @@ export const useDashboardData = (userId: string | undefined) => {
     }
   }, [userId]);
 
-  const loadDashboardData = useCallback(async () => {
+  const loadDashboardData = useMemo(() => async () => {
     if (!userId) return;
     
     setLoading(true);
