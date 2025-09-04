@@ -38,9 +38,23 @@ export const usePushNotifications = () => {
         console.log('🔔 ForMyPet: Current permission status:', currentStatus);
         remoteLogger.info(`Current permission status: ${JSON.stringify(currentStatus)}`, "PushNotifications");
         
+        // Report current status to user
+        toast({
+          title: "🔔 Push Notifications Status",
+          description: `Receive: ${currentStatus.receive}, Platform: ${Capacitor.getPlatform()}`,
+          duration: 5000
+        });
+        
         if (currentStatus.receive !== 'granted') {
           console.log('🔔 ForMyPet: No permissions granted, requesting...');
           remoteLogger.info("No permissions granted, requesting permissions", "PushNotifications");
+          
+          toast({
+            title: "📱 Requesting Permissions",
+            description: "Ζητάμε άδειες για push notifications...",
+            duration: 3000
+          });
+          
           // Αίτηση permissions μόνο αν δεν τα έχουμε ήδη
           const permStatus = await PushNotifications.requestPermissions();
           console.log('🔔 ForMyPet: Requested permission status:', permStatus);
@@ -49,6 +63,13 @@ export const usePushNotifications = () => {
           if (permStatus.receive === 'granted') {
             console.log('🔔 ForMyPet: Permissions granted, registering for push notifications...');
             remoteLogger.info("Permissions granted, registering for push notifications", "PushNotifications");
+            
+            toast({
+              title: "✅ Permissions Granted",
+              description: "Άδειες δόθηκαν! Κάνουμε register...",
+              duration: 3000
+            });
+            
             await PushNotifications.register();
             console.log('🔔 ForMyPet: Push notifications registered successfully after permission grant');
             remoteLogger.info("Push notifications registered successfully after permission grant", "PushNotifications");
@@ -57,7 +78,7 @@ export const usePushNotifications = () => {
             remoteLogger.info("Push notification permissions denied by user", "PushNotifications");
             toast({
               title: "❌ Permissions Denied",
-              description: "Δεν δόθηκαν άδειες για push notifications",
+              description: `Δεν δόθηκαν άδειες: ${JSON.stringify(permStatus)}`,
               variant: "destructive",
               duration: 8000
             });
@@ -66,6 +87,13 @@ export const usePushNotifications = () => {
         } else {
           console.log('🔔 ForMyPet: Already have permissions, registering directly...');
           remoteLogger.info("Already have permissions, registering directly", "PushNotifications");
+          
+          toast({
+            title: "✅ Have Permissions",
+            description: "Έχουμε ήδη άδειες! Κάνουμε register...",
+            duration: 3000
+          });
+          
           // Αν έχουμε ήδη permissions, κάνε register
           await PushNotifications.register();
           console.log('🔔 ForMyPet: Push notifications registered successfully with existing permissions');
@@ -73,12 +101,12 @@ export const usePushNotifications = () => {
         }
       } catch (error) {
         console.error('🔔 ForMyPet: Error initializing push notifications:', error);
-        remoteLogger.error(`Error initializing push notifications: ${error.message}`, "PushNotifications");
+        remoteLogger.error(`Error initializing push notifications: ${JSON.stringify(error)}`, "PushNotifications");
         toast({
           title: "❌ Push Notification Error",
           description: `Σφάλμα αρχικοποίησης: ${error.message}`,
           variant: "destructive",
-          duration: 8000
+          duration: 10000
         });
       }
     };
