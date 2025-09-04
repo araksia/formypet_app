@@ -605,6 +605,10 @@ export type Database = {
         Args: { pet_id_param: string }
         Returns: boolean
       }
+      reset_and_test_notifications: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       save_push_token: {
         Args: {
           device_info_value?: Json

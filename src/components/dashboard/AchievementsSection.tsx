@@ -74,32 +74,34 @@ export const AchievementsSection = React.memo<AchievementsSectionProps>(({
             ))}
           </div>
         ) : (
-          <div className="space-y-3">
-            {/* Show all achievements with progress, not just completed ones */}
-            {achievements.slice(0, 4).map(achievement => {
-              const userAchievement = userAchievements.find(ua => ua.achievement_id === achievement.id);
-              const progress = userAchievement?.progress || 0;
-              const isCompleted = userAchievement?.is_completed || false;
-              
-              return (
-                <AchievementBadge
-                  key={achievement.id}
-                  title={achievement.title}
-                  description={achievement.description}
-                  icon={achievement.icon}
-                  color={achievement.badge_color}
-                  progress={progress}
-                  isCompleted={isCompleted}
-                  size="sm"
-                />
-              );
-            })}
-            
-            {achievements.length === 0 && (
-              <div className="text-center py-8">
+          <div className="space-y-3 min-h-[200px]">
+            {achievements.length > 0 ? (
+              achievements.slice(0, 4).map(achievement => {
+                const userAchievement = userAchievements.find(ua => ua.achievement_id === achievement.id);
+                const progress = userAchievement?.progress || 0;
+                const isCompleted = userAchievement?.is_completed || false;
+                
+                return (
+                  <AchievementBadge
+                    key={achievement.id}
+                    title={achievement.title}
+                    description={achievement.description}
+                    icon={achievement.icon}
+                    color={achievement.badge_color}
+                    progress={progress}
+                    isCompleted={isCompleted}
+                    size="sm"
+                  />
+                );
+              })
+            ) : (
+              <div className="text-center py-8 flex flex-col items-center justify-center h-[200px]">
                 <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                   Δεν υπάρχουν διαθέσιμα επιτεύγματα
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Τα επιτεύγματα θα εμφανιστούν μόλις ξεκινήσετε να χρησιμοποιείτε την εφαρμογή
                 </p>
               </div>
             )}

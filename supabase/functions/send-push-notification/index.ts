@@ -183,57 +183,71 @@ serve(async (req) => {
 
       console.log('PUSH NOTIFICATION: Event found:', event.title);
 
-      // Get push tokens for the user
+      // Get push tokens for the user (only the most recent one)
       const { data: tokens, error: tokensError } = await supabase
         .from('push_notification_tokens')
         .select('*')
         .eq('user_id', event.user_id)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+        .limit(1);
 
       if (tokensError || !tokens || tokens.length === 0) {
+        console.log('PUSH NOTIFICATION: No active tokens found for user:', event.user_id);
         throw new Error('No active push tokens found for user');
       }
 
-      console.log('PUSH NOTIFICATION: Found tokens:', tokens.length);
+      console.log('PUSH NOTIFICATION: Using most recent token for user:', event.user_id);
 
-      const results = [];
-      for (const tokenData of tokens) {
-        try {
-          const fcmResult = await sendFCMNotification(
-            tokenData.token,
-            `Υπενθύμιση: ${event.title}`,
-            `Το event "${event.title}" θα ξεκινήσει σε 5 λεπτά!`,
-            {
-              eventId: event.id,
-              type: 'event_reminder'
-            }
-          );
+      // Send notification to only the most recent token
+      try {
+        const fcmResult = await sendFCMNotification(
+          tokens[0].token,
+          `⏰ ${event.title}`,
+          event.notes || 'Υπενθύμιση για το κατοικίδιό σας! 🐾',
+          {
+            eventId: event.id,
+            eventType: event.event_type,
+            petId: event.pet_id,
+            type: 'event_reminder'
+          }
+        );
 
-          results.push({
-            token: tokenData.token.substring(0, 20) + '...',
+        console.log('PUSH NOTIFICATION: Successfully sent to token');
+        
+        // Mark event as notification sent
+        await supabase
+          .from('events')
+          .update({ notification_sent: true, updated_at: new Date().toISOString() })
+          .eq('id', eventId);
+
+        return new Response(
+          JSON.stringify({ 
             success: true,
+            message: 'Event notification sent successfully',
             result: fcmResult
-          });
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
 
-          console.log('PUSH NOTIFICATION: Sent successfully to token');
-        } catch (error) {
-          console.error('PUSH NOTIFICATION: Failed for token:', error.message);
-          results.push({
-            token: tokenData.token.substring(0, 20) + '...',
-            success: false,
-            error: error.message
-          });
+      } catch (error: any) {
+        console.error('PUSH NOTIFICATION: FCM Error:', error.message);
+        
+        // Check if it's a token-related error and deactivate the token
+        if (error.message.includes('NOT_FOUND') || 
+            error.message.includes('INVALID_ARGUMENT') || 
+            error.message.includes('UNREGISTERED') ||
+            error.message.includes('TOO_MANY_REGISTRATIONS')) {
+          
+          console.log('PUSH NOTIFICATION: Deactivating invalid/problematic token');
+          await supabase
+            .from('push_notification_tokens')
+            .update({ is_active: false, updated_at: new Date().toISOString() })
+            .eq('token', tokens[0].token);
         }
+        
+        throw error;
       }
-
-      return new Response(
-        JSON.stringify({ 
-          success: true,
-          message: 'Event notifications processed',
-          results 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
 
     } else if (action === 'send_notification') {
       // Manual notification
@@ -249,34 +263,45 @@ serve(async (req) => {
       );
 
     } else if (action === 'save_token') {
-      // Save/update push token
+      // Save/update push token with improved deduplication
+      const userId = data?.userId;
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+
+      console.log('PUSH NOTIFICATION: Saving token for user:', userId);
+      
+      // First, deactivate ALL existing tokens for this user
+      await supabase
+        .from('push_notification_tokens')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('user_id', userId);
+
+      // Then save the new token
       const { data: savedToken, error: saveError } = await supabase
         .from('push_notification_tokens')
         .upsert({
-          user_id: data?.userId,
+          user_id: userId,
           token: token,
           platform: data?.platform || 'mobile',
           device_info: data?.deviceInfo || {},
-          is_active: true
+          is_active: true,
+          updated_at: new Date().toISOString()
         })
         .select()
         .single();
 
       if (saveError) {
+        console.error('PUSH NOTIFICATION: Error saving token:', saveError);
         throw saveError;
       }
 
-      // Deactivate other tokens for this user
-      await supabase
-        .from('push_notification_tokens')
-        .update({ is_active: false })
-        .neq('id', savedToken.id)
-        .eq('user_id', data?.userId);
+      console.log('PUSH NOTIFICATION: Token saved successfully:', savedToken.id);
 
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: 'Token saved',
+          message: 'Token saved successfully',
           tokenId: savedToken.id
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

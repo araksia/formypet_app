@@ -53,13 +53,16 @@ export const useGamification = () => {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [userAchievements, setUserAchievements] = useState<UserAchievement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasRunInitialCheck, setHasRunInitialCheck] = useState(false);
 
   // Load achievements and user progress
-  const loadAchievements = useCallback(async () => {
+  const loadAchievements = useCallback(async (skipLoadingState = false) => {
     if (!user) return;
 
     try {
-      setLoading(true);
+      if (!skipLoadingState) {
+        setLoading(true);
+      }
 
       // Load all achievements
       const { data: achievementsData, error: achievementsError } = await supabase
@@ -86,13 +89,17 @@ export const useGamification = () => {
 
     } catch (error) {
       console.error('Error loading achievements:', error);
-      toast({
-        title: 'Σφάλμα',
-        description: 'Δεν ήταν δυνατή η φόρτωση των επιτευγμάτων',
-        variant: 'destructive',
-      });
+      if (!skipLoadingState) {
+        toast({
+          title: 'Σφάλμα',
+          description: 'Δεν ήταν δυνατή η φόρτωση των επιτευγμάτων',
+          variant: 'destructive',
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!skipLoadingState) {
+        setLoading(false);
+      }
     }
   }, [user, toast]);
 
@@ -241,8 +248,8 @@ export const useGamification = () => {
         }
       }
 
-      // Reload achievements to get updated data
-      await loadAchievements();
+      // Reload achievements to get updated data without changing loading state
+      await loadAchievements(true);
     } catch (error) {
       console.error('Error checking achievements:', error);
     }
@@ -270,13 +277,21 @@ export const useGamification = () => {
 
   // Check achievements after achievements and user achievements are loaded
   useEffect(() => {
-    // Only check achievements once when we have all the data and haven't checked before
-    const hasCompletedAchievements = userAchievements.some(ua => ua.is_completed);
-    if (user && achievements.length > 0 && !loading && !hasCompletedAchievements) {
-      console.log('Running initial achievement check');
-      checkAchievements();
+    // Only run initial achievement check once when we have all the data
+    if (user && achievements.length > 0 && !loading && !hasRunInitialCheck) {
+      const hasAnyUserAchievements = userAchievements.length > 0;
+      
+      // Only check if the user has no achievements at all, to avoid creating unnecessary data
+      if (!hasAnyUserAchievements) {
+        console.log('Running initial achievement check - no user achievements found');
+        setHasRunInitialCheck(true);
+        checkAchievements();
+      } else {
+        // User already has some achievements, no need to check
+        setHasRunInitialCheck(true);
+      }
     }
-  }, [user, achievements.length, loading]); // Removed checkAchievements from dependencies to prevent loops
+  }, [user, achievements.length, loading, userAchievements.length, hasRunInitialCheck]);
 
   return {
     achievements,
