@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -55,7 +55,7 @@ export const useGamification = () => {
   const [loading, setLoading] = useState(true);
 
   // Load achievements and user progress
-  const loadAchievements = async () => {
+  const loadAchievements = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -94,7 +94,7 @@ export const useGamification = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast]);
 
   // Get pet happiness score
   const getPetHappiness = async (petId: string): Promise<number> => {
@@ -150,7 +150,7 @@ export const useGamification = () => {
   };
 
   // Check and award achievements
-  const checkAchievements = async () => {
+  const checkAchievements = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -246,7 +246,7 @@ export const useGamification = () => {
     } catch (error) {
       console.error('Error checking achievements:', error);
     }
-  };
+  }, [user, achievements, userAchievements, toast, loadAchievements]);
 
   // Get achievement progress for display
   const getAchievementProgress = (achievement: Achievement): number => {
@@ -266,14 +266,17 @@ export const useGamification = () => {
     if (user) {
       loadAchievements();
     }
-  }, [user]);
+  }, [user, loadAchievements]);
 
   // Check achievements after achievements and user achievements are loaded
   useEffect(() => {
-    if (user && achievements.length > 0 && !loading) {
+    // Only check achievements once when we have all the data and haven't checked before
+    const hasCompletedAchievements = userAchievements.some(ua => ua.is_completed);
+    if (user && achievements.length > 0 && !loading && !hasCompletedAchievements) {
+      console.log('Running initial achievement check');
       checkAchievements();
     }
-  }, [user, achievements.length, loading]);
+  }, [user, achievements.length, loading]); // Removed checkAchievements from dependencies to prevent loops
 
   return {
     achievements,
