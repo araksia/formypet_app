@@ -114,60 +114,93 @@ export const usePushNotifications = () => {
     // On success, we should be able to receive notifications
     PushNotifications.addListener('registration', async (token) => {
       console.log('🔔 ForMyPet: Push registration success, token: ' + token.value);
+      console.log('🔔 ForMyPet: Token length:', token.value?.length);
+      console.log('🔔 ForMyPet: Token preview:', token.value?.substring(0, 20) + '...');
+      console.log('🔔 ForMyPet: Full token (for debug):', token.value);
       remoteLogger.info(`Push registration success, token: ${token.value.substring(0, 10)}...`, "PushNotifications");
       
+      // Show immediate feedback
+      toast({
+        title: "✅ Push Token Received",
+        description: `📱 iPhone token λήφθηκε (${token.value?.length} chars)`,
+        duration: 4000
+      });
+      
       try {
+        console.log('🔔 ForMyPet: Getting current user for token save...');
+        
         // Use the save_push_token database function
         const { data: { user } } = await supabase.auth.getUser();
         console.log('🔔 ForMyPet: Current user:', user?.email);
-        remoteLogger.info(`Current user: ${user?.email || 'none'}`, "PushNotifications");
+        console.log('🔔 ForMyPet: Current user ID:', user?.id);
+        remoteLogger.info(`Current user: ${user?.email || 'none'}, ID: ${user?.id || 'none'}`, "PushNotifications");
         
-        if (user) {
-          console.log('🔔 ForMyPet: Calling save_push_token with token:', token.value.substring(0, 10) + '...');
-          remoteLogger.info(`Calling save_push_token for user ${user.email}`, "PushNotifications");
-          
-          const { data, error } = await supabase.rpc('save_push_token', {
-            token_value: token.value,
-            platform_value: 'mobile',
-            device_info_value: {
-              platform: Capacitor.getPlatform(),
-              timestamp: new Date().toISOString()
-            }
-          });
-          
-          if (error) {
-            console.error('🔔 ForMyPet: Error saving push token:', error);
-            remoteLogger.error(`Error saving push token: ${error.message}`, "PushNotifications");
-            toast({
-              title: "Σφάλμα αποθήκευσης token",
-              description: `Δεν μπόρεσε να αποθηκευτεί το push token: ${error.message}`,
-              variant: "destructive"
-            });
-          } else {
-            console.log('🔔 ForMyPet: Push token saved to database successfully:', data);
-            remoteLogger.info(`Push token saved to database successfully: ${data}`, "PushNotifications");
-            toast({
-              title: "✅ Token αποθηκεύτηκε",
-              description: "Το push notification token αποθηκεύτηκε επιτυχώς στη βάση δεδομένων",
-              duration: 5000
-            });
-          }
-        } else {
+        if (!user) {
           console.error('🔔 ForMyPet: No authenticated user found for token registration');
           remoteLogger.error("No authenticated user found for token registration", "PushNotifications");
           toast({
-            title: "Σφάλμα χρήστη",
-            description: "Δεν βρέθηκε συνδεδεμένος χρήστης",
-            variant: "destructive"
+            title: "❌ Χρήστης δεν συνδεδεμένος",
+            description: "Δεν βρέθηκε συνδεδεμένος χρήστης για αποθήκευση token",
+            variant: "destructive",
+            duration: 5000
+          });
+          return;
+        }
+        
+        console.log('🔔 ForMyPet: Calling save_push_token with token:', token.value.substring(0, 10) + '...');
+        console.log('🔔 ForMyPet: Platform:', Capacitor.getPlatform());
+        console.log('🔔 ForMyPet: Native platform:', Capacitor.isNativePlatform());
+        remoteLogger.info(`Calling save_push_token for user ${user.email}`, "PushNotifications");
+        
+        toast({
+          title: "💾 Αποθήκευση Token",
+          description: "Αποθηκεύουμε το token στη βάση...",
+          duration: 3000
+        });
+        
+        const { data, error } = await supabase.rpc('save_push_token', {
+          token_value: token.value,
+          platform_value: 'mobile',
+          device_info_value: {
+            platform: Capacitor.getPlatform(),
+            timestamp: new Date().toISOString(),
+            is_native: Capacitor.isNativePlatform(),
+            user_agent: navigator.userAgent,
+            token_length: token.value?.length
+          }
+        });
+        
+        console.log('🔔 ForMyPet: save_push_token response - data:', data);
+        console.log('🔔 ForMyPet: save_push_token response - error:', error);
+        
+        if (error) {
+          console.error('🔔 ForMyPet: Error saving push token:', error);
+          console.error('🔔 ForMyPet: Error details:', JSON.stringify(error, null, 2));
+          remoteLogger.error(`Error saving push token: ${error.message}`, "PushNotifications");
+          toast({
+            title: "❌ Σφάλμα αποθήκευσης token",
+            description: `RPC Error: ${error.message}`,
+            variant: "destructive",
+            duration: 5000
+          });
+        } else {
+          console.log('🔔 ForMyPet: Push token saved to database successfully. Response:', data);
+          remoteLogger.info(`Push token saved to database successfully: ${data}`, "PushNotifications");
+          toast({
+            title: "✅ Token αποθηκεύτηκε επιτυχώς!",
+            description: `Το push notification token αποθηκεύτηκε στη βάση! ID: ${data}`,
+            duration: 5000
           });
         }
       } catch (error) {
-        console.error('🔔 ForMyPet: Error saving push token:', error);
-        remoteLogger.error(`Error saving push token: ${error.message}`, "PushNotifications");
+        console.error('🔔 ForMyPet: Exception saving push token:', error);
+        console.error('🔔 ForMyPet: Exception details:', JSON.stringify(error, null, 2));
+        remoteLogger.error(`Exception saving push token: ${error.message}`, "PushNotifications");
         toast({
-          title: "Σφάλμα",
-          description: `Γενικό σφάλμα: ${error.message}`,
-          variant: "destructive"
+          title: "❌ Εξαίρεση αποθήκευσης",
+          description: `Exception: ${error.message}`,
+          variant: "destructive",
+          duration: 5000
         });
       }
     });

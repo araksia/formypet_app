@@ -43,18 +43,16 @@ const Layout = ({ children }: LayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground safe-area-top safe-area-left safe-area-right">
       <Header 
         title={getPageTitle()}
         showNotifications={true}
         showProfile={true}
       />
       <main 
-        className="px-4"
+        className="px-4 pb-nav"
         style={{ 
-          minHeight: '100vh',
-          paddingTop: '120px', // 72px header + 48px safe area
-          paddingBottom: isKeyboardOpen ? `${keyboardHeight + 100}px` : '100px' // 80px nav + 20px safe area
+          minHeight: 'calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom))'
         }}
       >
         {children}
