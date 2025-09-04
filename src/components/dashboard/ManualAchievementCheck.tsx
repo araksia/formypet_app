@@ -24,7 +24,7 @@ export const ManualAchievementCheck = () => {
   const handleTestPushNotifications = async () => {
     setTesting(true);
     try {
-      const { data, error } = await supabase.rpc('reset_and_test_notifications');
+      const { data, error } = await supabase.functions.invoke('reset-and-test-notifications');
       
       if (error) {
         console.error('Test notification error:', error);
@@ -33,11 +33,17 @@ export const ManualAchievementCheck = () => {
           description: "Δεν μπόρεσα να στείλω test notification: " + error.message,
           variant: "destructive"
         });
-      } else {
+      } else if (data?.success) {
         console.log('Test notification result:', data);
         toast({
           title: "Test Notification Sent! 📱",
           description: `Το test event δημιουργήθηκε! Θα λάβεις notification σε 3 λεπτά (${data.test_time})`,
+        });
+      } else {
+        toast({
+          title: "Σφάλμα",
+          description: data?.error || "Άγνωστο σφάλμα",
+          variant: "destructive"
         });
       }
     } catch (error: any) {
