@@ -270,10 +270,13 @@ export const useGamification = () => {
 
   // Check achievements after achievements and user achievements are loaded
   useEffect(() => {
-    if (user && achievements.length > 0 && !loading) {
+    // Only check achievements once when we have all the data and haven't checked before
+    const hasCompletedAchievements = userAchievements.some(ua => ua.is_completed);
+    if (user && achievements.length > 0 && !loading && !hasCompletedAchievements) {
+      console.log('Running initial achievement check');
       checkAchievements();
     }
-  }, [user, achievements.length, loading, checkAchievements]);
+  }, [user, achievements.length, loading]); // Removed checkAchievements from dependencies to prevent loops
 
   return {
     achievements,
