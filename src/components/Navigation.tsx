@@ -15,7 +15,7 @@ const Navigation = () => {
 
   return (
     <nav 
-      className="fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50 pb-5"
+      className="fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50 safe-area-bottom"
       role="navigation"
       aria-label="Κεντρική περιήγηση εφαρμογής"
     >
