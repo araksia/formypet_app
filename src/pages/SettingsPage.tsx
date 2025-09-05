@@ -30,7 +30,8 @@ import {
   Mail,
   Settings as SettingsIcon,
   Trash2,
-  Download
+  Download,
+  Bug
 } from 'lucide-react';
 
 const SettingsPage = () => {
@@ -328,6 +329,13 @@ const SettingsPage = () => {
               title="Εξαγωγή δεδομένων"
               description="Κατεβάστε τα δεδομένα σας"
               onClick={handleDataExport}
+            />
+            <Separator />
+            <ActionItem
+              icon={Bug}
+              title="Debug Push Notifications"
+              description="Διάγνωση προβλημάτων push notifications"
+              onClick={() => navigate('/debug-push')}
             />
           </CardContent>
         </Card>
