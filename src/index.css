@@ -108,6 +108,12 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 
+  /* Main content with dvh fallback */
+  .main-content {
+    min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+
   /* Safe area support for mobile devices */
   .safe-area-top {
     padding-top: env(safe-area-inset-top);
