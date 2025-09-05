@@ -50,7 +50,7 @@ const Layout = ({ children }: LayoutProps) => {
         showProfile={true}
       />
       <main 
-        className="px-4 pb-nav main-content"
+        className="px-4 pb-nav main-content pt-20"
         style={{
           minHeight: 'calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom))'
         }}

@@ -133,16 +133,37 @@ export const usePushNotifications = () => {
         const { data: { user } } = await supabase.auth.getUser();
         console.log('🔔 ForMyPet: Current user:', user?.email);
         console.log('🔔 ForMyPet: Current user ID:', user?.id);
+        console.log('🔔 ForMyPet: User object:', JSON.stringify(user, null, 2));
         remoteLogger.info(`Current user: ${user?.email || 'none'}, ID: ${user?.id || 'none'}`, "PushNotifications");
         
         if (!user) {
           console.error('🔔 ForMyPet: No authenticated user found for token registration');
           remoteLogger.error("No authenticated user found for token registration", "PushNotifications");
+          
+          // Try debug function to understand the issue
+          console.log('🔔 ForMyPet: Calling debug function to diagnose auth issue...');
+          const { data: debugData, error: debugError } = await supabase.functions.invoke('debug-token-save', {
+            body: {
+              token: token.value,
+              platform: Capacitor.getPlatform(),
+              device_info: {
+                platform: Capacitor.getPlatform(),
+                timestamp: new Date().toISOString(),
+                is_native: Capacitor.isNativePlatform(),
+                user_agent: navigator.userAgent,
+                token_length: token.value?.length
+              }
+            }
+          });
+          
+          console.log('🔔 ForMyPet: Debug result:', debugData);
+          console.log('🔔 ForMyPet: Debug error:', debugError);
+          
           toast({
             title: "❌ Χρήστης δεν συνδεδεμένος",
-            description: "Δεν βρέθηκε συνδεδεμένος χρήστης για αποθήκευση token",
+            description: `Δεν βρέθηκε συνδεδεμένος χρήστης για αποθήκευση token. Debug: ${debugData?.debug_info?.userAuthenticated ? 'Auth OK' : 'Auth Failed'}`,
             variant: "destructive",
-            duration: 5000
+            duration: 8000
           });
           return;
         }
