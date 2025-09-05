@@ -12,8 +12,10 @@ export const usePushNotifications = () => {
     console.log('🔔 ForMyPet: usePushNotifications useEffect started');
     console.log('🔔 ForMyPet: Platform:', Capacitor.getPlatform());
     console.log('🔔 ForMyPet: isNativePlatform:', Capacitor.isNativePlatform());
+    console.log('🔔 ForMyPet: User Agent:', navigator.userAgent);
+    console.log('🔔 ForMyPet: iOS Detection:', /iPad|iPhone|iPod/.test(navigator.userAgent));
     
-    remoteLogger.info(`usePushNotifications started - Platform: ${Capacitor.getPlatform()}, Native: ${Capacitor.isNativePlatform()}`, "PushNotifications");
+    remoteLogger.info(`usePushNotifications started - Platform: ${Capacitor.getPlatform()}, Native: ${Capacitor.isNativePlatform()}, UserAgent: ${navigator.userAgent}`, "PushNotifications");
     
     if (!Capacitor.isNativePlatform()) {
       console.log('🔔 ForMyPet: Push notifications not available on web platform');
@@ -27,6 +29,53 @@ export const usePushNotifications = () => {
       });
       return;
     }
+
+    // Comprehensive debug at start
+    const runComprehensiveDebug = async () => {
+      console.log('🔔 ForMyPet: Running comprehensive debug...');
+      try {
+        const { data: debugData, error: debugError } = await supabase.functions.invoke('comprehensive-push-debug', {
+          body: {
+            action: 'full_debug',
+            platform_info: {
+              platform: Capacitor.getPlatform(),
+              isNative: Capacitor.isNativePlatform(),
+              userAgent: navigator.userAgent,
+              isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent)
+            },
+            user_info: {
+              timestamp: new Date().toISOString()
+            }
+          }
+        });
+        
+        console.log('🔔 ForMyPet: Comprehensive debug result:', debugData);
+        if (debugError) {
+          console.error('🔔 ForMyPet: Debug error:', debugError);
+        }
+        
+        // Show debug results to user
+        if (debugData) {
+          const summary = debugData.summary;
+          toast({
+            title: "🔧 Debug Results",
+            description: `Auth: ${summary?.authenticated ? '✅' : '❌'}, Tokens: ${summary?.hasTokens ? '✅' : '❌'}, Can Save: ${summary?.canSaveTokens ? '✅' : '❌'}`,
+            duration: 10000
+          });
+        }
+      } catch (error) {
+        console.error('🔔 ForMyPet: Debug exception:', error);
+        toast({
+          title: "❌ Debug Failed",
+          description: `Debug error: ${error.message}`,
+          variant: "destructive",
+          duration: 5000
+        });
+      }
+    };
+    
+    // Run debug first
+    runComprehensiveDebug();
 
     const initializePushNotifications = async () => {
       try {
