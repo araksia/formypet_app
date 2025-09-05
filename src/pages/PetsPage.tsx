@@ -419,7 +419,7 @@ const PetsPage = () => {
       <Button
         onClick={() => navigate('/add-pet')}
         size="lg"
-        className="fixed bottom-20 right-4 rounded-full w-14 h-14 shadow-lg hover:shadow-xl button-hover transition-all z-40 bg-primary hover:bg-primary/90"
+        className="fixed bottom-20 right-4 rounded-full w-14 h-14 shadow-lg hover:shadow-xl button-hover transition-all z-[60] bg-primary hover:bg-primary/90"
       >
         <Plus className="h-6 w-6" />
       </Button>
