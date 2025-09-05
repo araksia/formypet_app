@@ -56,31 +56,43 @@ const DebugPushPage = () => {
     setLoading(false);
   };
 
-  const testTokenSave = async () => {
+  const testFirebaseConfig = async () => {
+    setLoading(true);
     try {
-      // First check permissions
-      const permStatus = await PushNotifications.checkPermissions();
-      console.log('🔧 Permissions:', permStatus);
+      const result = await supabase.functions.invoke('test-firebase-config');
+      console.log('Firebase test result:', result);
       
-      if (permStatus.receive !== 'granted') {
-        const requested = await PushNotifications.requestPermissions();
-        console.log('🔧 Requested permissions:', requested);
+      if (result.error) {
+        toast({
+          title: "❌ Firebase Test Failed",
+          description: result.error.message,
+          variant: "destructive"
+        });
+      } else {
+        const { firebase, tokens, notification } = result.data;
+        
+        let description = `Firebase: ${firebase.success ? '✅' : '❌'}, Tokens: ${tokens.count}`;
+        if (notification) {
+          description += `, Notification: ${notification.pushError ? '❌' : '✅'}`;
+        }
+        
+        toast({
+          title: firebase.success ? "✅ Firebase OK" : "❌ Firebase Problem",
+          description: description,
+          variant: firebase.success ? "default" : "destructive"
+        });
       }
       
-      // Try to register
-      await PushNotifications.register();
-      
-      toast({
-        title: "🔧 Token Registration",
-        description: "Δοκιμάζουμε να καταχωρήσουμε token...",
-      });
+      setDebugResults(result);
     } catch (error) {
-      console.error('🔧 Token test error:', error);
+      console.error('Firebase test error:', error);
       toast({
-        title: "❌ Token Test Error",
+        title: "❌ Firebase Test Error", 
         description: error.message,
         variant: "destructive"
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -111,11 +123,12 @@ const DebugPushPage = () => {
           </Button>
           
           <Button 
-            onClick={testTokenSave} 
+            onClick={testFirebaseConfig} 
             variant="outline"
             className="flex-1"
+            disabled={loading}
           >
-            Test Token Registration
+            🔥 Test Firebase Config
           </Button>
         </div>
 

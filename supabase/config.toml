@@ -57,6 +57,9 @@ verify_jwt = false
 [functions.comprehensive-push-debug]
 verify_jwt = false
 
+[functions.test-firebase-config]
+verify_jwt = false
+
 [functions.debug-token-save]
 verify_jwt = false
 
