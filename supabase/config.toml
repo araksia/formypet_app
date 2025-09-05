@@ -53,3 +53,12 @@ verify_jwt = false
 
 [functions.test-push-direct]
 verify_jwt = false
+
+[functions.comprehensive-push-debug]
+verify_jwt = false
+
+[functions.debug-token-save]
+verify_jwt = false
+
+[functions.collect-debug-logs]
+verify_jwt = false

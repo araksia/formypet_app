@@ -539,7 +539,7 @@ const CalendarPage = () => {
         </Tabs>
 
         {/* Quick Add Event Button */}
-        <div className="fixed bottom-20 right-4">
+        <div className="fixed bottom-20 right-4 z-[60]">
           <Button 
             className="h-14 w-14 rounded-full shadow-lg"
             onClick={() => navigate('/add-event')}
