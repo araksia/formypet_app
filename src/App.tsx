@@ -30,6 +30,7 @@ import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
 import NotFound from "./pages/NotFound";
 import ScreenshotsPage from "./pages/ScreenshotsPage";
+import DebugPushPage from "./pages/DebugPushPage";
 
 const queryClient = new QueryClient();
 
@@ -175,6 +176,13 @@ const App = () => {
                 <ProtectedRoute>
                   <Layout>
                     <AchievementsPage />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/debug-push" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <DebugPushPage />
                   </Layout>
                 </ProtectedRoute>
               } />
