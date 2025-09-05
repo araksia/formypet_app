@@ -400,7 +400,7 @@ const CalendarPage = () => {
 
           <TabsContent value="calendar">
             {/* Calendar */}
-            <Card>
+            <Card className="mb-6">
               <CardContent className="p-4">
                 <Calendar
                   mode="single"
