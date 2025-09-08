@@ -4,20 +4,33 @@ import { Capacitor } from '@capacitor/core';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { remoteLogger } from '@/utils/remoteLogger';
+import { iOSLogger } from '@/utils/iOSLogger';
 
 export const usePushNotifications = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    const isIOS = Capacitor.getPlatform() === 'ios';
+    const isNative = Capacitor.isNativePlatform();
+    
     console.log('🔔 ForMyPet: usePushNotifications useEffect started');
     console.log('🔔 ForMyPet: Platform:', Capacitor.getPlatform());
-    console.log('🔔 ForMyPet: isNativePlatform:', Capacitor.isNativePlatform());
+    console.log('🔔 ForMyPet: isNativePlatform:', isNative);
     console.log('🔔 ForMyPet: User Agent:', navigator.userAgent);
     console.log('🔔 ForMyPet: iOS Detection:', /iPad|iPhone|iPod/.test(navigator.userAgent));
     
-    remoteLogger.info(`usePushNotifications started - Platform: ${Capacitor.getPlatform()}, Native: ${Capacitor.isNativePlatform()}, UserAgent: ${navigator.userAgent}`, "PushNotifications");
+    // Use iOS logger for iOS debugging
+    if (isIOS) {
+      iOSLogger.log('🍎 iOS Push Notifications Starting', {
+        platform: Capacitor.getPlatform(),
+        isNative: isNative,
+        userAgent: navigator.userAgent
+      });
+    }
     
-    if (!Capacitor.isNativePlatform()) {
+    remoteLogger.info(`usePushNotifications started - Platform: ${Capacitor.getPlatform()}, Native: ${isNative}, UserAgent: ${navigator.userAgent}`, "PushNotifications");
+    
+    if (!isNative) {
       console.log('🔔 ForMyPet: Push notifications not available on web platform');
       remoteLogger.info("Push notifications not available on web platform", "PushNotifications");
       
@@ -80,11 +93,29 @@ export const usePushNotifications = () => {
     const initializePushNotifications = async () => {
       try {
         console.log('🔔 ForMyPet: Initializing push notifications...');
+        
+        // iOS specific logging
+        if (isIOS) {
+          iOSLogger.log('🍎 iOS Initializing Push Notifications', {
+            platform: Capacitor.getPlatform(),
+            isNative: isNative
+          });
+        }
+        
         remoteLogger.info("Initializing push notifications", "PushNotifications");
         
         // Έλεγχος τρέχουσας κατάστασης permissions πρώτα
         const currentStatus = await PushNotifications.checkPermissions();
         console.log('🔔 ForMyPet: Current permission status:', currentStatus);
+        
+        // iOS specific permission logging
+        if (isIOS) {
+          iOSLogger.log('🍎 iOS Permission Status', {
+            receive: currentStatus.receive,
+            statusObject: JSON.stringify(currentStatus)
+          });
+        }
+        
         remoteLogger.info(`Current permission status: ${JSON.stringify(currentStatus)}`, "PushNotifications");
         
         // Report current status to user
@@ -162,10 +193,23 @@ export const usePushNotifications = () => {
 
     // On success, we should be able to receive notifications
     PushNotifications.addListener('registration', async (token) => {
+      const isIOS = Capacitor.getPlatform() === 'ios';
+      
       console.log('🔔 ForMyPet: Push registration success, token: ' + token.value);
       console.log('🔔 ForMyPet: Token length:', token.value?.length);
       console.log('🔔 ForMyPet: Token preview:', token.value?.substring(0, 20) + '...');
       console.log('🔔 ForMyPet: Full token (for debug):', token.value);
+      
+      // iOS specific logging
+      if (isIOS) {
+        iOSLogger.log('🍎 iOS Token Received!', {
+          tokenLength: token.value?.length,
+          tokenPreview: token.value?.substring(0, 20) + '...',
+          platform: Capacitor.getPlatform(),
+          timestamp: new Date().toISOString()
+        });
+      }
+      
       remoteLogger.info(`Push registration success, token: ${token.value.substring(0, 10)}...`, "PushNotifications");
       
       // Show immediate feedback
@@ -220,6 +264,17 @@ export const usePushNotifications = () => {
         console.log('🔔 ForMyPet: Calling save_push_token with token:', token.value.substring(0, 10) + '...');
         console.log('🔔 ForMyPet: Platform:', Capacitor.getPlatform());
         console.log('🔔 ForMyPet: Native platform:', Capacitor.isNativePlatform());
+        
+        // iOS specific logging before save
+        if (isIOS) {
+          iOSLogger.log('🍎 iOS Starting Token Save', {
+            userEmail: user.email,
+            userId: user.id,
+            tokenLength: token.value?.length,
+            platform: Capacitor.getPlatform()
+          });
+        }
+        
         remoteLogger.info(`Calling save_push_token for user ${user.email}`, "PushNotifications");
         
         toast({
@@ -242,6 +297,15 @@ export const usePushNotifications = () => {
         
         console.log('🔔 ForMyPet: save_push_token response - data:', data);
         console.log('🔔 ForMyPet: save_push_token response - error:', error);
+        
+        // iOS specific logging after save
+        if (isIOS) {
+          iOSLogger.log('🍎 iOS Token Save Result', {
+            success: !error,
+            data: data,
+            error: error?.message || null
+          });
+        }
         
         if (error) {
           console.error('🔔 ForMyPet: Error saving push token:', error);
@@ -277,7 +341,19 @@ export const usePushNotifications = () => {
 
     // Some issue with our setup and push will not work
     PushNotifications.addListener('registrationError', (error) => {
+      const isIOS = Capacitor.getPlatform() === 'ios';
+      
       console.error('🔔 ForMyPet: Error on registration:', JSON.stringify(error));
+      
+      // iOS specific error logging
+      if (isIOS) {
+        iOSLogger.error('🍎 iOS Registration Error', {
+          error: error.error,
+          fullError: JSON.stringify(error),
+          platform: Capacitor.getPlatform()
+        });
+      }
+      
       remoteLogger.error(`Registration error: ${JSON.stringify(error)}`, "PushNotifications");
       toast({
         title: "❌ Σφάλμα εγγραφής",

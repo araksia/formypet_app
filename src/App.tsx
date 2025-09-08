@@ -8,6 +8,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import { useAnalytics } from "./hooks/useAnalytics";
 import { remoteLogger } from "./utils/remoteLogger";
+import './utils/iOSPushDebug'; // Import iOS debug utilities
 import { useEffect } from 'react';
 import Dashboard from "./pages/Dashboard";
 import PetsPage from "./pages/PetsPage";
@@ -31,6 +32,7 @@ import TermsPage from "./pages/TermsPage";
 import NotFound from "./pages/NotFound";
 import ScreenshotsPage from "./pages/ScreenshotsPage";
 import DebugPushPage from "./pages/DebugPushPage";
+import NotificationTestPage from "./pages/NotificationTestPage";
 
 const queryClient = new QueryClient();
 
@@ -183,6 +185,13 @@ const App = () => {
                 <ProtectedRoute>
                   <Layout>
                     <DebugPushPage />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/test-notifications" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <NotificationTestPage />
                   </Layout>
                 </ProtectedRoute>
               } />
