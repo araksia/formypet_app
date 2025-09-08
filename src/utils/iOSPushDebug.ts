@@ -20,69 +20,13 @@ export class iOSPushDebug {
       await PushNotifications.removeAllListeners();
       iOSLogger.log('🍎 Removed all existing listeners');
 
-      // Add fresh listeners
-      PushNotifications.addListener('registration', async (token) => {
-        iOSLogger.log('🍎 NEW Token Received in Force Refresh!', {
-          tokenLength: token.value?.length,
-          tokenPreview: token.value?.substring(0, 20) + '...'
-        });
-
-        // Try to save token immediately
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          
-          if (!user) {
-            iOSLogger.error('🍎 No user found during force refresh', {});
-            return;
-          }
-
-          iOSLogger.log('🍎 Saving token during force refresh', {
-            userEmail: user.email,
-            userId: user.id
-          });
-
-          const { data, error } = await supabase.rpc('save_push_token', {
-            token_value: token.value,
-            platform_value: 'ios',
-            device_info_value: {
-              platform: 'ios',
-              timestamp: new Date().toISOString(),
-              force_refresh: true,
-              user_agent: navigator.userAgent,
-              token_length: token.value?.length
-            }
-          });
-
-          if (error) {
-            iOSLogger.error('🍎 Force refresh token save failed', {
-              error: error.message
-            });
-          } else {
-            iOSLogger.log('🍎 Force refresh token saved successfully!', {
-              tokenId: data
-            });
-          }
-        } catch (saveError) {
-          iOSLogger.error('🍎 Exception during force token save', {
-            error: saveError.message
-          });
-        }
+      // Check current permissions before doing anything
+      const initialPermissions = await PushNotifications.checkPermissions();
+      iOSLogger.log('🍎 Initial permissions check', {
+        receive: initialPermissions.receive
       });
 
-      PushNotifications.addListener('registrationError', (error) => {
-        iOSLogger.error('🍎 Force refresh registration error', {
-          error: error.error,
-          fullError: JSON.stringify(error)
-        });
-      });
-
-      // Check permissions first
-      const permissions = await PushNotifications.checkPermissions();
-      iOSLogger.log('🍎 Current permissions during force refresh', {
-        receive: permissions.receive
-      });
-
-      if (permissions.receive !== 'granted') {
+      if (initialPermissions.receive !== 'granted') {
         // Request permissions
         const newPermissions = await PushNotifications.requestPermissions();
         iOSLogger.log('🍎 Requested new permissions', {
@@ -98,14 +42,65 @@ export class iOSPushDebug {
         }
       }
 
+      // Add a timeout promise to see if registration event fires
+      let tokenReceived = false;
+      const registrationPromise = new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          if (!tokenReceived) {
+            iOSLogger.error('🍎 Registration timeout - no token received in 10 seconds', {});
+            reject(new Error('Registration timeout - iOS might not be requesting permissions or token'));
+          }
+        }, 10000);
+
+        PushNotifications.addListener('registration', (token) => {
+          clearTimeout(timeout);
+          tokenReceived = true;
+          iOSLogger.log('🍎 Registration promise resolved with token!', {
+            tokenLength: token.value?.length,
+            tokenExists: !!token.value,
+            tokenType: typeof token.value
+          });
+          resolve(token);
+        });
+
+        PushNotifications.addListener('registrationError', (error) => {
+          clearTimeout(timeout);
+          iOSLogger.error('🍎 Registration promise rejected with error', {
+            error: error.error,
+            fullError: JSON.stringify(error)
+          });
+          reject(error);
+        });
+      });
+
       // Register for push notifications
+      iOSLogger.log('🍎 About to call PushNotifications.register()');
       await PushNotifications.register();
-      iOSLogger.log('🍎 Registration call completed during force refresh');
+      iOSLogger.log('🍎 PushNotifications.register() call completed - waiting for token...');
+
+      // Wait for registration or timeout
+      try {
+        const receivedToken = await registrationPromise as { value: string };
+        iOSLogger.log('🍎 Registration completed successfully', {
+          tokenLength: receivedToken?.value?.length
+        });
+      } catch (regError: any) {
+        iOSLogger.error('🍎 Registration failed or timed out', {
+          error: regError.message,
+          tokenReceived,
+          suggestion: 'Check iOS settings, app permissions, or Apple Developer setup'
+        });
+        return {
+          success: false,
+          error: `Registration failed: ${regError.message}`,
+          suggestion: 'Check iOS Notification settings in System Preferences'
+        };
+      }
 
       return { 
         success: true, 
-        message: 'Force refresh initiated',
-        permissions 
+        message: 'Force refresh initiated with timeout monitoring',
+        permissions: initialPermissions 
       };
 
     } catch (error) {
