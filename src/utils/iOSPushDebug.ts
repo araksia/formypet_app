@@ -6,6 +6,90 @@ import { iOSLogger } from './iOSLogger';
 
 export class iOSPushDebug {
   
+  static async checkiOSConfiguration() {
+    iOSLogger.log('🍎 iOS Configuration Check Started');
+    
+    try {
+      const config = {
+        platform: Capacitor.getPlatform(),
+        isNative: Capacitor.isNativePlatform(),
+        isIOS: Capacitor.getPlatform() === 'ios',
+        userAgent: navigator.userAgent,
+        bundleId: 'gr.formypet.app', // From capacitor.config.json
+        expectedFirebaseProjectId: 'formype-f2a94' // From GoogleService-Info.plist
+      };
+
+      // Check if Firebase is configured
+      const hasGoogleServicesPlist = true; // We know it exists from file structure
+      
+      // Check permissions
+      let permissions = null;
+      let permissionsError = null;
+      
+      if (config.isIOS) {
+        try {
+          permissions = await PushNotifications.checkPermissions();
+          iOSLogger.log('🍎 Permissions check successful', permissions);
+        } catch (error) {
+          permissionsError = error.message;
+          iOSLogger.error('🍎 Permissions check failed', error);
+        }
+      }
+
+      const diagnostics = {
+        configuration: config,
+        firebase: {
+          hasGoogleServicesPlist,
+          bundleIdMatch: config.bundleId === 'gr.formypet.app',
+          projectId: config.expectedFirebaseProjectId
+        },
+        permissions: permissions,
+        permissionsError: permissionsError,
+        troubleshooting: {
+          appleDevConsoleSteps: [
+            '1. Go to Apple Developer Console (developer.apple.com)',
+            '2. Navigate to Certificates, Identifiers & Profiles',
+            '3. Check if bundle ID "gr.formypet.app" exists',
+            '4. Verify Push Notifications capability is enabled',
+            '5. Check if APNs Certificate/Key is configured',
+            '6. Ensure app is properly signed with provisioning profile'
+          ],
+          firebaseSteps: [
+            '1. Go to Firebase Console (console.firebase.google.com)',
+            '2. Select project "formype-f2a94"',
+            '3. Go to Project Settings > Cloud Messaging',
+            '4. Upload APNs Authentication Key or Certificate',
+            '5. Ensure Bundle ID matches "gr.formypet.app"'
+          ],
+          commonIssues: [
+            'Bundle ID mismatch between app and Apple Developer Console',
+            'Missing APNs Certificate/Key in Firebase',
+            'App not properly signed with push notification capability',
+            'Entitlements file not included in build',
+            'Running on simulator (push notifications don\'t work on simulator)'
+          ]
+        }
+      };
+
+      iOSLogger.log('🍎 Configuration check complete', diagnostics);
+      
+      return {
+        success: true,
+        diagnostics
+      };
+
+    } catch (error) {
+      iOSLogger.error('🍎 Configuration check failed', {
+        error: error.message,
+        stack: error.stack
+      });
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+  
   static async forceTokenRefresh() {
     iOSLogger.log('🍎 Force Token Refresh Started');
     

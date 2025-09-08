@@ -83,6 +83,41 @@ const DebugPushPage = () => {
     }
   };
 
+  const handleConfigCheck = async () => {
+    setLoading(true);
+    try {
+      const result = await iOSPushDebug.checkiOSConfiguration();
+      setDebugData(prev => ({
+        ...prev,
+        configCheck: result
+      }));
+      
+      if (result.success) {
+        toast({
+          title: "📋 Configuration Check Complete",
+          description: "Έλεγχος ρυθμίσεων iOS/Firebase",
+          duration: 5000
+        });
+      } else {
+        toast({
+          title: "❌ Configuration Check Failed",
+          description: result.error,
+          variant: "destructive",
+          duration: 5000
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Error",
+        description: error.message,
+        variant: "destructive",
+        duration: 5000
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCheckTokens = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -194,9 +229,18 @@ const DebugPushPage = () => {
             <Separator />
 
             <Button 
-              onClick={handleCheckTokens} 
+              onClick={handleConfigCheck} 
               disabled={loading}
               variant="secondary"
+              className="w-full"
+            >
+              📋 Check iOS Configuration
+            </Button>
+            
+            <Button 
+              onClick={handleCheckTokens} 
+              disabled={loading}
+              variant="outline"
               className="w-full"
             >
               📊 Check All Tokens
@@ -262,6 +306,72 @@ const DebugPushPage = () => {
                     <div className="text-sm space-y-1 mt-1">
                       <div>iOS: <Badge>{debugData.iosTokens?.length || 0}</Badge></div>
                       <div>Android: <Badge>{debugData.androidTokens?.length || 0}</Badge></div>
+                    </div>
+                  </div>
+                )}
+
+                {debugData.configCheck && (
+                  <div className="space-y-3">
+                    <strong>Configuration Check:</strong>
+                    <div className="text-sm bg-muted p-3 rounded space-y-2">
+                      {debugData.configCheck.success ? (
+                        <div>
+                          <Badge variant="default">✅ Check Complete</Badge>
+                          
+                          {debugData.configCheck.diagnostics && (
+                            <div className="mt-2 space-y-2">
+                              <div><strong>Platform:</strong> {debugData.configCheck.diagnostics.configuration.platform}</div>
+                              <div><strong>Bundle ID:</strong> {debugData.configCheck.diagnostics.configuration.bundleId}</div>
+                              <div><strong>Firebase Project:</strong> {debugData.configCheck.diagnostics.configuration.expectedFirebaseProjectId}</div>
+                              
+                              {debugData.configCheck.diagnostics.permissions && (
+                                <div><strong>Push Permissions:</strong> 
+                                  <Badge variant={debugData.configCheck.diagnostics.permissions.receive === 'granted' ? 'default' : 'destructive'}>
+                                    {debugData.configCheck.diagnostics.permissions.receive}
+                                  </Badge>
+                                </div>
+                              )}
+                              
+                              <details className="mt-2">
+                                <summary className="cursor-pointer text-sm font-medium">🔧 Troubleshooting Guide</summary>
+                                <div className="mt-2 space-y-3 text-xs">
+                                  <div>
+                                    <strong>Apple Developer Console Steps:</strong>
+                                    <ul className="list-disc list-inside ml-2 space-y-1">
+                                      {debugData.configCheck.diagnostics.troubleshooting.appleDevConsoleSteps.map((step, i) => (
+                                        <li key={i}>{step}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                  
+                                  <div>
+                                    <strong>Firebase Console Steps:</strong>
+                                    <ul className="list-disc list-inside ml-2 space-y-1">
+                                      {debugData.configCheck.diagnostics.troubleshooting.firebaseSteps.map((step, i) => (
+                                        <li key={i}>{step}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                  
+                                  <div>
+                                    <strong>Common Issues:</strong>
+                                    <ul className="list-disc list-inside ml-2 space-y-1">
+                                      {debugData.configCheck.diagnostics.troubleshooting.commonIssues.map((issue, i) => (
+                                        <li key={i}>{issue}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                </div>
+                              </details>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div>
+                          <Badge variant="destructive">❌ Check Failed</Badge>
+                          <div className="mt-1 text-destructive">{debugData.configCheck.error}</div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
