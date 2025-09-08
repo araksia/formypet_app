@@ -31,6 +31,7 @@ import TermsPage from "./pages/TermsPage";
 import NotFound from "./pages/NotFound";
 import ScreenshotsPage from "./pages/ScreenshotsPage";
 import DebugPushPage from "./pages/DebugPushPage";
+import NotificationTestPage from "./pages/NotificationTestPage";
 
 const queryClient = new QueryClient();
 
@@ -183,6 +184,13 @@ const App = () => {
                 <ProtectedRoute>
                   <Layout>
                     <DebugPushPage />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/test-notifications" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <NotificationTestPage />
                   </Layout>
                 </ProtectedRoute>
               } />
