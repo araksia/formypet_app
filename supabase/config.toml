@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.collect-debug-logs]
 verify_jwt = false
+
+[functions.trigger-notifications]
+verify_jwt = false
