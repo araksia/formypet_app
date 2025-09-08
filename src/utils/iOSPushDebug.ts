@@ -47,7 +47,12 @@ export class iOSPushDebug {
       const registrationPromise = new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           if (!tokenReceived) {
-            iOSLogger.error('🍎 Registration timeout - no token received in 10 seconds', {});
+            iOSLogger.error('🍎 Registration timeout - no token received in 10 seconds', {
+              entitlementCheck: 'Make sure App.entitlements has aps-environment set to development',
+              bundleIdCheck: 'Verify bundle ID matches Apple Developer Console',
+              certificateCheck: 'APNs certificate/key might be missing',
+              suggestion: 'Run: npx cap sync ios && npx cap run ios to rebuild with new entitlements'
+            });
             reject(new Error('Registration timeout - iOS might not be requesting permissions or token'));
           }
         }, 10000);
@@ -58,7 +63,8 @@ export class iOSPushDebug {
           iOSLogger.log('🍎 Registration promise resolved with token!', {
             tokenLength: token.value?.length,
             tokenExists: !!token.value,
-            tokenType: typeof token.value
+            tokenType: typeof token.value,
+            tokenPreview: token.value ? `${token.value.substring(0, 20)}...` : 'no token'
           });
           resolve(token);
         });
@@ -67,7 +73,13 @@ export class iOSPushDebug {
           clearTimeout(timeout);
           iOSLogger.error('🍎 Registration promise rejected with error', {
             error: error.error,
-            fullError: JSON.stringify(error)
+            fullError: JSON.stringify(error),
+            possibleCauses: [
+              'Missing APNs certificate/key in Apple Developer Console',
+              'Incorrect bundle ID configuration', 
+              'App not properly signed',
+              'Entitlements file misconfigured'
+            ]
           });
           reject(error);
         });
