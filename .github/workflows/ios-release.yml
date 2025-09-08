@@ -31,43 +31,52 @@ jobs:
         with:
           xcode-version: '16.*'
 
-      - name: Xcode / SDK
+      - name: Show selected Xcode / SDK
         run: |
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
-      # 3) Node
+      # 3) Node / build web assets
       - name: Set up Node 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install JS deps
+      - name: Install JS dependencies
         run: |
-          if [ -f package-lock.json ]; then npm ci; else npm i; fi
+          if [ -f package-lock.json ]; then
+            npm ci
+          elif [ -f yarn.lock ]; then
+            corepack enable
+            yarn install --frozen-lockfile
+          else
+            npm install
+          fi
 
-      - name: Build web assets
+      - name: Build web assets (create ./dist)
         run: npm run build
 
-      # 4) Capacitor (χωρίς pods ακόμη)
-      - name: Sync Capacitor iOS
+      # 4) Ruby & Bundler (ΠΡΙΝ το cap sync, για να μη σκάσει το bundler)
+      - name: Set up Ruby 3.3
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: false
+
+      - name: Install gems for iOS (cocoapods/fastlane)
+        working-directory: ios/App
+        run: |
+          bundle config set path vendor/bundle
+          bundle install --jobs 4 --retry 3
+
+      # 5) Capacitor sync ΧΩΡΙΣ pods (θα τα τρέξουμε εμείς μετά)
+      - name: Sync Capacitor iOS (skip pods)
         env:
           CAPACITOR_SKIP_POD_INSTALL: '1'
         run: npx cap sync ios
 
-      # 5) Ruby + Bundler (για fastlane / cocoapods)
-      - name: Set up Ruby 3.2
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          bundler-cache: false
-
-      - name: Install gems
-        working-directory: ios/App
-        run: bundle install --jobs 4 --retry 3
-
-      # 6) Firebase plist από Secrets
+      # 6) Firebase plist από secrets
       - name: Write GoogleService-Info.plist
         run: |
           mkdir -p ios/App/App
@@ -76,7 +85,7 @@ jobs:
         env:
           FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
 
-      # 7) Δημιούργησε entitlements (Debug=development, Release=production)
+      # 7) Δημιουργία entitlements (Debug=development, Release=production)
       - name: Create entitlements files
         run: |
           mkdir -p ios/App/App
@@ -95,7 +104,7 @@ jobs:
           </dict></plist>
           EOF
 
-      # 8) Ενεργοποίησε capability Push & σύνδεσε τα entitlements στο .xcodeproj
+      # 8) Ενεργοποίηση capability Push & σύνδεση entitlements στο .xcodeproj
       - name: Inject entitlements & capabilities
         working-directory: ios/App
         run: |
@@ -104,27 +113,34 @@ jobs:
           p='App.xcodeproj'; proj=Xcodeproj::Project.open(p);
           t=proj.targets.find{|t| t.name=='App'} or abort('No target App');
 
+          # Build settings per configuration
           t.build_configurations.each do |cfg|
             cfg.build_settings['CODE_SIGN_ENTITLEMENTS'] =
               (cfg.name == 'Debug') ? 'App/AppDebug.entitlements' : 'App/AppRelease.entitlements'
           end
 
+          # Capabilities (ό,τι θα έκανε το Xcode UI)
           attrs = proj.root_object.attributes['TargetAttributes'] ||= {}
           attrs[t.uuid] ||= {}
           caps = attrs[t.uuid]['SystemCapabilities'] ||= {}
           caps['com.apple.Push'] = {'enabled'=>1}
-          caps['com.apple.BackgroundModes'] = {'enabled'=>1}  # αν δεν θες silent, μπορείς να το βγάλεις
+          caps['com.apple.BackgroundModes'] = {'enabled'=>1} # βγάλε το αν δεν θες silent/data
           proj.save"
 
-      # 9) CocoaPods
-      - name: Install CocoaPods
+      # 9) CocoaPods με bundler (τώρα ασφαλές)
+      - name: CocoaPods install
         working-directory: ios/App
         run: |
-          gem install cocoapods -N || true
-          pod repo update
-          bundle exec pod install --repo-update || pod install --repo-update
+          bundle exec pod repo update
+          bundle exec pod install --repo-update
 
-      # 10) Match (SSH access στο private repo με τα profiles/certs)
+      # 10) (προαιρετικό) Λίστα schemes / βασικά build settings
+      - name: Show schemes & build settings
+        run: |
+          xcodebuild -list -workspace ios/App/App.xcworkspace
+          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'INFOPLIST_FILE|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER'
+
+      # 11) SSH για match repo (certs/profiles)
       - name: Start ssh-agent (for match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -135,7 +151,7 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts
 
-      # 11) Build & Upload με fastlane
+      # 12) Build & Upload με fastlane (TestFlight)
       - name: Fastlane release (TestFlight)
         working-directory: ios/App
         env:
@@ -152,22 +168,25 @@ jobs:
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }} # base64 .p8
         run: bundle exec fastlane release
 
-      # 12) Επιβεβαίωση ότι το IPA έχει aps-environment (fail αν όχι)
+      # 13) Επιβεβαίωση ότι το IPA έχει aps-environment (fail αν λείπει)
       - name: Verify aps-environment in IPA
         run: |
           set -e
           IPA=$(ls -t ios/App/build/*.ipa 2>/dev/null | head -n1)
+          if [ -z "$IPA" ]; then echo "❌ No IPA found in ios/App/build"; exit 1; fi
           echo "Inspecting $IPA"
           TMP=$(mktemp -d); unzip -q "$IPA" -d "$TMP"
           APP_PATH=$(find "$TMP/Payload" -name "*.app" -maxdepth 1 | head -n1)
+          echo "== Signed entitlements =="
           /usr/bin/codesign -d --entitlements :- "$APP_PATH" > entitlements.plist
-          echo "== Signed entitlements =="; cat entitlements.plist || true
+          cat entitlements.plist || true
           if ! /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist ; then
             echo "❌ Missing aps-environment"; exit 1; fi
+          echo "== Provisioning profile aps value =="
           /usr/bin/security cms -D -i "$APP_PATH/embedded.mobileprovision" > profile.plist
-          echo "== Provisioning profile aps =="; /usr/libexec/PlistBuddy -c "Print :Entitlements:aps-environment" profile.plist
+          /usr/libexec/PlistBuddy -c "Print :Entitlements:aps-environment" profile.plist
 
-      # 13) Logs/Artifacts
+      # 14) Artifacts / logs
       - name: Upload IPA & logs
         if: always()
         uses: actions/upload-artifact@v4
