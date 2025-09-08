@@ -230,7 +230,7 @@ export const usePushNotifications = () => {
         
         const { data, error } = await supabase.rpc('save_push_token', {
           token_value: token.value,
-          platform_value: 'mobile',
+          platform_value: Capacitor.getPlatform(),
           device_info_value: {
             platform: Capacitor.getPlatform(),
             timestamp: new Date().toISOString(),
