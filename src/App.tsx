@@ -8,6 +8,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 import { useAnalytics } from "./hooks/useAnalytics";
 import { remoteLogger } from "./utils/remoteLogger";
+import './utils/iOSPushDebug'; // Import iOS debug utilities
 import { useEffect } from 'react';
 import Dashboard from "./pages/Dashboard";
 import PetsPage from "./pages/PetsPage";
