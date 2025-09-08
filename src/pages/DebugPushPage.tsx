@@ -96,6 +96,40 @@ const DebugPushPage = () => {
     }
   };
 
+  const triggerNotifications = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('trigger-notifications', {
+        body: {}
+      });
+      
+      if (error) {
+        console.error('Trigger notifications error:', error);
+        toast({
+          title: "❌ Notification Trigger Error",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        console.log('Trigger notifications success:', data);
+        toast({
+          title: "✅ Notification Check",
+          description: "Έλεγχος για ειδοποιήσεις ολοκληρώθηκε!",
+          variant: "default"
+        });
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      toast({
+        title: "❌ Unexpected Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-4 max-w-2xl">
       <h1 className="text-2xl font-bold mb-6">🔧 Push Notifications Debug</h1>
@@ -131,6 +165,15 @@ const DebugPushPage = () => {
             🔥 Test Firebase Config
           </Button>
         </div>
+
+        <Button 
+          onClick={triggerNotifications}
+          disabled={loading}
+          className="w-full"
+          variant="secondary"
+        >
+          🔔 Check & Send Notifications Now
+        </Button>
 
         {debugResults && (
           <Card>
