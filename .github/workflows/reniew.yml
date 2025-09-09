@@ -1,0 +1,39 @@
+name: Bootstrap Match Profiles
+on: { workflow_dispatch: {} }
+jobs:
+  make-profiles:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with: { ruby-version: '3.3' }
+      - name: Install fastlane
+        working-directory: ios/App
+        run: |
+          bundle config set path vendor/bundle
+          bundle install --jobs 4 --retry 3
+      - name: Ensure Matchfile has app_identifier
+        working-directory: ios/App/fastlane
+        env: { APP_BUNDLE_ID: gr.formypet.app }
+        run: |
+          if grep -qE '^\s*app_identifier' Matchfile; then
+            sed -i.bak -E "s#^\s*app_identifier.*#app_identifier([\"$APP_BUNDLE_ID\"])#g" Matchfile
+          else
+            printf '\napp_identifier(["%s"])\n' "$APP_BUNDLE_ID" >> Matchfile
+          fi
+          cat Matchfile
+      - name: Create App Store & Development profiles
+        working-directory: ios/App
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BRANCH: main
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: |
+          bundle exec fastlane match appstore --readonly false --app_identifier gr.formypet.app
+          bundle exec fastlane match development --readonly false --app_identifier gr.formypet.app
