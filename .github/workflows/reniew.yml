@@ -6,14 +6,16 @@ jobs:
   make-profiles:
     runs-on: macos-14
     env:
-      APP_BUNDLE_ID: gr.formypet.app
-    steps:
-      - uses: actions/checkout@v4
+      APP_BUNDLE_ID: "gr.formypet.app"
 
-      # Ruby + fastlane
-      - uses: ruby/setup-ruby@v1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.3'
+          ruby-version: "3.3"
 
       - name: Install fastlane (and deps)
         working-directory: ios/App
@@ -21,20 +23,18 @@ jobs:
           bundle config set path vendor/bundle
           bundle install --jobs 4 --retry 3
 
-      # Patch Matchfile: βεβαιώσου ότι έχει app_identifier
       - name: Ensure Matchfile has app_identifier
         working-directory: ios/App/fastlane
         env:
           APP_BUNDLE_ID: ${{ env.APP_BUNDLE_ID }}
         run: |
-          if grep -qE '^\s*app_identifier' Matchfile; then
-            sed -i.bak -E "s#^\s*app_identifier.*#app_identifier([\"$APP_BUNDLE_ID\"])#g" Matchfile
+          if grep -qE '^[[:space:]]*app_identifier' Matchfile; then
+            sed -i.bak -E "s#^[[:space:]]*app_identifier.*#app_identifier([\"$APP_BUNDLE_ID\"])#g" Matchfile
           else
             printf '\napp_identifier(["%s"])\n' "$APP_BUNDLE_ID" >> Matchfile
           fi
-          echo "== Matchfile ==" && cat Matchfile
+          cat Matchfile
 
-      # SSH agent για match repo (Deploy key με WRITE)
       - name: Start ssh-agent (for match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -45,27 +45,25 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts
 
-      - name: Git identity (for commits to match repo)
+      - name: Configure git identity
         run: |
           git config --global user.email "ci@github.actions"
           git config --global user.name "GitHub Actions"
 
       - name: Check access to match repo
         env:
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}   # π.χ. git@github.com:ORG/match-repo.git
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
         run: |
-          test -n "$MATCH_GIT_URL" || { echo "❌ MATCH_GIT_URL is empty"; exit 1; }
+          if [ -z "$MATCH_GIT_URL" ]; then echo "MATCH_GIT_URL is empty"; exit 1; fi
           git ls-remote "$MATCH_GIT_URL" -h
 
-      # Προσθέτουμε ΠΡΟΣΩΡΙΝΟ lane μέσα στο κανονικό Fastfile
       - name: Append bootstrap lane to Fastfile
         working-directory: ios/App
         run: |
           FASTFILE="fastlane/Fastfile"
-          echo "== Before (head) =="; head -n 30 "$FASTFILE" || true
           cat >> "$FASTFILE" <<'EOF'
 
-# --- AUTO-ADDED BY CI: creates/refreshes profiles via API key ---
+# AUTO-ADDED BY CI
 desc "Bootstrap provisioning profiles (appstore + development) using ASC API key"
 lane :bootstrap_profiles do
   api_key = app_store_connect_api_key(
@@ -89,12 +87,10 @@ lane :bootstrap_profiles do
     team_id: ENV['APPLE_TEAM_ID']
   )
 end
-# --- END AUTO-ADDED BY CI ---
+# END AUTO-ADDED BY CI
 EOF
-          echo "== After (tail) =="; tail -n 80 "$FASTFILE"
 
-      # Τρέχουμε το lane -> θα δημιουργήσει/ανανεώσει profiles ΣΤΟ match repo
-      - name: Create/Update profiles via API key
+      - name: Create or update profiles
         working-directory: ios/App
         env:
           APP_BUNDLE_ID: ${{ env.APP_BUNDLE_ID }}
@@ -104,9 +100,8 @@ EOF
           MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # App Store Connect API key (πρέπει να έχει "Certificates, Identifiers & Profiles" access)
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }} # base64 .p8 content
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
         run: |
           bundle exec fastlane bootstrap_profiles
