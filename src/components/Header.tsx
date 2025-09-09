@@ -150,8 +150,9 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
         });
       }
 
+      // Temporarily hidden - Family member functionality
       // Load pending family invites
-      const { data: invites } = await supabase
+      /* const { data: invites } = await supabase
         .from('pet_family_members')
         .select(`
           id,
@@ -189,7 +190,7 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
             icon: Users
           });
         });
-      }
+      } */
 
       setNotifications(realNotifications);
       setUnreadCount(realNotifications.filter(n => !n.read).length);
@@ -374,12 +375,13 @@ const Header = ({ title, showNotifications = true, showProfile = true }: HeaderP
                   </Link>
                 </DropdownMenuItem>
                 
-                <DropdownMenuItem asChild>
+                {/* Temporarily hidden - Family member functionality */}
+                {/* <DropdownMenuItem asChild>
                   <Link to="/family" className="flex items-center w-full">
                     <Users className="mr-2 h-4 w-4" aria-hidden="true" />
                     <span>Διαχείριση Οικογένειας</span>
                   </Link>
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
                 
                 <DropdownMenuSeparator />
                 

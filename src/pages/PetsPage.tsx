@@ -19,10 +19,11 @@ const PetsPage = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const [pets, setPets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [shareEmail, setShareEmail] = useState('');
-  const [selectedPetForShare, setSelectedPetForShare] = useState<string | null>(null);
-  const [shareLoading, setShareLoading] = useState(false);
-  const [copiedPetId, setCopiedPetId] = useState<string | null>(null);
+  // Temporarily hidden - Family member functionality
+  // const [shareEmail, setShareEmail] = useState('');
+  // const [selectedPetForShare, setSelectedPetForShare] = useState<string | null>(null);
+  // const [shareLoading, setShareLoading] = useState(false);
+  // const [copiedPetId, setCopiedPetId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [petToDelete, setPetToDelete] = useState<any>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -89,7 +90,8 @@ const PetsPage = () => {
   };
 
 
-  const handleSharePet = async () => {
+  // Temporarily hidden - Family member functionality
+  /* const handleSharePet = async () => {
     if (!shareEmail || !selectedPetForShare || !user) return;
 
     setShareLoading(true);
@@ -140,9 +142,10 @@ const PetsPage = () => {
     } finally {
       setShareLoading(false);
     }
-  };
+  }; */
 
-  const copyPetId = async (petId: string) => {
+  // Temporarily hidden - Family member functionality  
+  /* const copyPetId = async (petId: string) => {
     try {
       await navigator.clipboard.writeText(petId);
       setCopiedPetId(petId);
@@ -158,7 +161,7 @@ const PetsPage = () => {
         variant: "destructive"
       });
     }
-  };
+  }; */
 
   const handleDeletePet = async () => {
     if (!petToDelete || !user) return;

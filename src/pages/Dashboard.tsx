@@ -47,19 +47,21 @@ const Dashboard = () => {
       action: () => navigate('/add-expense'),
       color: 'bg-green-500'
     },
-    { 
-      icon: Users, 
-      label: 'Νέο Μέλος Οικογένειας', 
-      action: () => navigate('/add-family-member'),
-      color: 'bg-purple-500'
-    },
+    // Temporarily hidden - Family member functionality
+    // { 
+    //   icon: Users, 
+    //   label: 'Νέο Μέλος Οικογένειας', 
+    //   action: () => navigate('/add-family-member'),
+    //   color: 'bg-purple-500'
+    // },
   ];
 
   const statsData = [
     { label: 'Κατοικίδια', value: stats.pets.toString(), icon: PawPrint },
     { label: 'Ιατρικά Αρχεία', value: stats.medicalRecords.toString(), icon: FileText },
     { label: 'Συνολικά Έξοδα', value: `€${stats.totalExpenses.toFixed(2)}`, icon: Euro },
-    { label: 'Μέλη Οικογένειας', value: stats.familyMembers.toString(), icon: Users },
+    // Temporarily hidden - Family member functionality
+    // { label: 'Μέλη Οικογένειας', value: stats.familyMembers.toString(), icon: Users },
   ];
 
   const handleEventClick = (eventId: string) => {
