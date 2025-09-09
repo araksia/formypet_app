@@ -1,12 +1,15 @@
-name: Bootstrap Match Profiles
+name: Bootstrap App Store Profile
 on:
   workflow_dispatch: {}
 
 jobs:
-  make-profiles:
+  bootstrap:
     runs-on: macos-14
     env:
-      APP_BUNDLE_ID: "gr.formypet.app"
+      APP_BUNDLE_ID: gr.formypet.app
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+      MATCH_GIT_BRANCH: main
 
     steps:
       - name: Checkout
@@ -15,87 +18,63 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.3"
+          ruby-version: '3.3'
 
-      - name: Install fastlane (and deps)
+      - name: Install fastlane
         working-directory: ios/App
         run: |
           bundle config set path vendor/bundle
           bundle install --jobs 4 --retry 3
 
-      - name: Start ssh-agent (for match repo)
+      - name: Start ssh-agent (match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
 
-      - name: Add github.com to known_hosts
+      - name: Known hosts & git identity
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-      - name: Configure git identity
-        run: |
           git config --global user.email "ci@github.actions"
           git config --global user.name "GitHub Actions"
-
-      - name: Check access to match repo
-        env:
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-        run: |
-          if [ -z "$MATCH_GIT_URL" ]; then echo "MATCH_GIT_URL is empty"; exit 1; fi
           git ls-remote "$MATCH_GIT_URL" -h
 
-      - name: Build asc_api_key.json from secrets
-        working-directory: ios/App
+      - name: Quick OpenSSL check (ASC API key PEM)
         env:
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-          ASC_KEY_SECRET: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          ASC_PEM: ${{ secrets.APP_STORE_CONNECT_API_KEY_PEM }}
         run: |
-          set -e
-          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_SECRET" ]; then
-            echo "Missing APP_STORE_CONNECT_API_KEY_* secrets"; exit 1; fi
-          if printf '%s' "$ASC_KEY_SECRET" | grep -q "BEGIN PRIVATE KEY"; then
-            printf '%s' "$ASC_KEY_SECRET" > AuthKey.p8
-          else
-            printf '%s' "$ASC_KEY_SECRET" | base64 --decode > AuthKey.p8
-          fi
-          /usr/bin/openssl pkey -in AuthKey.p8 -noout -text | head -n 5 || { echo "Invalid PEM"; exit 1; }
-          python3 -c 'import os,json; kid=os.environ["ASC_KEY_ID"]; iss=os.environ["ASC_ISSUER_ID"]; pem=open("AuthKey.p8","r",encoding="utf-8",errors="ignore").read(); print(json.dumps({"key_id":kid,"issuer_id":iss,"key":pem,"in_house":False}))' > asc_api_key.json
-          test -s asc_api_key.json || { echo "asc_api_key.json empty"; exit 1; }
+          echo "$ASC_PEM" > AuthKey.p8
+          /usr/bin/openssl pkey -in AuthKey.p8 -noout -text | head -n 8
 
-      - name: Ensure Matchfile has app_identifier
-        working-directory: ios/App/fastlane
-        env:
-          APP_BUNDLE_ID: ${{ env.APP_BUNDLE_ID }}
-        run: |
-          if grep -qE '^[[:space:]]*app_identifier' Matchfile; then
-            sed -i.bak -E "s#^[[:space:]]*app_identifier.*#app_identifier([\"$APP_BUNDLE_ID\"])#g" Matchfile
-          else
-            printf '\napp_identifier(["%s"])\n' "$APP_BUNDLE_ID" >> Matchfile
-          fi
-          tail -n +1 Matchfile
+      - name: Create App Store Connect API JSON
+        uses: akiojin/setup-store-connect-api-json-github-action@v1.0.11
+        with:
+          key-id: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          issuer-id: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          key: ${{ secrets.APP_STORE_CONNECT_API_KEY_PEM }}
 
-      - name: Create or update App Store profile
-        working-directory: ios/App
+      - name: Create temp keychain
         env:
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          MATCH_GIT_BRANCH: main
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          bundle exec fastlane run match readonly:false type:appstore api_key_path:asc_api_key.json app_identifier:$APP_BUNDLE_ID team_id:$APPLE_TEAM_ID
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
 
-      - name: Create or update Development profile
+      - name: Create/Update App Store provisioning profile (Push enabled)
         working-directory: ios/App
         env:
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          MATCH_GIT_BRANCH: main
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          bundle exec fastlane run match readonly:false type:development api_key_path:asc_api_key.json app_identifier:$APP_BUNDLE_ID team_id:$APPLE_TEAM_ID
+          bundle exec fastlane run match \
+            readonly:false \
+            type:appstore \
+            api_key_path:$APP_STORE_CONNECT_API_KEY_PATH \
+            app_identifier:$APP_BUNDLE_ID \
+            team_id:$TEAM_ID \
+            git_url:$MATCH_GIT_URL \
+            git_branch:$MATCH_GIT_BRANCH \
+            keychain_name:build.keychain \
+            keychain_password:$KEYCHAIN_PASSWORD
