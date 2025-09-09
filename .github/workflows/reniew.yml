@@ -23,7 +23,6 @@ jobs:
           bundle config set path vendor/bundle
           bundle install --jobs 4 --retry 3
 
-      # SSH για πρόσβαση WRITE στο match repo (Deploy key στο secret)
       - name: Start ssh-agent (for match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -46,31 +45,27 @@ jobs:
           if [ -z "$MATCH_GIT_URL" ]; then echo "MATCH_GIT_URL is empty"; exit 1; fi
           git ls-remote "$MATCH_GIT_URL" -h
 
-      # Φτιάχνουμε asc_api_key.json από τα 3 secrets (ID, ISSUER, .p8 base64)
       - name: Build ASC API key JSON from 3 secrets
         working-directory: ios/App
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-          ASC_KEY_B64: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          ASC_KEY_B64: ${{ secrets.APP_STORE_CONNECT_API_KEY }}  # base64 του .p8
         run: |
           set -e
           if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_B64" ]; then
-            echo "Missing one of APP_STORE_CONNECT_API_KEY_ID / _ISSUER_ID / _KEY"; exit 1
+            echo "Missing APP_STORE_CONNECT_API_KEY_ID / _ISSUER_ID / _KEY"; exit 1
           fi
           echo "$ASC_KEY_B64" | base64 --decode > AuthKey.p8
           KEY_ESCAPED=$(awk '{gsub(/\r/,""); printf "%s\\n", $0}' AuthKey.p8)
-          {
-            echo '{'
-            echo "  \"key_id\": \"${ASC_KEY_ID}\","
-            echo "  \"issuer_id\": \"${ASC_ISSUER_ID}\","
-            echo "  \"key\": \"${KEY_ESCAPED}\","
-            echo '  "in_house": false'
-            echo '}'
-          } > asc_api_key.json
-          test -s asc_api_key.json || { echo "asc_api_key.json empty"; cat asc_api_key.json; exit 1; }
+          printf '{\n'                      >  asc_api_key.json
+          printf '  "key_id": "%s",\n' "$ASC_KEY_ID"       >> asc_api_key.json
+          printf '  "issuer_id": "%s",\n' "$ASC_ISSUER_ID"  >> asc_api_key.json
+          printf '  "key": "%s",\n' "$KEY_ESCAPED"         >> asc_api_key.json
+          printf '  "in_house": false\n'                   >> asc_api_key.json
+          printf '}\n'                                     >> asc_api_key.json
+          test -s asc_api_key.json || { echo "asc_api_key.json empty"; exit 1; }
 
-      # Βεβαιώσου ότι το Matchfile έχει το app_identifier σωστά
       - name: Ensure Matchfile has app_identifier
         working-directory: ios/App/fastlane
         env:
@@ -83,7 +78,6 @@ jobs:
           fi
           tail -n +1 Matchfile
 
-      # Δημιουργία/Ανανέωση App Store (production aps)
       - name: Create/Update App Store profile
         working-directory: ios/App
         env:
@@ -92,4 +86,18 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          APPL
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          bundle exec fastlane run match readonly:false type:appstore api_key_path:asc_api_key.json app_identifier:$APP_BUNDLE_ID team_id:$APPLE_TEAM_ID
+
+      - name: Create/Update Development profile
+        working-directory: ios/App
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BRANCH: main
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          bundle exec fastlane run match readonly:false type:development api_key_path:asc_api_key.json app_identifier:$APP_BUNDLE_ID team_id:$APPLE_TEAM_ID
