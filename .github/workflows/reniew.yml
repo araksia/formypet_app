@@ -1,27 +1,63 @@
 name: Bootstrap Match Profiles
-on: { workflow_dispatch: {} }
+on:
+  workflow_dispatch: {}
+
 jobs:
   make-profiles:
     runs-on: macos-14
+    env:
+      APP_BUNDLE_ID: gr.formypet.app
     steps:
       - uses: actions/checkout@v4
+
+      # 1) Ruby + fastlane
       - uses: ruby/setup-ruby@v1
-        with: { ruby-version: '3.3' }
-      - name: Install fastlane
+        with:
+          ruby-version: '3.3'
+
+      - name: Install fastlane (and deps)
         working-directory: ios/App
         run: |
           bundle config set path vendor/bundle
           bundle install --jobs 4 --retry 3
+
+      # 2) Patch Matchfile να έχει app_identifier
       - name: Ensure Matchfile has app_identifier
         working-directory: ios/App/fastlane
-        env: { APP_BUNDLE_ID: gr.formypet.app }
         run: |
           if grep -qE '^\s*app_identifier' Matchfile; then
             sed -i.bak -E "s#^\s*app_identifier.*#app_identifier([\"$APP_BUNDLE_ID\"])#g" Matchfile
           else
             printf '\napp_identifier(["%s"])\n' "$APP_BUNDLE_ID" >> Matchfile
           fi
-          cat Matchfile
+          echo "== Matchfile ==" && cat Matchfile
+
+      # 3) SSH agent για το match repo (Deploy key με WRITE)
+      - name: Start ssh-agent (for match repo)
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
+
+      - name: Add github.com to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Git identity for commits
+        run: |
+          git config --global user.email "ci@github.actions"
+          git config --global user.name "GitHub Actions"
+
+      # 4) Γρήγορο τεστ πρόσβασης στο match repo
+      - name: Check access to match repo
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+        run: |
+          test -n "$MATCH_GIT_URL" || { echo "❌ MATCH_GIT_URL is empty"; exit 1; }
+          echo "Trying: $MATCH_GIT_URL"
+          git ls-remote "$MATCH_GIT_URL" -h
+
+      # 5) Δημιουργία/ανανεώση profiles (WRITE στο repo, όχι readonly)
       - name: Create App Store & Development profiles
         working-directory: ios/App
         env:
@@ -33,7 +69,9 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }} # base64 .p8
         run: |
-          bundle exec fastlane match appstore --readonly false --app_identifier gr.formypet.app
-          bundle exec fastlane match development --readonly false --app_identifier gr.formypet.app
+          # appstore (production aps)
+          bundle exec fastlane match appstore --readonly false --app_identifier "$APP_BUNDLE_ID"
+          # development (development aps)
+          bundle exec fastlane match development --readonly false --app_identifier "$APP_BUNDLE_ID"
