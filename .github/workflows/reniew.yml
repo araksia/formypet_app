@@ -72,13 +72,13 @@ jobs:
             echo "api-key.json missing at $APP_STORE_CONNECT_API_KEY_PATH"; exit 1; fi
           echo "== api-key.json fields (masked) =="
           cat "$APP_STORE_CONNECT_API_KEY_PATH" | python3 - <<'PY'
-      import json,sys
-      j=json.load(sys.stdin)
-      j['key']='(hidden)'
-      print("key_id:", j.get('key_id'))
-      print("issuer_id:", j.get('issuer_id'))
-      print("key:", j.get('key')[:10], '...')
-      PY
+          import json,sys
+          j=json.load(sys.stdin)
+          j['key']='(hidden)'
+          print("key_id:", j.get('key_id'))
+          print("issuer_id:", j.get('issuer_id'))
+          print("key:", j.get('key')[:10], '...')
+          PY
       - name: Create/Update App Store provisioning profile
         working-directory: ios/App
         env:
