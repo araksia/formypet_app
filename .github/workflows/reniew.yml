@@ -1,5 +1,6 @@
 name: Bootstrap Match Profiles
-on: { workflow_dispatch: {} }
+on:
+  workflow_dispatch: {}
 
 jobs:
   make-profiles:
@@ -9,8 +10,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Ruby + fastlane
       - uses: ruby/setup-ruby@v1
-        with: { ruby-version: '3.3' }
+        with:
+          ruby-version: '3.3'
 
       - name: Install fastlane (and deps)
         working-directory: ios/App
@@ -18,70 +21,92 @@ jobs:
           bundle config set path vendor/bundle
           bundle install --jobs 4 --retry 3
 
-      # Deploy key για το match repo (Write access)
+      # Patch Matchfile: βεβαιώσου ότι έχει app_identifier
+      - name: Ensure Matchfile has app_identifier
+        working-directory: ios/App/fastlane
+        env:
+          APP_BUNDLE_ID: ${{ env.APP_BUNDLE_ID }}
+        run: |
+          if grep -qE '^\s*app_identifier' Matchfile; then
+            sed -i.bak -E "s#^\s*app_identifier.*#app_identifier([\"$APP_BUNDLE_ID\"])#g" Matchfile
+          else
+            printf '\napp_identifier(["%s"])\n' "$APP_BUNDLE_ID" >> Matchfile
+          fi
+          echo "== Matchfile ==" && cat Matchfile
+
+      # SSH agent για match repo (Deploy key με WRITE)
       - name: Start ssh-agent (for match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
 
-      - name: Add git host to known_hosts
+      - name: Add github.com to known_hosts
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts
 
-      - name: Git identity
+      - name: Git identity (for commits to match repo)
         run: |
           git config --global user.email "ci@github.actions"
           git config --global user.name "GitHub Actions"
 
-      # Γράφουμε ένα μικρό Fastfile που περνάει το API key ΣΩΣΤΑ
-      - name: Write Bootstrap Fastfile
+      - name: Check access to match repo
+        env:
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}   # π.χ. git@github.com:ORG/match-repo.git
+        run: |
+          test -n "$MATCH_GIT_URL" || { echo "❌ MATCH_GIT_URL is empty"; exit 1; }
+          git ls-remote "$MATCH_GIT_URL" -h
+
+      # Προσθέτουμε ΠΡΟΣΩΡΙΝΟ lane μέσα στο κανονικό Fastfile
+      - name: Append bootstrap lane to Fastfile
         working-directory: ios/App
         run: |
-          cat > fastlane/BootstrapFastfile <<'EOF'
-          default_platform(:ios)
-          platform :ios do
-            lane :bootstrap_profiles do
-              api_key = app_store_connect_api_key(
-                key_id:      ENV['APP_STORE_CONNECT_API_KEY_ID'],
-                issuer_id:   ENV['APP_STORE_CONNECT_API_ISSUER_ID'],
-                key_content: ENV['APP_STORE_CONNECT_API_KEY'],
-                is_key_content_base64: true
-              )
-              match(
-                type: "appstore",
-                readonly: false,
-                api_key: api_key,
-                app_identifier: [ENV['APP_BUNDLE_ID']],
-                team_id: ENV['APPLE_TEAM_ID']
-              )
-              match(
-                type: "development",
-                readonly: false,
-                api_key: api_key,
-                app_identifier: [ENV['APP_BUNDLE_ID']],
-                team_id: ENV['APPLE_TEAM_ID']
-              )
-            end
-          end
-          EOF
-          echo "== BootstrapFastfile =="
-          sed 's/KEY_.*/KEY_.../g' fastlane/BootstrapFastfile
+          FASTFILE="fastlane/Fastfile"
+          echo "== Before (head) =="; head -n 30 "$FASTFILE" || true
+          cat >> "$FASTFILE" <<'EOF'
 
-      # Τρέχουμε το lane που θα ΔΗΜΙΟΥΡΓΗΣΕΙ/ΑΝΑΝΕΩΣΕΙ τα profiles στο match repo
+# --- AUTO-ADDED BY CI: creates/refreshes profiles via API key ---
+desc "Bootstrap provisioning profiles (appstore + development) using ASC API key"
+lane :bootstrap_profiles do
+  api_key = app_store_connect_api_key(
+    key_id:      ENV['APP_STORE_CONNECT_API_KEY_ID'],
+    issuer_id:   ENV['APP_STORE_CONNECT_API_ISSUER_ID'],
+    key_content: ENV['APP_STORE_CONNECT_API_KEY'],
+    is_key_content_base64: true
+  )
+  match(
+    type: "appstore",
+    readonly: false,
+    api_key: api_key,
+    app_identifier: [ENV['APP_BUNDLE_ID']],
+    team_id: ENV['APPLE_TEAM_ID']
+  )
+  match(
+    type: "development",
+    readonly: false,
+    api_key: api_key,
+    app_identifier: [ENV['APP_BUNDLE_ID']],
+    team_id: ENV['APPLE_TEAM_ID']
+  )
+end
+# --- END AUTO-ADDED BY CI ---
+EOF
+          echo "== After (tail) =="; tail -n 80 "$FASTFILE"
+
+      # Τρέχουμε το lane -> θα δημιουργήσει/ανανεώσει profiles ΣΤΟ match repo
       - name: Create/Update profiles via API key
         working-directory: ios/App
         env:
           APP_BUNDLE_ID: ${{ env.APP_BUNDLE_ID }}
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}          # ssh url: git@github.com:ORG/match-repo.git
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_GIT_BRANCH: main
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # App Store Connect API key (ΠΡΟΣΟΧΗ: με CIP access)
+          # App Store Connect API key (πρέπει να έχει "Certificates, Identifiers & Profiles" access)
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }} # base64 .p8 content
         run: |
-          bundle exec fastlane --fastfile fastlane/BootstrapFastfile bootstrap_profiles
+          bundle exec fastlane bootstrap_profiles
