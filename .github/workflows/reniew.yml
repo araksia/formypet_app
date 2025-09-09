@@ -39,13 +39,6 @@ jobs:
           git config --global user.name "GitHub Actions"
           git ls-remote "$MATCH_GIT_URL" -h
 
-      - name: Quick OpenSSL check (ASC API key PEM)
-        env:
-          ASC_PEM: ${{ secrets.APP_STORE_CONNECT_API_KEY_PEM }}
-        run: |
-          echo "$ASC_PEM" > AuthKey.p8
-          /usr/bin/openssl pkey -in AuthKey.p8 -noout -text | head -n 8
-
       - name: Create App Store Connect API JSON
         uses: akiojin/setup-store-connect-api-json-github-action@v1.0.11
         with:
@@ -76,5 +69,7 @@ jobs:
             team_id:$TEAM_ID \
             git_url:$MATCH_GIT_URL \
             git_branch:$MATCH_GIT_BRANCH \
+            clone_branch_directly:true \
+            shallow_clone:false \
             keychain_name:build.keychain \
             keychain_password:$KEYCHAIN_PASSWORD
