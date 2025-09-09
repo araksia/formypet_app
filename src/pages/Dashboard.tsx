@@ -12,8 +12,7 @@ import {
   QuickActions,
   StatsSection,
   AchievementsSection,
-  UpcomingEventsSection,
-  ProfileSection
+  UpcomingEventsSection
 } from '@/components/dashboard';
 
 const Dashboard = () => {
@@ -47,13 +46,12 @@ const Dashboard = () => {
       action: () => navigate('/add-expense'),
       color: 'bg-green-500'
     },
-    // Temporarily hidden - Family member functionality
-    // { 
-    //   icon: Users, 
-    //   label: 'Νέο Μέλος Οικογένειας', 
-    //   action: () => navigate('/add-family-member'),
-    //   color: 'bg-purple-500'
-    // },
+    { 
+      icon: Users, 
+      label: 'Προφίλ', 
+      action: () => navigate('/profile'),
+      color: 'bg-purple-500'
+    },
   ];
 
   const statsData = [
@@ -96,8 +94,6 @@ const Dashboard = () => {
         loading={achievementsLoading}
         onViewAll={handleViewAllAchievements}
       />
-
-      <ProfileSection />
 
       <UpcomingEventsSection
         events={upcomingEvents}
