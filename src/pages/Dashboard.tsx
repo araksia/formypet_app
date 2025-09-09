@@ -12,7 +12,8 @@ import {
   QuickActions,
   StatsSection,
   AchievementsSection,
-  UpcomingEventsSection
+  UpcomingEventsSection,
+  ProfileSection
 } from '@/components/dashboard';
 
 const Dashboard = () => {
@@ -95,6 +96,8 @@ const Dashboard = () => {
         loading={achievementsLoading}
         onViewAll={handleViewAllAchievements}
       />
+
+      <ProfileSection />
 
       <UpcomingEventsSection
         events={upcomingEvents}
