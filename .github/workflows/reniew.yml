@@ -63,3 +63,65 @@ jobs:
             )
           fi
           /usr/bin/openssl pkey -in AuthKey.p8 -noout -text | head -n 8
+          # Export decoded PEM as multi-line env for next action
+          {
+            echo "APP_STORE_CONNECT_API_KEY_PEM_DECODED<<__EOF__"
+            cat AuthKey.p8
+            echo "__EOF__"
+          } >> "$GITHUB_ENV"
+
+      # 2) Build api-key.json using decoded PEM
+      - name: Create App Store Connect API JSON
+        uses: akiojin/setup-store-connect-api-json-github-action@v1.0.11
+        with:
+          key-id: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          issuer-id: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          key: ${{ env.APP_STORE_CONNECT_API_KEY_PEM_DECODED }}
+
+      # 3) Ensure Matchfile has correct team_id & app_identifier
+      - name: Fix Matchfile (team_id & app_identifier)
+        working-directory: ios/App/fastlane
+        run: |
+          set -e
+          if [ ! -f Matchfile ]; then touch Matchfile; fi
+          if grep -qE '^\s*team_id' Matchfile; then
+            sed -i.bak -E "s/^\s*team_id.*/team_id(\"$TEAM_ID\")/" Matchfile
+          else
+            printf '\nteam_id("%s")\n' "$TEAM_ID" >> Matchfile
+          fi
+          if grep -qE '^\s*app_identifier' Matchfile; then
+            sed -i.bak -E "s#^\s*app_identifier.*#app_identifier([\"$APP_BUNDLE_ID\"])#" Matchfile
+          else
+            printf 'app_identifier(["%s"])\n' "$APP_BUNDLE_ID" >> Matchfile
+          fi
+          tail -n +1 Matchfile
+
+      - name: Create temp keychain
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -e
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+
+      - name: Create/Update App Store provisioning profile
+        working-directory: ios/App
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -e
+          bundle exec fastlane run match \
+            readonly:false \
+            type:appstore \
+            api_key_path:$APP_STORE_CONNECT_API_KEY_PATH \
+            app_identifier:$APP_BUNDLE_ID \
+            team_id:$TEAM_ID \
+            git_url:$MATCH_GIT_URL \
+            git_branch:$MATCH_GIT_BRANCH \
+            clone_branch_directly:true \
+            shallow_clone:false \
+            keychain_name:build.keychain \
+            keychain_password:$KEYCHAIN_PASSWORD
