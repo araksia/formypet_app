@@ -51,8 +51,8 @@ export const WelcomeBanner = React.memo<WelcomeBannerProps>(({ userName, firstPe
             >
               <p className="text-gray-800 text-sm leading-relaxed">
                 {firstPet 
-                  ? `"Γεια σου ${capitalizedName}! Είμαι ${petName} και χαίρομαι που θα φροντίζεις για μένα με το ForMyPet!"` 
-                  : `"Γεια σου ${capitalizedName}! Ευτυχώς που κατέβασες το ForMyPet και δε θα ξεχάσω ξανά να με πας για μπάνιο!"`
+                  ? `"Γεια σου ${capitalizedName}! Ευτυχώς που κατέβασες το ForMyPet επιτέλους και δε θα ξαναχάσουμε ραντεβού με τον ${petName}!"` 
+                  : `"Γεια σου ${capitalizedName}! Ευτυχώς που κατέβασες το ForMyPet επιτέλους και δε θα ξαναχάσουμε ραντεβού!"`
                 }
               </p>
               {/* Speech bubble tail pointing right */}
