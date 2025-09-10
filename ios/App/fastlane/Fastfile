@@ -7,7 +7,7 @@ platform :ios do
 	  api_key = app_store_connect_api_key(
 	  key_id:       ENV['APP_STORE_CONNECT_API_KEY_ID'],
 	  issuer_id:    ENV['APP_STORE_CONNECT_API_ISSUER_ID'],
-	  keyfile_path: ENV['APP_STORE_CONNECT_API_KEYFILE_PATH'] || 'AuthKey.p8'
+	  key_filepath: ENV['APP_STORE_CONNECT_API_KEYFILE_PATH'] || 'AuthKey.p8'
 	)
 	# Βάλε build number από το workflow ή fallback σε timestamp
     new_build = (ENV['BUILD_NUMBER'] || Time.now.strftime("%Y%m%d%H%M")).to_s
