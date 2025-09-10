@@ -4,12 +4,12 @@ platform :ios do
   desc "Build & upload to TestFlight"
   lane :release do
     # 1) App Store Connect API key από secrets (BASE64 του .p8)
-    api_key = app_store_connect_api_key(
-      key_id:               ENV['APP_STORE_CONNECT_API_KEY_ID'],
-      issuer_id:            ENV['APP_STORE_CONNECT_API_ISSUER_ID'],
-      key_content:          ENV['APP_STORE_CONNECT_API_KEY_CONTENT'], # <-- ΟΧΙ αρχείο
-      is_key_content_base64: true                                     # <-- γιατί είναι base64
-    )
+	   api_key = app_store_connect_api_key(
+		  key_id:               ENV['APP_STORE_CONNECT_API_KEY_ID'],
+		  issuer_id:            ENV['APP_STORE_CONNECT_API_ISSUER_ID'],
+		  key_content:          ENV['APP_STORE_CONNECT_API_KEY_CONTENT'], # ωμό PEM
+		  is_key_content_base64: false
+		)
 
     # (τα υπόλοιπα μένουν όπως είναι)
     new_build = (ENV['BUILD_NUMBER'] || Time.now.strftime("%Y%m%d%H%M")).to_s
