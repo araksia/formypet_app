@@ -1,4 +1,4 @@
-name: Build and Release iOS
+name: Build iOS (Unsigned)
 
 on:
   workflow_dispatch: {}
@@ -66,155 +66,78 @@ jobs:
       - name: Build web assets (create ./dist)
         run: npm run build
 
-      # 4) Ruby & Bundler (ΠΡΙΝ το cap sync, αλλιώς κρασάρει το bundler)
+      # 4) Ruby & Bundler
       - name: Set up Ruby 3.3
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
           bundler-cache: false
 
-      - name: Install gems for iOS (cocoapods/fastlane)
+      - name: Install gems for iOS (cocoapods)
         working-directory: ios/App
         run: |
+          set -e
           bundle config set path vendor/bundle
           bundle install --jobs 4 --retry 3
 
-      # 5) Capacitor sync ΧΩΡΙΣ pods (θα τα τρέξουμε μετά με bundler)
+      # 5) Capacitor sync ΧΩΡΙΣ pods (pods μετά)
       - name: Sync Capacitor iOS (skip pods)
         env:
           CAPACITOR_SKIP_POD_INSTALL: '1'
         run: npx cap sync ios
 
-      # 6) Firebase plist από secrets
+      # 6) Firebase plist από secrets (αν χρειάζεται)
       - name: Write GoogleService-Info.plist
         run: |
+          set -e
           mkdir -p ios/App/App
           echo "$FIREBASE_IOS_PLIST_BASE64" | base64 --decode > ios/App/App/GoogleService-Info.plist
           /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist
         env:
           FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
 
-      # 7) Entitlements (Debug=development, Release=production)
-      - name: Create entitlements files
-        run: |
-          mkdir -p ios/App/App
-          cat > ios/App/App/AppDebug.entitlements <<'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-            <key>aps-environment</key><string>development</string>
-          </dict></plist>
-          EOF
-          cat > ios/App/App/AppRelease.entitlements <<'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-            <key>aps-environment</key><string>production</string>
-          </dict></plist>
-          EOF
-
-      # 8) Σύνδεση entitlements & ενεργοποίηση Push capability
-      - name: Inject entitlements & capabilities
-        working-directory: ios/App
-        run: |
-          gem install xcodeproj -N
-          ruby -e "require 'xcodeproj';
-          p='App.xcodeproj'; proj=Xcodeproj::Project.open(p);
-          t=proj.targets.find{|t| t.name=='App'} or abort('No target App');
-
-          t.build_configurations.each do |cfg|
-            cfg.build_settings['CODE_SIGN_ENTITLEMENTS'] =
-              (cfg.name == 'Debug') ? 'App/AppDebug.entitlements' : 'App/AppRelease.entitlements'
-          end
-
-          attrs = proj.root_object.attributes['TargetAttributes'] ||= {}
-          attrs[t.uuid] ||= {}
-          caps = attrs[t.uuid]['SystemCapabilities'] ||= {}
-          caps['com.apple.Push'] = {'enabled'=>1}
-          # Βγάλε την επόμενη γραμμή αν δεν θες silent/data pushes
-          caps['com.apple.BackgroundModes'] = {'enabled'=>1}
-          proj.save"
-
-      # 9) CocoaPods με bundler (τώρα ασφαλές)
+      # 7) CocoaPods
       - name: CocoaPods install
         working-directory: ios/App
         run: |
+          set -e
           bundle exec pod repo update
           bundle exec pod install --repo-update
 
-      # 10) (προαιρετικό) Δείξε schemes / βασικά build settings
+      # 8) (προαιρετικό) Δείξε schemes / build settings
       - name: Show schemes & build settings
         run: |
           xcodebuild -list -workspace ios/App/App.xcworkspace
           xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'INFOPLIST_FILE|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER' || true
 
-      # 11) Fix Matchfile: βάλε app_identifier (αποφεύγουμε το "No value found")
-      - name: Ensure Matchfile has app_identifier
-        working-directory: ios/App/fastlane
-        env:
-          APP_BUNDLE_ID: ${{ env.APP_BUNDLE_ID }}
-        run: |
-          test -n "$APP_BUNDLE_ID" || { echo "❌ APP_BUNDLE_ID env missing"; exit 1; }
-          if grep -qE '^\s*app_identifier' Matchfile; then
-            sed -i.bak -E "s#^\s*app_identifier.*#app_identifier([\"$APP_BUNDLE_ID\"])#g" Matchfile
-          else
-            printf '\napp_identifier(["%s"])\n' "$APP_BUNDLE_ID" >> Matchfile
-          fi
-          echo "== Matchfile ==" && cat Matchfile
-
-      # 12) SSH για match repo (certs/profiles)
-      - name: Start ssh-agent (for match repo)
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
-
-      - name: Add github.com to known_hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-      # 13) Build & Upload με fastlane (TestFlight)
-      - name: Fastlane release (TestFlight)
-        working-directory: ios/App
-        env:
-          APP_BUNDLE_ID: ${{ env.APP_BUNDLE_ID }}
-          BUILD_NUMBER: ${{ env.BUILD_NUMBER }}
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          MATCH_GIT_BRANCH: main
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }} # base64 .p8
-        run: bundle exec fastlane release
-
-      # 14) Επιβεβαίωση ότι το IPA έχει aps-environment (fail αν λείπει)
-      - name: Verify aps-environment in IPA
+      # 9) Build μόνο (unsigned), χωρίς TestFlight
+      - name: Build (archive) unsigned
         run: |
           set -e
-          IPA=$(ls -t ios/App/build/*.ipa 2>/dev/null | head -n1)
-          if [ -z "$IPA" ]; then echo "❌ No IPA found in ios/App/build"; exit 1; fi
-          echo "Inspecting $IPA"
-          TMP=$(mktemp -d); unzip -q "$IPA" -d "$TMP"
-          APP_PATH=$(find "$TMP/Payload" -name "*.app" -maxdepth 1 | head -n1)
-          echo "== Signed entitlements =="
-          /usr/bin/codesign -d --entitlements :- "$APP_PATH" > entitlements.plist
-          cat entitlements.plist || true
-          if ! /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist ; then
-            echo "❌ Missing aps-environment"; exit 1; fi
-          echo "== Provisioning profile aps value =="
-          /usr/bin/security cms -D -i "$APP_PATH/embedded.mobileprovision" > profile.plist
-          /usr/libexec/PlistBuddy -c "Print :Entitlements:aps-environment" profile.plist
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath ios/App/build/App.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            clean archive
 
-      # 15) Artifacts / logs
-      - name: Upload IPA & logs
+          APP_DIR="ios/App/build/App.xcarchive/Products/Applications"
+          APP_PATH=$(find "$APP_DIR" -maxdepth 1 -name "*.app" -print -quit)
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ .app not found"; exit 1; fi
+          echo "✅ Built: $APP_PATH"
+
+          (cd "$APP_DIR" && zip -qry ../../App-unsigned.zip "$(basename "$APP_PATH")")
+
+      # 10) Artifacts / logs
+      - name: Upload build artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ios-build
           path: |
-            ios/App/build/*.ipa
-            ~/Library/Logs/gym/*
+            ios/App/build/App.xcarchive/**
+            ios/App/build/App-unsigned.zip
             ~/Library/Developer/Xcode/DerivedData/**/Logs/**
