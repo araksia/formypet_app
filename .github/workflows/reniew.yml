@@ -102,7 +102,19 @@ jobs:
           security default-keychain -s build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security set-keychain-settings -lut 21600 build.keychain
-
+      
+      - name: Smoke test App Store Connect JWT
+        working-directory: ios/App
+        run: |
+          set -euo pipefail
+          # Βγάλε το JWT από το asc_api_key.json μέσω spaceship (της fastlane)
+          JWT=$(bundle exec ruby -e "require 'spaceship/connect_api'; t=Spaceship::ConnectAPI::Token.from_json_file('asc_api_key.json'); puts t.text")
+          echo "JWT length: ${#JWT}"
+          # Κάνε ένα απλό call για test (δεν αλλάζει τίποτα στο account)
+          code=$(curl -sS -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $JWT" "https://api.appstoreconnect.apple.com/v1/apps?limit=1")
+          echo "ASC /v1/apps -> HTTP $code"
+          [ "$code" = "200" ] || { echo "❌ Το JWT είναι άκυρο (HTTP $code). Διόρθωσε τα secrets πριν συνεχίσεις."; exit 1; }
+    
       - name: Create/Update App Store provisioning profile
         working-directory: ios/App
         env:
