@@ -47,25 +47,26 @@ export const usePushNotifications = () => {
     
     remoteLogger.info(`usePushNotifications started - Platform: ${Capacitor.getPlatform()}, Native: ${isNative}, UserAgent: ${navigator.userAgent}`, "PushNotifications");
     
-    // More forgiving check for mobile platforms - don't block completely
-    if (!isNative && !userAgentIOS && !hasWebkit) {
+    // More forgiving check - only block on clear web browsers
+    const isDefinitelyWeb = !isNative && !userAgentIOS && !hasWebkit && 
+                           window.location.protocol === 'http:' || window.location.protocol === 'https:' &&
+                           !window.location.href.includes('capacitor://');
+    
+    if (isDefinitelyWeb && window.location.href.includes('lovableproject.com')) {
       console.log('🔔 ForMyPet: Push notifications not available on web platform');
       remoteLogger.info("Push notifications not available on web platform", "PushNotifications");
       
-      // Only show toast on actual web browsers, not iOS
-      if (!userAgentIOS) {
-        toast({
-          title: "📱 Mobile App Required",
-          description: "Τα push notifications δουλεύουν μόνο στη mobile εφαρμογή στο iPhone/Android",
-          duration: 8000
-        });
-      }
+      toast({
+        title: "📱 Mobile App Required", 
+        description: "Τα push notifications δουλεύουν μόνο στη mobile εφαρμογή στο iPhone/Android",
+        duration: 8000
+      });
       
-      // Don't return early for iOS - let the app continue loading
-      if (!userAgentIOS) {
-        return;
-      }
+      return; // Only return early for definite web browsers
     }
+    
+    // For iOS native app, continue initialization even if detection is unclear
+    console.log('🔔 ForMyPet: Continuing with push notification setup for native/iOS app');
 
     // Comprehensive debug at start
     const runComprehensiveDebug = async () => {
@@ -111,8 +112,7 @@ export const usePushNotifications = () => {
       }
     };
     
-    // Run debug first
-    runComprehensiveDebug();
+    // Skip comprehensive debug on first load to avoid delays - only run on user request
 
     const initializePushNotifications = async () => {
       try {
