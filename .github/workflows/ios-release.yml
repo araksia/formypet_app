@@ -86,7 +86,7 @@ jobs:
           CAPACITOR_SKIP_POD_INSTALL: '1'
         run: npx cap sync ios
 
-      # 6) Firebase plist (αν χρειάζεται)
+      # 6) Firebase plist
       - name: Write GoogleService-Info.plist
         run: |
           set -e
@@ -96,6 +96,13 @@ jobs:
         env:
           FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
 
+      - name: Verify Firebase plist bundle id
+        run: |
+          set -e
+          B=$(/usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" ios/App/App/GoogleService-Info.plist)
+          echo "Firebase BUNDLE_ID=$B"
+          test "$B" = "$APP_BUNDLE_ID" || { echo "❌ GoogleService-Info.plist BUNDLE_ID != $APP_BUNDLE_ID"; exit 1; }
+
       # 7) CocoaPods
       - name: CocoaPods install
         working-directory: ios/App
@@ -104,13 +111,29 @@ jobs:
           bundle exec pod repo update
           bundle exec pod install --repo-update
 
-      # 8) (προαιρετικό) Εμφάνιση βασικών build settings
+      # 8) (προαιρετικό) Build settings
       - name: Show schemes & build settings
         run: |
           xcodebuild -list -workspace ios/App/App.xcworkspace
           xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'INFOPLIST_FILE|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER' || true
 
-      # 9) SSH για match repo
+      # 9) Matchfile: βεβαιώσου ότι έχει app_identifier
+      - name: Ensure Matchfile has app_identifier
+        working-directory: ios/App/fastlane
+        env:
+          APP_BUNDLE_ID: ${{ env.APP_BUNDLE_ID }}
+        run: |
+          set -e
+          test -n "$APP_BUNDLE_ID" || { echo "❌ APP_BUNDLE_ID missing"; exit 1; }
+          touch Matchfile
+          if grep -qE '^\s*app_identifier' Matchfile; then
+            sed -i.bak -E "s#^\s*app_identifier.*#app_identifier([\"$APP_BUNDLE_ID\"])#g" Matchfile
+          else
+            printf '\napp_identifier(["%s"])\n' "$APP_BUNDLE_ID" >> Matchfile
+          fi
+          echo "== Matchfile ==" && cat Matchfile
+
+      # 10) SSH για match repo
       - name: Start ssh-agent (match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -125,7 +148,7 @@ jobs:
           git config --global user.name "GitHub Actions"
           git ls-remote "${{ secrets.MATCH_GIT_URL }}" -h
 
-      # 10) Normalize ASC .p8 (raw ή base64) -> AuthKey.p8 (ΧΩΡΙΣ heredocs)
+      # 11) Normalize ASC .p8 (raw ή base64) -> AuthKey.p8 (ΧΩΡΙΣ heredocs)
       - name: Normalize App Store Connect API key (no heredocs)
         working-directory: ios/App
         env:
@@ -144,7 +167,7 @@ jobs:
           fi
           /usr/bin/openssl pkey -in AuthKey.p8 -noout -text | head -n 8 || true
 
-      # 11) asc_api_key.json (για smoke test) με jq (ΧΩΡΙΣ heredocs)
+      # 12) asc_api_key.json για smoke test (ΧΩΡΙΣ heredocs)
       - name: Create App Store Connect API JSON
         working-directory: ios/App
         env:
@@ -152,11 +175,10 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
         run: |
           set -euo pipefail
-          jq -n --arg kid "$ASC_KEY_ID" --arg iss "$ASC_ISSUER_ID" --rawfile key AuthKey.p8 \
-            '{key_id:$kid, issuer_id:$iss, key:$key, in_house:false}' > asc_api_key.json
+          /usr/bin/python3 -c 'import json,os; pem=open("AuthKey.p8","r",encoding="utf-8",errors="ignore").read(); kid=os.getenv("ASC_KEY_ID"); iss=os.getenv("ASC_ISSUER_ID"); json.dump({"key_id":kid,"issuer_id":iss,"key":pem,"in_house":False}, open("asc_api_key.json","w"))'
           echo "APP_STORE_CONNECT_API_KEY_PATH=$PWD/asc_api_key.json" >> "$GITHUB_ENV"
 
-      # 12) Smoke test ASC JWT (fail νωρίς αν είναι λάθος)
+      # 13) Smoke test ASC JWT (fail νωρίς αν είναι λάθος)
       - name: Smoke test App Store Connect JWT
         working-directory: ios/App
         run: |
@@ -167,20 +189,28 @@ jobs:
           echo "ASC /v1/apps -> HTTP $code"
           [ "$code" = "200" ] || { echo "❌ ASC JWT invalid ($code)"; exit 1; }
 
-      # 13) Patch Fastfile να χρησιμοποιεί keyfile_path αντί για key_content (ΧΩΡΙΣ heredocs)
-      - name: Patch Fastfile for keyfile_path
+      # 14) Info.plist: usage strings (ATT/Camera/Photos) για αποφυγή crash στο launch
+      - name: Ensure Info.plist has usage strings
+        run: |
+          set -e
+          P=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :NSUserTrackingUsageDescription' "$P" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Add :NSUserTrackingUsageDescription string This identifier will be used to deliver a better app experience.' "$P"
+          /usr/libexec/PlistBuddy -c 'Print :NSCameraUsageDescription' "$P" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string We use the camera to let you take photos.' "$P"
+          /usr/libexec/PlistBuddy -c 'Print :NSPhotoLibraryUsageDescription' "$P" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Add :NSPhotoLibraryUsageDescription string We need photo library access to select images.' "$P"
+          /usr/libexec/PlistBuddy -c 'Print :NSPhotoLibraryAddUsageDescription' "$P" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Add :NSPhotoLibraryAddUsageDescription string We save images to your library when requested.' "$P"
+          /usr/bin/plutil -lint "$P"
+
+      # 15) Patch Fastfile να χρησιμοποιεί key_filepath (όχι key_content)
+      - name: Patch Fastfile for key_filepath
         working-directory: ios/App/fastlane
         run: |
           set -euo pipefail
-          if [ -f Fastfile ]; then
-            cp Fastfile Fastfile.bak
-            sed -E -i '' "s/key_content:\s*ENV\[[^]]+\]/keyfile_path: ENV['APP_STORE_CONNECT_API_KEYFILE_PATH'] || 'AuthKey.p8'/g" Fastfile
-            echo "✅ Patched Fastfile to use keyfile_path"
-          else
-            echo "❌ Fastfile not found"; exit 1
-          fi
+          test -f Fastfile || { echo "❌ Fastfile not found"; exit 1; }
+          cp Fastfile Fastfile.bak
+          sed -E -i '' "s/key_content:\s*ENV\[[^]]+\]/key_filepath: ENV['APP_STORE_CONNECT_API_KEYFILE_PATH'] || 'AuthKey.p8'/g" Fastfile
+          echo "✅ Patched Fastfile to use key_filepath"
 
-      # 14) Fastlane release (build + sign + upload TestFlight)
+      # 16) Fastlane release (build + sign + upload TestFlight)
       - name: Fastlane release (TestFlight)
         working-directory: ios/App
         env:
@@ -191,16 +221,14 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # IDs για το app_store_connect_api_key(...)
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-          # Path στο .p8 για το keyfile_path:
           APP_STORE_CONNECT_API_KEYFILE_PATH: ${{ github.workspace }}/ios/App/AuthKey.p8
         run: |
           set -e
           bundle exec fastlane release
 
-      # 15) Artifacts / logs
+      # 17) Artifacts / logs
       - name: Upload build artifacts & logs
         if: always()
         uses: actions/upload-artifact@v4
