@@ -2,7 +2,8 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Calendar, ChevronRight } from 'lucide-react';
+import { Clock, Calendar, ChevronRight, Plus } from 'lucide-react';
+import { EmptyState } from './EmptyState';
 
 interface UpcomingEvent {
   id: string;
@@ -19,13 +20,15 @@ interface UpcomingEventsSectionProps {
   loading: boolean;
   onViewAll: () => void;
   onEventClick: (eventId: string) => void;
+  onAddEvent: () => void;
 }
 
 export const UpcomingEventsSection = React.memo<UpcomingEventsSectionProps>(({ 
   events, 
   loading, 
   onViewAll, 
-  onEventClick 
+  onEventClick,
+  onAddEvent 
 }) => {
   return (
     <section aria-labelledby="upcoming-events-heading">
@@ -62,9 +65,13 @@ export const UpcomingEventsSection = React.memo<UpcomingEventsSectionProps>(({
                 ))}
               </div>
             ) : events.length === 0 ? (
-              <div className="text-center py-4 text-gray-500">
-                Δεν υπάρχουν επερχόμενα events
-              </div>
+              <EmptyState
+                icon={Calendar}
+                title="Δεν υπάρχουν γεγονότα"
+                description="Προσθέστε το πρώτο σας γεγονός για να οργανώσετε τη φροντίδα των κατοικιδίων σας"
+                actionLabel="Προσθήκη Γεγονότος"
+                onAction={onAddEvent}
+              />
             ) : (
               events.map((event) => {
                 const EventIcon = event.icon;

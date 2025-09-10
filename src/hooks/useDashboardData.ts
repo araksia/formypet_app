@@ -11,6 +11,12 @@ interface Stats {
   familyMembers: number;
 }
 
+interface Pet {
+  id: string;
+  name: string;
+  species: string;
+}
+
 interface UpcomingEvent {
   id: string;
   type: string;
@@ -29,19 +35,28 @@ export const useDashboardData = (userId: string | undefined) => {
     familyMembers: 0
   });
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
+  const [firstPet, setFirstPet] = useState<Pet | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadStats = useMemo(() => async () => {
     if (!userId) return;
 
     try {
-      // Get pets count
+      // Get pets count and first pet
       const { data: pets, error: petsError } = await supabase
         .from('pets')
-        .select('id')
-        .eq('owner_id', userId);
+        .select('id, name, species')
+        .eq('owner_id', userId)
+        .order('created_at', { ascending: true });
 
       if (petsError) throw petsError;
+
+      // Set first pet if exists
+      if (pets && pets.length > 0) {
+        setFirstPet(pets[0]);
+      } else {
+        setFirstPet(null);
+      }
 
       // Get family members count (excluding owner)
       const { data: familyMembers, error: familyError } = await supabase
@@ -163,6 +178,7 @@ export const useDashboardData = (userId: string | undefined) => {
   return {
     stats,
     upcomingEvents,
+    firstPet,
     loading,
     loadDashboardData
   };

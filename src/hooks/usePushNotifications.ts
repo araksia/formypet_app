@@ -18,30 +18,55 @@ export const usePushNotifications = () => {
     console.log('🔔 ForMyPet: isNativePlatform:', isNative);
     console.log('🔔 ForMyPet: User Agent:', navigator.userAgent);
     console.log('🔔 ForMyPet: iOS Detection:', /iPad|iPhone|iPod/.test(navigator.userAgent));
+    console.log('🔔 ForMyPet: Window webkit exists:', !!window.webkit);
+    console.log('🔔 ForMyPet: Document location:', window.location.href);
+    
+    // Enhanced iOS detection for debugging
+    const userAgentIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const hasWebkit = !!window.webkit;
+    const isCapacitorNative = Capacitor.isNativePlatform();
+    
+    console.log('🔧 ForMyPet DEBUGGING:', {
+      platform: Capacitor.getPlatform(),
+      isNative: isCapacitorNative,
+      userAgentIOS,
+      hasWebkit,
+      location: window.location.href
+    });
     
     // Use iOS logger for iOS debugging
-    if (isIOS) {
+    if (isIOS || userAgentIOS) {
       iOSLogger.log('🍎 iOS Push Notifications Starting', {
         platform: Capacitor.getPlatform(),
         isNative: isNative,
-        userAgent: navigator.userAgent
+        userAgent: navigator.userAgent,
+        webkit: hasWebkit,
+        location: window.location.href
       });
     }
     
     remoteLogger.info(`usePushNotifications started - Platform: ${Capacitor.getPlatform()}, Native: ${isNative}, UserAgent: ${navigator.userAgent}`, "PushNotifications");
     
-    if (!isNative) {
+    // More forgiving check - only block on clear web browsers
+    const isDefinitelyWeb = !isNative && !userAgentIOS && !hasWebkit && 
+                           window.location.protocol === 'http:' || window.location.protocol === 'https:' &&
+                           !window.location.href.includes('capacitor://');
+    
+    if (isDefinitelyWeb && window.location.href.includes('lovableproject.com')) {
       console.log('🔔 ForMyPet: Push notifications not available on web platform');
       remoteLogger.info("Push notifications not available on web platform", "PushNotifications");
       
-      // Show a toast to inform user they need the mobile app
       toast({
-        title: "📱 Mobile App Required",
+        title: "📱 Mobile App Required", 
         description: "Τα push notifications δουλεύουν μόνο στη mobile εφαρμογή στο iPhone/Android",
         duration: 8000
       });
-      return;
+      
+      return; // Only return early for definite web browsers
     }
+    
+    // For iOS native app, continue initialization even if detection is unclear
+    console.log('🔔 ForMyPet: Continuing with push notification setup for native/iOS app');
 
     // Comprehensive debug at start
     const runComprehensiveDebug = async () => {
@@ -87,8 +112,7 @@ export const usePushNotifications = () => {
       }
     };
     
-    // Run debug first
-    runComprehensiveDebug();
+    // Skip comprehensive debug on first load to avoid delays - only run on user request
 
     const initializePushNotifications = async () => {
       try {
