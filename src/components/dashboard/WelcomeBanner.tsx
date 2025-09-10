@@ -1,7 +1,13 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 
-export const WelcomeBanner = React.memo(() => {
+interface WelcomeBannerProps {
+  userName?: string;
+}
+
+export const WelcomeBanner = React.memo<WelcomeBannerProps>(({ userName }) => {
+  const displayName = userName?.split('@')[0] || 'φίλε μου';
+  const capitalizedName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
   return (
     <Card 
       className="bg-gradient-to-r from-primary to-primary/80 border-0 overflow-hidden"
@@ -18,7 +24,7 @@ export const WelcomeBanner = React.memo(() => {
               aria-label="Μήνυμα από τον σκύλο Μπάτμαν"
             >
               <p className="text-gray-800 text-sm leading-relaxed">
-                "Ευτυχώς που κατέβασε το ForMyPet και δε θα ξεχάσει ξανά να με πάει για μπάνιο!"
+                "Γεια σου {capitalizedName}! Ευτυχώς που κατέβασες το ForMyPet και δε θα ξεχάσω ξανά να με πας για μπάνιο!"
               </p>
               {/* Speech bubble tail pointing right */}
               <div className="absolute top-4 right-0 w-0 h-0 border-t-[12px] border-t-transparent border-b-[12px] border-b-transparent border-l-[12px] border-l-white transform translate-x-full"></div>

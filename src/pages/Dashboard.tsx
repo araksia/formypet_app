@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
 import { useGamification } from '@/hooks/useGamification';
 import { useDashboardData } from '@/hooks/useDashboardData';
+import { StatsCardSkeleton } from '@/components/ui/skeleton';
 
 // Dashboard components
 import {
@@ -82,11 +83,19 @@ const Dashboard = () => {
       aria-label="Κεντρική σελίδα εφαρμογής"
       tabIndex={-1}
     >
-      <WelcomeBanner />
+      <WelcomeBanner userName={user?.email || user?.user_metadata?.display_name} />
 
       <QuickActions actions={quickActions} />
 
-      <StatsSection statsData={statsData} />
+      {loading ? (
+        <div className="grid grid-cols-2 gap-3">
+          {[...Array(3)].map((_, i) => (
+            <StatsCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : (
+        <StatsSection statsData={statsData} />
+      )}
 
       <AchievementsSection 
         userAchievements={userAchievements}
@@ -100,6 +109,7 @@ const Dashboard = () => {
         loading={loading}
         onViewAll={handleViewAllEvents}
         onEventClick={handleEventClick}
+        onAddEvent={() => navigate('/add-event')}
       />
     </div>
   );
