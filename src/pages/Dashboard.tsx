@@ -20,7 +20,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { userAchievements, achievements, loading: achievementsLoading } = useGamification();
-  const { stats, upcomingEvents, loading, loadDashboardData } = useDashboardData(user?.id);
+  const { stats, upcomingEvents, firstPet, loading, loadDashboardData } = useDashboardData(user?.id);
 
   useEffect(() => {
     if (user) {
@@ -83,7 +83,10 @@ const Dashboard = () => {
       aria-label="Κεντρική σελίδα εφαρμογής"
       tabIndex={-1}
     >
-      <WelcomeBanner userName={user?.email || user?.user_metadata?.display_name} />
+      <WelcomeBanner 
+        userName={user?.email || user?.user_metadata?.display_name} 
+        firstPet={firstPet}
+      />
 
       <QuickActions actions={quickActions} />
 
