@@ -13,11 +13,10 @@ jobs:
       run:
         shell: bash
     env:
-      BUNDLE_PATH: vendor/bundle
-      LC_ALL: en_US.UTF-8
       LANG: en_US.UTF-8
-      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      LC_ALL: en_US.UTF-8
       APP_BUNDLE_ID: gr.formypet.app
+      BUILD_NUMBER: ${{ github.run_number }}
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     steps:
@@ -27,7 +26,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 2) Xcode
+      # 2) Xcode 16
       - name: Select Xcode 16
         uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -38,24 +37,11 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
-      # 3) Ruby & Bundler
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          bundler-cache: false
-
-      - name: Install gems
-        working-directory: ios/App
-        run: |
-          bundle install --jobs 4 --retry 3
-
-      # 4) Node / npm
-      - name: Set up Node
+      # 3) Node / web assets
+      - name: Set up Node 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
 
       - name: Configure npm auth (optional)
@@ -69,7 +55,7 @@ jobs:
       - name: Install JS dependencies
         run: |
           if [ -f package-lock.json ]; then
-            npm ci --prefer-online || (echo "retry…" && sleep 5 && npm ci --prefer-online)
+            npm ci
           elif [ -f yarn.lock ]; then
             corepack enable
             yarn install --frozen-lockfile
@@ -79,225 +65,148 @@ jobs:
 
       - name: Build web assets (create ./dist)
         run: npm run build
-        
-      - name: Check dist/ & auto-fix absolute paths
+
+      # 4) Ruby & Bundler
+      - name: Set up Ruby 3.3
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: false
+
+      - name: Install gems for iOS (cocoapods/fastlane)
+        working-directory: ios/App
         run: |
           set -e
-          echo "== dist listing =="
-          ls -la dist | head -50
-          test -f dist/index.html || { echo "❌ dist/index.html missing"; exit 1; }
-
-          echo "== scan index.html for absolute / paths =="
-          if grep -nE 'href="/|src="/' dist/index.html; then
-            echo "⚠️ Found absolute paths starting with /. Converting to relative (./) so WKWebView τα βρίσκει."
-            # Ελαφρύ patch για τα πιο συνηθισμένα patterns
-            sed -i.bak -E 's#href="/#href="./#g; s#src="/#src="./#g' dist/index.html
-            echo "== re-scan =="
-            grep -nE 'href="/|src="/' dist/index.html || echo "✅ fixed"
-          else
-            echo "✅ No absolute paths detected."
-          fi
-
-          # (προαιρετικό) δείξε τις πρώτες γραμμές
-          echo "== head dist/index.html =="
-          head -n 40 dist/index.html
-          
-      - name: Inspect capacitor config (webDir/server)
-        run: |
-          echo "== grep webDir / server in capacitor.config.* =="
-          grep -R --line-number -E "webDir|server" capacitor.config.* || echo "ℹ️ No explicit config"
-      
-      - name: Show resolved Capacitor config
-        run: |
-          npx cap --version
-          echo "== cap doctor =="
-          npx cap doctor || true
-          echo "== cap config (JSON) =="
-          npx cap config --json || true
-          echo "== grep webDir/server =="
-          grep -R --line-number -E "webDir|server" capacitor.config.* || echo "ℹ️ no explicit keys"
-
+          bundle config set path vendor/bundle
+          bundle install --jobs 4 --retry 3
 
       # 5) Capacitor sync (χωρίς pods)
       - name: Sync Capacitor iOS (skip pods)
         env:
           CAPACITOR_SKIP_POD_INSTALL: '1'
         run: npx cap sync ios
-      
-      # 6) Firebase plist από secret
-      - name: Ensure xcodeproj gem
-        run: gem install xcodeproj -N
 
+      # 6) Firebase plist (αν χρειάζεται)
       - name: Write GoogleService-Info.plist
         run: |
+          set -e
           mkdir -p ios/App/App
           echo "$FIREBASE_IOS_PLIST_BASE64" | base64 --decode > ios/App/App/GoogleService-Info.plist
           /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist
-          /usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" ios/App/App/GoogleService-Info.plist
         env:
           FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
 
-      - name: Add plist to Xcode target (if missing)
+      # 7) CocoaPods
+      - name: CocoaPods install
         working-directory: ios/App
-        run: |
-          ruby -e "require 'xcodeproj';
-          p='App.xcodeproj';
-          proj=Xcodeproj::Project.open(p);
-          t=proj.targets.find{|t| t.name=='App'} or abort('No target App');
-          path='App/GoogleService-Info.plist';
-          ref=proj.main_group.find_file_by_path(path) || proj.main_group.new_file(path);
-          unless t.resources_build_phase.files_references.include?(ref)
-            t.add_resources([ref]); puts 'Added GoogleService-Info.plist to Resources';
-          else
-            puts 'GoogleService-Info.plist already in Resources';
-          end
-          proj.save"
-
-      # 7) Διόρθωση/αναδημιουργία App Info.plist χωρίς heredoc
-      - name: Recreate Info.plist safely (no heredoc)
         run: |
           set -e
-          FILE="ios/App/App/Info.plist"
-          if ! /usr/bin/plutil -lint "$FILE" >/dev/null 2>&1; then
-            echo "⚠️  $FILE is invalid; recreating…"
-            /usr/bin/plutil -create xml1 "$FILE"
-            PB="/usr/libexec/PlistBuddy -c"
+          bundle exec pod repo update
+          bundle exec pod install --repo-update
 
-            $PB 'Add :CFBundleDevelopmentRegion string en' "$FILE"
-            $PB 'Add :CFBundleExecutable string $(EXECUTABLE_NAME)' "$FILE"
-            $PB 'Add :CFBundleIdentifier string $(PRODUCT_BUNDLE_IDENTIFIER)' "$FILE"
-            $PB 'Add :CFBundleInfoDictionaryVersion string 6.0' "$FILE"
-            $PB 'Add :CFBundleName string $(PRODUCT_NAME)' "$FILE"
-            $PB 'Add :CFBundlePackageType string APPL' "$FILE"
-            $PB 'Add :CFBundleShortVersionString string $(MARKETING_VERSION)' "$FILE"
-            $PB 'Add :CFBundleVersion string $(CURRENT_PROJECT_VERSION)' "$FILE"
-            $PB 'Add :UILaunchStoryboardName string LaunchScreen' "$FILE"
-            $PB 'Add :UIMainStoryboardFile string Main' "$FILE"
-
-            $PB 'Add :UIRequiredDeviceCapabilities array' "$FILE"
-            $PB 'Add :UIRequiredDeviceCapabilities:0 string arm64' "$FILE"
-
-            $PB 'Add :UISupportedInterfaceOrientations array' "$FILE"
-            $PB 'Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationPortrait' "$FILE"
-            $PB 'Add :UISupportedInterfaceOrientations:1 string UIInterfaceOrientationLandscapeLeft' "$FILE"
-            $PB 'Add :UISupportedInterfaceOrientations:2 string UIInterfaceOrientationLandscapeRight' "$FILE"
-
-            $PB 'Add :UISupportedInterfaceOrientations~ipad array' "$FILE"
-            $PB 'Add :UISupportedInterfaceOrientations~ipad:0 string UIInterfaceOrientationPortrait' "$FILE"
-            $PB 'Add :UISupportedInterfaceOrientations~ipad:1 string UIInterfaceOrientationPortraitUpsideDown' "$FILE"
-            $PB 'Add :UISupportedInterfaceOrientations~ipad:2 string UIInterfaceOrientationLandscapeLeft' "$FILE"
-            $PB 'Add :UISupportedInterfaceOrientations~ipad:3 string UIInterfaceOrientationLandscapeRight' "$FILE"
-
-            $PB 'Add :UIApplicationSceneManifest dict' "$FILE"
-            $PB 'Add :UIApplicationSceneManifest:UIApplicationSupportsMultipleScenes bool false' "$FILE"
-            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations dict' "$FILE"
-            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication array' "$FILE"
-            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0 dict' "$FILE"
-            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneConfigurationName string Default Configuration' "$FILE"
-            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneDelegateClassName string $(PRODUCT_MODULE_NAME).SceneDelegate' "$FILE"
-            $PB 'Add :UIApplicationSceneManifest:UISceneConfigurations:UIWindowSceneSessionRoleApplication:0:UISceneStoryboardFile string Main' "$FILE"
-
-            $PB 'Add :NSCameraUsageDescription string We use the camera to let you take photos.' "$FILE"
-            $PB 'Add :NSPhotoLibraryUsageDescription string We need photo library access to select images.' "$FILE"
-            $PB 'Add :NSPhotoLibraryAddUsageDescription string We save images to your library when requested.' "$FILE"
-            $PB 'Add :NSUserTrackingUsageDescription string This identifier will be used to deliver a better app experience.' "$FILE"
-
-            /usr/bin/plutil -lint "$FILE"
-            echo "✅ Recreated valid Info.plist"
-          else
-            echo "✅ Info.plist is valid — no action."
-          fi
-
-
-      # 8) CocoaPods
-      - name: Install CocoaPods
-        working-directory: ios/App
-        run: |
-          if bundle exec pod --version >/dev/null 2>&1; then
-            echo "Using CocoaPods from Gemfile"
-          else
-            gem install cocoapods -N
-          fi
-          pod repo update
-          bundle exec pod install --repo-update || pod install --repo-update
-
-      # 9) Ensure shared scheme exists
-      - name: Ensure shared scheme exists
-        working-directory: ios/App
-        run: |
-          set -euo pipefail
-          PROJ="App.xcodeproj"
-          SHARE="$PROJ/xcshareddata/xcschemes"
-          USERDIR=$(ls -1d "$PROJ"/xcuserdata/* 2>/dev/null | head -n1 || true)
-          if [ -n "$USERDIR" ] && [ -d "$USERDIR/xcschemes" ]; then
-            mkdir -p "$SHARE"
-            cp "$USERDIR/xcschemes/"*.xcscheme "$SHARE"/ || true
-            echo "Copied user schemes to shared."
-          else
-            echo "No user schemes to copy."
-          fi
-
-      # 10) Δείξε workspace & build settings (διάγνωση)
-      - name: Show Xcode schemes and build settings
+      # 8) (προαιρετικό) Εμφάνιση βασικών build settings
+      - name: Show schemes & build settings
         run: |
           xcodebuild -list -workspace ios/App/App.xcworkspace
-          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'INFOPLIST_FILE|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER|SWIFT_VERSION|IPHONEOS_DEPLOYMENT_TARGET'
+          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'INFOPLIST_FILE|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER' || true
 
-      # 11) SSH για το match repo
-      - name: Start ssh-agent (for match repo)
+      # 9) SSH για match repo
+      - name: Start ssh-agent (match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
 
-      - name: Add github.com to known_hosts
+      - name: Known hosts & git identity
         run: |
+          set -e
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-      - name: Configure Git for match
-        run: |
           git config --global user.email "ci@github.actions"
           git config --global user.name "GitHub Actions"
+          git ls-remote "${{ secrets.MATCH_GIT_URL }}" -h
 
-      - name: Check access to match repo
-        env:
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-        run: git ls-remote "$MATCH_GIT_URL" -h
-
-      # 12) Build & Release μέσω fastlane
-      - name: Build & Release with fastlane
+      # 10) Normalize ASC .p8 (raw ή base64) -> AuthKey.p8 (ΧΩΡΙΣ heredocs)
+      - name: Normalize App Store Connect API key (no heredocs)
         working-directory: ios/App
         env:
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          MATCH_GIT_BRANCH: main
-          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_APP_ID: ${{ secrets.APPLE_APP_ID }}
-          BUILD_NUMBER: ${{ github.run_number }}
-        run: bundle exec fastlane release
-
-      # 13) Αν αποτύχει: τύπωσε το πλήρες gym log
-      - name: Print last gym log on failure
-        if: failure()
+          ASC_INPUT: ${{ secrets.APP_STORE_CONNECT_API_KEY_PEM }}
         run: |
-          LOG=$(ls -t ~/Library/Logs/gym/App-*.log | head -n1 || true)
-          if [ -n "$LOG" ]; then
-            echo "== Dumping $LOG ==" && tail -n +1 "$LOG"
+          set -euo pipefail
+          printf "%s" "$ASC_INPUT" | tr -d '\r' > key_input.txt
+          if grep -q "BEGIN PRIVATE KEY" key_input.txt; then
+            cp key_input.txt AuthKey.p8
           else
-            echo "No gym log found"
+            base64 --decode key_input.txt > AuthKey.p8 2>/dev/null || \
+            base64 -d      key_input.txt > AuthKey.p8 2>/dev/null || \
+            base64 -D      key_input.txt > AuthKey.p8 2>/dev/null || \
+            /usr/bin/python3 -c 'import base64,sys; open("AuthKey.p8","wb").write(base64.b64decode(open("key_input.txt","rb").read()))' || \
+            { echo "❌ Failed to parse APP_STORE_CONNECT_API_KEY_PEM (not PEM or base64)"; exit 1; }
+          fi
+          /usr/bin/openssl pkey -in AuthKey.p8 -noout -text | head -n 8 || true
+
+      # 11) asc_api_key.json (για smoke test) με jq (ΧΩΡΙΣ heredocs)
+      - name: Create App Store Connect API JSON
+        working-directory: ios/App
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          jq -n --arg kid "$ASC_KEY_ID" --arg iss "$ASC_ISSUER_ID" --rawfile key AuthKey.p8 \
+            '{key_id:$kid, issuer_id:$iss, key:$key, in_house:false}' > asc_api_key.json
+          echo "APP_STORE_CONNECT_API_KEY_PATH=$PWD/asc_api_key.json" >> "$GITHUB_ENV"
+
+      # 12) Smoke test ASC JWT (fail νωρίς αν είναι λάθος)
+      - name: Smoke test App Store Connect JWT
+        working-directory: ios/App
+        run: |
+          set -euo pipefail
+          JWT=$(bundle exec ruby -e "require 'spaceship/connect_api'; t=Spaceship::ConnectAPI::Token.from_json_file('asc_api_key.json'); puts t.text")
+          echo "JWT length: ${#JWT}"
+          code=$(curl -sS -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $JWT" "https://api.appstoreconnect.apple.com/v1/apps?limit=1")
+          echo "ASC /v1/apps -> HTTP $code"
+          [ "$code" = "200" ] || { echo "❌ ASC JWT invalid ($code)"; exit 1; }
+
+      # 13) Patch Fastfile να χρησιμοποιεί keyfile_path αντί για key_content (ΧΩΡΙΣ heredocs)
+      - name: Patch Fastfile for keyfile_path
+        working-directory: ios/App/fastlane
+        run: |
+          set -euo pipefail
+          if [ -f Fastfile ]; then
+            cp Fastfile Fastfile.bak
+            sed -E -i '' "s/key_content:\s*ENV\[[^]]+\]/keyfile_path: ENV['APP_STORE_CONNECT_API_KEYFILE_PATH'] || 'AuthKey.p8'/g" Fastfile
+            echo "✅ Patched Fastfile to use keyfile_path"
+          else
+            echo "❌ Fastfile not found"; exit 1
           fi
 
-      # 14) Πάντα ανέβασε logs
-      - name: Upload Xcode logs
+      # 14) Fastlane release (build + sign + upload TestFlight)
+      - name: Fastlane release (TestFlight)
+        working-directory: ios/App
+        env:
+          APP_BUNDLE_ID: ${{ env.APP_BUNDLE_ID }}
+          BUILD_NUMBER: ${{ env.BUILD_NUMBER }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_BRANCH: main
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # IDs για το app_store_connect_api_key(...)
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          # Path στο .p8 για το keyfile_path:
+          APP_STORE_CONNECT_API_KEYFILE_PATH: ${{ github.workspace }}/ios/App/AuthKey.p8
+        run: |
+          set -e
+          bundle exec fastlane release
+
+      # 15) Artifacts / logs
+      - name: Upload build artifacts & logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: xcode-logs
+          name: ios-build
           path: |
+            ios/App/build/*.ipa
             ~/Library/Logs/gym/*
             ~/Library/Developer/Xcode/DerivedData/**/Logs/**

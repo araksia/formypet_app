@@ -2,5 +2,5 @@ git_url("git@github.com:araksia/formypet-ios-certificates.git")
 git_branch("main") 
 storage_mode('git')
 type('appstore')
-app_identifier(ENV['APPLE_APP_ID'])   # bundle id
-team_id(ENV['APPLE_TEAM_ID'])
+app_identifier(["gr.formypet.app"])   # bundle id
+team_id(ENV['4VAX3LNZB4'])

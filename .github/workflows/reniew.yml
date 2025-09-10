@@ -1,0 +1,136 @@
+name: Renew App Store Profile
+on:
+  workflow_dispatch: {}
+
+jobs:
+  renew:
+    runs-on: macos-14
+    defaults:
+      run:
+        shell: bash
+    env:
+      APP_BUNDLE_ID: gr.formypet.app
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+      MATCH_GIT_BRANCH: main
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Install fastlane
+        working-directory: ios/App
+        run: |
+          set -e
+          bundle config set path vendor/bundle
+          bundle install --jobs 4 --retry 3
+
+      - name: Start ssh-agent (match repo)
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
+
+      - name: Known hosts & git identity
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          git config --global user.email "ci@github.actions"
+          git config --global user.name "GitHub Actions"
+          git ls-remote "$MATCH_GIT_URL" -h
+
+      - name: Normalize ASC API key (raw PEM or base64)
+        working-directory: ios/App
+        env:
+          ASC_INPUT: ${{ secrets.APP_STORE_CONNECT_API_KEY_PEM }}
+        run: |
+          set -euo pipefail
+          printf "%s" "$ASC_INPUT" > key_input.txt
+          if grep -q "BEGIN PRIVATE KEY" key_input.txt; then
+            mv key_input.txt AuthKey.p8
+          else
+            if base64 --decode key_input.txt > AuthKey.p8 2>/dev/null; then :
+            elif base64 -d key_input.txt > AuthKey.p8 2>/dev/null; then :
+            elif base64 -D key_input.txt > AuthKey.p8 2>/dev/null; then :
+            else
+              python3 -c 'import base64,sys; open("AuthKey.p8","wb").write(base64.b64decode(open("key_input.txt","rb").read()))'
+            fi
+          fi
+          /usr/bin/openssl pkey -in AuthKey.p8 -noout -text > pem.txt 2>/dev/null
+          grep -q "ASN1 OID: prime256v1" pem.txt || { echo "Wrong key type. Use App Store Connect API .p8 (ES256)."; exit 1; }
+          rm -f pem.txt key_input.txt
+
+      - name: Build asc_api_key.json (via jq)
+        working-directory: ios/App
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          jq -n --arg kid "$ASC_KEY_ID" --arg iss "$ASC_ISSUER_ID" --rawfile key AuthKey.p8 \
+            '{key_id:$kid, issuer_id:$iss, key:$key, in_house:false}' > asc_api_key.json
+          echo "APP_STORE_CONNECT_API_KEY_PATH=$PWD/asc_api_key.json" >> "$GITHUB_ENV"
+
+      - name: Fix Matchfile (team_id & app_identifier)
+        working-directory: ios/App/fastlane
+        run: |
+          set -euo pipefail
+          [ -f Matchfile ] || touch Matchfile
+          if grep -qE '^[[:space:]]*team_id' Matchfile; then
+            sed -i.bak -E "s/^[[:space:]]*team_id.*/team_id(\"$TEAM_ID\")/" Matchfile
+          else
+            printf '\nteam_id("%s")\n' "$TEAM_ID" >> Matchfile
+          fi
+          if grep -qE '^[[:space:]]*app_identifier' Matchfile; then
+            sed -i.bak -E "s#^[[:space:]]*app_identifier.*#app_identifier([\"$APP_BUNDLE_ID\"])#" Matchfile
+          else
+            printf 'app_identifier(["%s"])\n' "$APP_BUNDLE_ID" >> Matchfile
+          fi
+          tail -n +1 Matchfile
+
+      - name: Create temp keychain
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -e
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+      
+      - name: Smoke test App Store Connect JWT
+        working-directory: ios/App
+        run: |
+          set -euo pipefail
+          # Βγάλε το JWT από το asc_api_key.json μέσω spaceship (της fastlane)
+          JWT=$(bundle exec ruby -e "require 'spaceship/connect_api'; t=Spaceship::ConnectAPI::Token.from_json_file('asc_api_key.json'); puts t.text")
+          echo "JWT length: ${#JWT}"
+          # Κάνε ένα απλό call για test (δεν αλλάζει τίποτα στο account)
+          code=$(curl -sS -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $JWT" "https://api.appstoreconnect.apple.com/v1/apps?limit=1")
+          echo "ASC /v1/apps -> HTTP $code"
+          [ "$code" = "200" ] || { echo "❌ Το JWT είναι άκυρο (HTTP $code). Διόρθωσε τα secrets πριν συνεχίσεις."; exit 1; }
+    
+      - name: Create/Update App Store provisioning profile
+        working-directory: ios/App
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -e
+          bundle exec fastlane run match \
+            readonly:false \
+            type:appstore \
+            api_key_path:$APP_STORE_CONNECT_API_KEY_PATH \
+            app_identifier:$APP_BUNDLE_ID \
+            team_id:$TEAM_ID \
+            git_url:$MATCH_GIT_URL \
+            git_branch:$MATCH_GIT_BRANCH \
+            clone_branch_directly:true \
+            shallow_clone:false \
+            keychain_name:build.keychain \
+            keychain_password:$KEYCHAIN_PASSWORD
