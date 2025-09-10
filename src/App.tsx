@@ -20,7 +20,8 @@ import MedicalRecordsPage from "./pages/MedicalRecordsPage";
 import ExpensesPage from "./pages/ExpensesPage";
 import AddExpensePage from "./pages/AddExpensePage";
 import AcceptInvitationPage from "./pages/AcceptInvitationPage";
-import AddFamilyMemberPage from "./pages/AddFamilyMemberPage";
+// Temporarily hidden - Family member functionality 
+// import AddFamilyMemberPage from "./pages/AddFamilyMemberPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 import AchievementsPage from "./pages/AchievementsPage";
@@ -202,13 +203,14 @@ const App = () => {
                   </Layout>
                 </ProtectedRoute>
               } />
-              <Route path="/add-family-member" element={
+              {/* Temporarily hidden - Family member functionality */}
+              {/* <Route path="/add-family-member" element={
                 <ProtectedRoute>
                   <Layout>
                     <AddFamilyMemberPage />
                   </Layout>
                 </ProtectedRoute>
-              } />
+              } /> */}
               <Route path="/profile" element={
                 <ProtectedRoute>
                   <Layout>

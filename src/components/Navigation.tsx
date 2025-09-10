@@ -19,14 +19,14 @@ const Navigation = () => {
       role="navigation"
       aria-label="Κεντρική περιήγηση εφαρμογής"
     >
-      <div className="flex justify-around items-center h-16 px-2 safe-area-left safe-area-right">
+      <div className="flex justify-around items-center h-20 px-2 safe-area-left safe-area-right">
         {navItems.map(({ icon: Icon, label, path }) => (
           <NavLink
             key={path}
             to={path}
             className={({ isActive }) =>
               cn(
-                "flex flex-col items-center justify-center p-2 rounded-lg transition-colors min-w-0 flex-1 focus-enhanced",
+                "flex flex-col items-center justify-center p-3 rounded-xl transition-colors min-w-0 flex-1 focus-enhanced min-h-[48px]",
                 isActive 
                   ? "text-primary bg-primary/10" 
                   : "text-muted-foreground hover:text-foreground"
@@ -35,8 +35,8 @@ const Navigation = () => {
             aria-label={`${label} - ${path === window.location.pathname ? 'Τρέχουσα σελίδα' : 'Μετάβαση στην ' + label.toLowerCase()}`}
             aria-current={path === window.location.pathname ? 'page' : undefined}
           >
-            <Icon className="h-5 w-5 mb-1" aria-hidden="true" />
-            <span className="text-xs text-center truncate">{label}</span>
+            <Icon className="h-6 w-6 mb-1" aria-hidden="true" />
+            <span className="text-xs text-center truncate font-medium">{label}</span>
           </NavLink>
         ))}
       </div>

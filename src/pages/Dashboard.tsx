@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
 import { useGamification } from '@/hooks/useGamification';
 import { useDashboardData } from '@/hooks/useDashboardData';
+import { StatsCardSkeleton } from '@/components/ui/skeleton';
 
 // Dashboard components
 import {
@@ -12,15 +13,14 @@ import {
   QuickActions,
   StatsSection,
   AchievementsSection,
-  UpcomingEventsSection,
-  ManualAchievementCheck
+  UpcomingEventsSection
 } from '@/components/dashboard';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { userAchievements, achievements, loading: achievementsLoading } = useGamification();
-  const { stats, upcomingEvents, loading, loadDashboardData } = useDashboardData(user?.id);
+  const { stats, upcomingEvents, firstPet, loading, loadDashboardData } = useDashboardData(user?.id);
 
   useEffect(() => {
     if (user) {
@@ -49,8 +49,8 @@ const Dashboard = () => {
     },
     { 
       icon: Users, 
-      label: 'Νέο Μέλος Οικογένειας', 
-      action: () => navigate('/add-family-member'),
+      label: 'Προφίλ', 
+      action: () => navigate('/profile'),
       color: 'bg-purple-500'
     },
   ];
@@ -59,7 +59,8 @@ const Dashboard = () => {
     { label: 'Κατοικίδια', value: stats.pets.toString(), icon: PawPrint },
     { label: 'Ιατρικά Αρχεία', value: stats.medicalRecords.toString(), icon: FileText },
     { label: 'Συνολικά Έξοδα', value: `€${stats.totalExpenses.toFixed(2)}`, icon: Euro },
-    { label: 'Μέλη Οικογένειας', value: stats.familyMembers.toString(), icon: Users },
+    // Temporarily hidden - Family member functionality
+    // { label: 'Μέλη Οικογένειας', value: stats.familyMembers.toString(), icon: Users },
   ];
 
   const handleEventClick = (eventId: string) => {
@@ -82,11 +83,22 @@ const Dashboard = () => {
       aria-label="Κεντρική σελίδα εφαρμογής"
       tabIndex={-1}
     >
-      <WelcomeBanner />
+      <WelcomeBanner 
+        userName={user?.email || user?.user_metadata?.display_name} 
+        firstPet={firstPet}
+      />
 
       <QuickActions actions={quickActions} />
 
-      <StatsSection statsData={statsData} />
+      {loading ? (
+        <div className="grid grid-cols-2 gap-3">
+          {[...Array(3)].map((_, i) => (
+            <StatsCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : (
+        <StatsSection statsData={statsData} />
+      )}
 
       <AchievementsSection 
         userAchievements={userAchievements}
@@ -95,13 +107,12 @@ const Dashboard = () => {
         onViewAll={handleViewAllAchievements}
       />
 
-      <ManualAchievementCheck />
-
-      <UpcomingEventsSection 
+      <UpcomingEventsSection
         events={upcomingEvents}
         loading={loading}
         onViewAll={handleViewAllEvents}
         onEventClick={handleEventClick}
+        onAddEvent={() => navigate('/add-event')}
       />
     </div>
   );
