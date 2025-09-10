@@ -1,12 +1,18 @@
 import UIKit
 import Capacitor
 import os.log
+import FirebaseCore // πάνω-πάνω
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
-
+    
+		// ...μέσα στο didFinishLaunchingWithOptions:
+	if FirebaseApp.app() == nil {
+	  FirebaseApp.configure()
+	}
+	
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
         os_log("🍎 ForMyPet iOS: AppDelegate didFinishLaunching", log: .default, type: .info)

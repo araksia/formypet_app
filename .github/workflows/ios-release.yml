@@ -37,7 +37,7 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
-      # 3) Node / web assets
+      # 3) Node / build web assets
       - name: Set up Node 20
         uses: actions/setup-node@v4
         with:
@@ -66,7 +66,7 @@ jobs:
       - name: Build web assets (create ./dist)
         run: npm run build
 
-      # 4) Ruby & Bundler
+      # 4) Ruby & Bundler (πριν το cap sync για να δουλέψει bundler/pods σωστά)
       - name: Set up Ruby 3.3
         uses: ruby/setup-ruby@v1
         with:
@@ -76,56 +76,100 @@ jobs:
       - name: Install gems for iOS (cocoapods/fastlane)
         working-directory: ios/App
         run: |
-          set -e
           bundle config set path vendor/bundle
           bundle install --jobs 4 --retry 3
 
-      # 5) Capacitor sync (χωρίς pods)
+      # 5) Capacitor sync ΧΩΡΙΣ pods (pods θα τρέξουν μέσω bundler)
       - name: Sync Capacitor iOS (skip pods)
         env:
           CAPACITOR_SKIP_POD_INSTALL: '1'
         run: npx cap sync ios
 
-      # 6) Firebase plist
-      - name: Write GoogleService-Info.plist
+      # 6) Firebase plist από secrets
+      - name: Write GoogleService-Info.plist (from secret)
+        env:
+          FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
         run: |
           set -e
           mkdir -p ios/App/App
           echo "$FIREBASE_IOS_PLIST_BASE64" | base64 --decode > ios/App/App/GoogleService-Info.plist
           /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist
-        env:
-          FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
+          /usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" ios/App/App/GoogleService-Info.plist
 
-      - name: Verify Firebase plist bundle id
+      - name: Add GoogleService-Info.plist to target Resources
+        working-directory: ios/App
+        run: |
+          gem install xcodeproj -N
+          ruby -e "require 'xcodeproj';
+            p='App.xcodeproj'; proj=Xcodeproj::Project.open(p);
+            t=proj.targets.find{|t| t.name=='App'} or abort('No target App');
+            path='App/GoogleService-Info.plist';
+            ref=proj.main_group.find_file_by_path(path) || proj.main_group.new_file(path);
+            unless t.resources_build_phase.files_references.include?(ref)
+              t.add_resources([ref]); puts 'Added GoogleService-Info.plist to Resources';
+            else
+              puts 'GoogleService-Info.plist already in Resources';
+            end
+            proj.save"
+
+      # 7) Entitlements (Debug=development, Release=production)
+      - name: Create entitlements files
         run: |
           set -e
-          B=$(/usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" ios/App/App/GoogleService-Info.plist)
-          echo "Firebase BUNDLE_ID=$B"
-          test "$B" = "$APP_BUNDLE_ID" || { echo "❌ GoogleService-Info.plist BUNDLE_ID != $APP_BUNDLE_ID"; exit 1; }
+          mkdir -p ios/App/App
+          cat > ios/App/App/AppDebug.entitlements <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>aps-environment</key><string>development</string>
+          </dict></plist>
+          EOF
+          cat > ios/App/App/AppRelease.entitlements <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>aps-environment</key><string>production</string>
+          </dict></plist>
+          EOF
 
-      # 7) CocoaPods
+      - name: Inject entitlements & capabilities
+        working-directory: ios/App
+        run: |
+          ruby -e "require 'xcodeproj';
+          p='App.xcodeproj'; proj=Xcodeproj::Project.open(p);
+          t=proj.targets.find{|t| t.name=='App'} or abort('No target App');
+          t.build_configurations.each do |cfg|
+            cfg.build_settings['CODE_SIGN_ENTITLEMENTS'] =
+              (cfg.name == 'Debug') ? 'App/AppDebug.entitlements' : 'App/AppRelease.entitlements'
+          end
+          attrs = proj.root_object.attributes['TargetAttributes'] ||= {}
+          attrs[t.uuid] ||= {}
+          caps = attrs[t.uuid]['SystemCapabilities'] ||= {}
+          caps['com.apple.Push'] = {'enabled'=>1}
+          caps['com.apple.BackgroundModes'] = {'enabled'=>1}
+          proj.save"
+
+      # 8) CocoaPods με bundler
       - name: CocoaPods install
         working-directory: ios/App
         run: |
-          set -e
           bundle exec pod repo update
           bundle exec pod install --repo-update
 
-      # 8) (προαιρετικό) Build settings
+      # 9) (προαιρετικό) Δείξε schemes / βασικά build settings
       - name: Show schemes & build settings
         run: |
           xcodebuild -list -workspace ios/App/App.xcworkspace
           xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'INFOPLIST_FILE|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER' || true
 
-      # 9) Matchfile: βεβαιώσου ότι έχει app_identifier
+      # 10) Fix Matchfile: βάλε app_identifier (αποφυγή "No value found")
       - name: Ensure Matchfile has app_identifier
         working-directory: ios/App/fastlane
         env:
           APP_BUNDLE_ID: ${{ env.APP_BUNDLE_ID }}
         run: |
           set -e
-          test -n "$APP_BUNDLE_ID" || { echo "❌ APP_BUNDLE_ID missing"; exit 1; }
-          touch Matchfile
+          test -n "$APP_BUNDLE_ID" || { echo "❌ APP_BUNDLE_ID env missing"; exit 1; }
           if grep -qE '^\s*app_identifier' Matchfile; then
             sed -i.bak -E "s#^\s*app_identifier.*#app_identifier([\"$APP_BUNDLE_ID\"])#g" Matchfile
           else
@@ -133,84 +177,18 @@ jobs:
           fi
           echo "== Matchfile ==" && cat Matchfile
 
-      # 10) SSH για match repo
-      - name: Start ssh-agent (match repo)
+      # 11) SSH για match repo (certs/profiles)
+      - name: Start ssh-agent (for match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
 
-      - name: Known hosts & git identity
+      - name: Add github.com to known_hosts
         run: |
-          set -e
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts
-          git config --global user.email "ci@github.actions"
-          git config --global user.name "GitHub Actions"
-          git ls-remote "${{ secrets.MATCH_GIT_URL }}" -h
 
-      # 11) Normalize ASC .p8 (raw ή base64) -> AuthKey.p8 (ΧΩΡΙΣ heredocs)
-      - name: Normalize App Store Connect API key (no heredocs)
-        working-directory: ios/App
-        env:
-          ASC_INPUT: ${{ secrets.APP_STORE_CONNECT_API_KEY_PEM }}
-        run: |
-          set -euo pipefail
-          printf "%s" "$ASC_INPUT" | tr -d '\r' > key_input.txt
-          if grep -q "BEGIN PRIVATE KEY" key_input.txt; then
-            cp key_input.txt AuthKey.p8
-          else
-            base64 --decode key_input.txt > AuthKey.p8 2>/dev/null || \
-            base64 -d      key_input.txt > AuthKey.p8 2>/dev/null || \
-            base64 -D      key_input.txt > AuthKey.p8 2>/dev/null || \
-            /usr/bin/python3 -c 'import base64,sys; open("AuthKey.p8","wb").write(base64.b64decode(open("key_input.txt","rb").read()))' || \
-            { echo "❌ Failed to parse APP_STORE_CONNECT_API_KEY_PEM (not PEM or base64)"; exit 1; }
-          fi
-          /usr/bin/openssl pkey -in AuthKey.p8 -noout -text | head -n 8 || true
-
-      # 12) asc_api_key.json για smoke test (ΧΩΡΙΣ heredocs)
-      - name: Create App Store Connect API JSON
-        working-directory: ios/App
-        env:
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-        run: |
-          set -euo pipefail
-          /usr/bin/python3 -c 'import json,os; pem=open("AuthKey.p8","r",encoding="utf-8",errors="ignore").read(); kid=os.getenv("ASC_KEY_ID"); iss=os.getenv("ASC_ISSUER_ID"); json.dump({"key_id":kid,"issuer_id":iss,"key":pem,"in_house":False}, open("asc_api_key.json","w"))'
-          echo "APP_STORE_CONNECT_API_KEY_PATH=$PWD/asc_api_key.json" >> "$GITHUB_ENV"
-
-      # 13) Smoke test ASC JWT (fail νωρίς αν είναι λάθος)
-      - name: Smoke test App Store Connect JWT
-        working-directory: ios/App
-        run: |
-          set -euo pipefail
-          JWT=$(bundle exec ruby -e "require 'spaceship/connect_api'; t=Spaceship::ConnectAPI::Token.from_json_file('asc_api_key.json'); puts t.text")
-          echo "JWT length: ${#JWT}"
-          code=$(curl -sS -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $JWT" "https://api.appstoreconnect.apple.com/v1/apps?limit=1")
-          echo "ASC /v1/apps -> HTTP $code"
-          [ "$code" = "200" ] || { echo "❌ ASC JWT invalid ($code)"; exit 1; }
-
-      # 14) Info.plist: usage strings (ATT/Camera/Photos) για αποφυγή crash στο launch
-      - name: Ensure Info.plist has usage strings
-        run: |
-          set -e
-          P=ios/App/App/Info.plist
-          /usr/libexec/PlistBuddy -c 'Print :NSUserTrackingUsageDescription' "$P" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Add :NSUserTrackingUsageDescription string This identifier will be used to deliver a better app experience.' "$P"
-          /usr/libexec/PlistBuddy -c 'Print :NSCameraUsageDescription' "$P" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Add :NSCameraUsageDescription string We use the camera to let you take photos.' "$P"
-          /usr/libexec/PlistBuddy -c 'Print :NSPhotoLibraryUsageDescription' "$P" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Add :NSPhotoLibraryUsageDescription string We need photo library access to select images.' "$P"
-          /usr/libexec/PlistBuddy -c 'Print :NSPhotoLibraryAddUsageDescription' "$P" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Add :NSPhotoLibraryAddUsageDescription string We save images to your library when requested.' "$P"
-          /usr/bin/plutil -lint "$P"
-
-      # 15) Patch Fastfile να χρησιμοποιεί key_filepath (όχι key_content)
-      - name: Patch Fastfile for key_filepath
-        working-directory: ios/App/fastlane
-        run: |
-          set -euo pipefail
-          test -f Fastfile || { echo "❌ Fastfile not found"; exit 1; }
-          cp Fastfile Fastfile.bak
-          sed -E -i '' "s/key_content:\s*ENV\[[^]]+\]/key_filepath: ENV['APP_STORE_CONNECT_API_KEYFILE_PATH'] || 'AuthKey.p8'/g" Fastfile
-          echo "✅ Patched Fastfile to use key_filepath"
-
-      # 16) Fastlane release (build + sign + upload TestFlight)
+      # 12) Fastlane release (TestFlight)
       - name: Fastlane release (TestFlight)
         working-directory: ios/App
         env:
@@ -219,17 +197,39 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_GIT_BRANCH: main
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-          APP_STORE_CONNECT_API_KEYFILE_PATH: ${{ github.workspace }}/ios/App/AuthKey.p8
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }} # base64 .p8
+        run: bundle exec fastlane release
+
+      # 13) Επιβεβαίωση ότι το IPA έχει GoogleService-Info.plist και aps-environment
+      - name: Verify Firebase plist & aps in IPA
         run: |
           set -e
-          bundle exec fastlane release
+          IPA=$(ls -t ios/App/build/*.ipa 2>/dev/null | head -n1)
+          if [ -z "$IPA" ]; then echo "❌ No IPA found in ios/App/build"; exit 1; fi
+          echo "Inspecting $IPA"
+          TMP=$(mktemp -d); unzip -q "$IPA" -d "$TMP"
+          APP_PATH=$(find "$TMP/Payload" -name "*.app" -maxdepth 1 | head -n1)
 
-      # 17) Artifacts / logs
-      - name: Upload build artifacts & logs
+          echo "== Check GoogleService-Info.plist in app bundle =="
+          if [ ! -f "$APP_PATH/GoogleService-Info.plist" ]; then
+            echo "❌ GoogleService-Info.plist is missing from .app"; exit 1
+          fi
+          /usr/bin/plutil -lint "$APP_PATH/GoogleService-Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" "$APP_PATH/GoogleService-Info.plist" || true
+
+          echo "== Check aps-environment (entitlements & provisioning) =="
+          /usr/bin/codesign -d --entitlements :- "$APP_PATH" > entitlements.plist
+          /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist
+          /usr/bin/security cms -D -i "$APP_PATH/embedded.mobileprovision" > profile.plist
+          /usr/libexec/PlistBuddy -c "Print :Entitlements:aps-environment" profile.plist
+
+      # 14) Artifacts / logs
+      - name: Upload IPA & logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
