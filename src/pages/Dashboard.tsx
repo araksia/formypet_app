@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/AuthProvider';
 import { useGamification } from '@/hooks/useGamification';
 import { useDashboardData } from '@/hooks/useDashboardData';
-import { StatsCardSkeleton } from '@/components/ui/skeleton';
+import { StatsCardSkeleton } from '@/components/ui/skeletons';
 
 // Dashboard components
 import {

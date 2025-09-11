@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, Trophy } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
+import { AchievementBadgeSkeleton } from '@/components/ui/skeletons';
 import { AchievementBadge } from '@/components/gamification/AchievementBadge';
 
 interface Achievement {
@@ -62,15 +62,9 @@ export const AchievementsSection = React.memo<AchievementsSectionProps>(({
         </div>
         
         {loading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex items-center space-x-3">
-                <Skeleton className="h-12 w-12 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-1/2" />
-                </div>
-              </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[...Array(4)].map((_, i) => (
+              <AchievementBadgeSkeleton key={i} />
             ))}
           </div>
         ) : (

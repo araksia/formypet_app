@@ -26,7 +26,7 @@ import { PieChart as RechartsePieChart, Pie, Cell, ResponsiveContainer, BarChart
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { supabase } from '@/integrations/supabase/client';
-import { ExpenseItemSkeleton, StatsCardSkeleton } from '@/components/ui/skeleton';
+import { ExpenseItemSkeleton, StatsCardSkeleton, ExpenseChartSkeleton } from '@/components/ui/skeletons';
 import { useToast } from "@/hooks/use-toast";
 
 // Type definitions
@@ -243,6 +243,7 @@ const ExpensesPage = () => {
               <StatsCardSkeleton key={i} />
             ))}
           </div>
+          <ExpenseChartSkeleton />
           <div className="space-y-2 sm:space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
               <ExpenseItemSkeleton key={i} />

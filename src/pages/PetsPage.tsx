@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { differenceInYears } from 'date-fns';
-import { PetCardSkeleton } from '@/components/ui/skeleton';
+import { PetCardSkeleton, PetsPageSkeleton } from '@/components/ui/skeletons';
 
 const PetsPage = () => {
   const navigate = useNavigate();
