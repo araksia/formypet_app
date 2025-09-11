@@ -66,7 +66,7 @@ jobs:
       - name: Build web assets (create ./dist)
         run: npm run build
 
-      # 4) Ruby & Bundler (πριν το cap sync για να δουλέψει bundler/pods σωστά)
+      # 4) Ruby & Bundler (πριν το cap sync για να παίζουν τα cocoapods)
       - name: Set up Ruby 3.3
         uses: ruby/setup-ruby@v1
         with:
@@ -79,90 +79,86 @@ jobs:
           bundle config set path vendor/bundle
           bundle install --jobs 4 --retry 3
 
-      # 5) Capacitor sync ΧΩΡΙΣ pods (pods θα τρέξουν μέσω bundler)
+      # 5) Capacitor sync ΧΩΡΙΣ pods (θα τα τρέξουμε μετά)
       - name: Sync Capacitor iOS (skip pods)
         env:
           CAPACITOR_SKIP_POD_INSTALL: '1'
         run: npx cap sync ios
 
       # 6) Firebase plist από secrets
-      - name: Write GoogleService-Info.plist (from secret)
-        env:
-          FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
+      - name: Write GoogleService-Info.plist
         run: |
           set -e
           mkdir -p ios/App/App
           echo "$FIREBASE_IOS_PLIST_BASE64" | base64 --decode > ios/App/App/GoogleService-Info.plist
           /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist
-          /usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" ios/App/App/GoogleService-Info.plist
+        env:
+          FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
 
-      - name: Add GoogleService-Info.plist to target Resources
+      # 7) Βάλε το GoogleService-Info.plist στο target "App" (Resources)
+      - name: Ensure GoogleService-Info.plist in Xcode target
         working-directory: ios/App
         run: |
           gem install xcodeproj -N
-          ruby -e "require 'xcodeproj';
-            p='App.xcodeproj'; proj=Xcodeproj::Project.open(p);
-            t=proj.targets.find{|t| t.name=='App'} or abort('No target App');
-            path='App/GoogleService-Info.plist';
-            ref=proj.main_group.find_file_by_path(path) || proj.main_group.new_file(path);
-            unless t.resources_build_phase.files_references.include?(ref)
-              t.add_resources([ref]); puts 'Added GoogleService-Info.plist to Resources';
-            else
-              puts 'GoogleService-Info.plist already in Resources';
-            end
-            proj.save"
+          ruby - <<'RB'
+          require 'xcodeproj'
+          p = Xcodeproj::Project.open('App.xcodeproj')
+          t = p.targets.find{|t| t.name == 'App'} or abort('Target App not found')
+          file_path = 'App/GoogleService-Info.plist'
+          app_group = p.main_group.find_subpath('App', true)
+          ref = p.files.find{|f| f.path == file_path} || app_group.new_file(file_path)
+          rsrc = t.resources_build_phase
+          rsrc.add_file_reference(ref, true) unless rsrc.files_references.include?(ref)
+          p.save
+          RB
 
-      # 7) Entitlements (Debug=development, Release=production)
+      # 8) Δημιούργησε entitlements με PlistBuddy (ασφαλές χωρίς heredocs)
       - name: Create entitlements files
         run: |
           set -e
           mkdir -p ios/App/App
-          cat > ios/App/App/AppDebug.entitlements <<'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-            <key>aps-environment</key><string>development</string>
-          </dict></plist>
-          EOF
-          cat > ios/App/App/AppRelease.entitlements <<'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-            <key>aps-environment</key><string>production</string>
-          </dict></plist>
-          EOF
+          for f in AppDebug.entitlements AppRelease.entitlements; do
+            /usr/libexec/PlistBuddy -c "Clear dict" -x ios/App/App/$f 2>/dev/null || true
+            /usr/bin/plutil -create xml1 ios/App/App/$f
+          done
+          /usr/libexec/PlistBuddy -c "Add :aps-environment string development" ios/App/App/AppDebug.entitlements
+          /usr/libexec/PlistBuddy -c "Add :aps-environment string production"  ios/App/App/AppRelease.entitlements
+          echo "== Debug ==" && /usr/libexec/PlistBuddy -c "Print" ios/App/App/AppDebug.entitlements
+          echo "== Release ==" && /usr/libexec/PlistBuddy -c "Print" ios/App/App/AppRelease.entitlements
 
+      # 9) Σύνδεση entitlements & ενεργοποίηση Push/Background μέσω xcodeproj
       - name: Inject entitlements & capabilities
         working-directory: ios/App
         run: |
+          gem install xcodeproj -N
           ruby -e "require 'xcodeproj';
           p='App.xcodeproj'; proj=Xcodeproj::Project.open(p);
           t=proj.targets.find{|t| t.name=='App'} or abort('No target App');
           t.build_configurations.each do |cfg|
             cfg.build_settings['CODE_SIGN_ENTITLEMENTS'] =
-              (cfg.name == 'Debug') ? 'App/AppDebug.entitlements' : 'App/AppRelease.entitlements'
-          end
-          attrs = proj.root_object.attributes['TargetAttributes'] ||= {}
-          attrs[t.uuid] ||= {}
-          caps = attrs[t.uuid]['SystemCapabilities'] ||= {}
-          caps['com.apple.Push'] = {'enabled'=>1}
-          caps['com.apple.BackgroundModes'] = {'enabled'=>1}
+              (cfg.name=='Debug') ? 'App/AppDebug.entitlements' : 'App/AppRelease.entitlements'
+          end;
+          attrs = proj.root_object.attributes['TargetAttributes'] ||= {};
+          attrs[t.uuid] ||= {};
+          caps = attrs[t.uuid]['SystemCapabilities'] ||= {};
+          caps['com.apple.Push'] = {'enabled'=>1};
+          caps['com.apple.BackgroundModes'] = {'enabled'=>1};
           proj.save"
 
-      # 8) CocoaPods με bundler
+      # 10) CocoaPods με bundler
       - name: CocoaPods install
         working-directory: ios/App
         run: |
           bundle exec pod repo update
           bundle exec pod install --repo-update
 
-      # 9) (προαιρετικό) Δείξε schemes / βασικά build settings
+      # 11) Δείξε schemes / βασικά build settings
       - name: Show schemes & build settings
         run: |
           xcodebuild -list -workspace ios/App/App.xcworkspace
           xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'INFOPLIST_FILE|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER' || true
 
-      # 10) Fix Matchfile: βάλε app_identifier (αποφυγή "No value found")
+      # 12) Fix Matchfile: βάλε app_identifier για να αποφύγεις "No value found"
       - name: Ensure Matchfile has app_identifier
         working-directory: ios/App/fastlane
         env:
@@ -177,7 +173,7 @@ jobs:
           fi
           echo "== Matchfile ==" && cat Matchfile
 
-      # 11) SSH για match repo (certs/profiles)
+      # 13) SSH για match repo (certs/profiles)
       - name: Start ssh-agent (for match repo)
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -188,7 +184,28 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts
 
-      # 12) Fastlane release (TestFlight)
+      # 14) Προ-χτίσιμο χωρίς signing για να δούμε καθαρά compile errors (αν υπάρχουν)
+      - name: Preflight build (no signing)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            build | tee preflight-build.log
+
+      - name: Upload preflight log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preflight-build-log
+          path: preflight-build.log
+
+      # 15) Build & Upload με fastlane (TestFlight)
       - name: Fastlane release (TestFlight)
         working-directory: ios/App
         env:
@@ -202,33 +219,24 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          # Το .p8 σε BASE64 (χωρίς αλλαγές γραμμής)
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
         run: bundle exec fastlane release
 
-      # 13) Επιβεβαίωση ότι το IPA έχει GoogleService-Info.plist και aps-environment
-      - name: Verify Firebase plist & aps in IPA
+      # 16) Dump των xcodebuild/gym logs αν κάτι πάει στραβά
+      - name: Dump gym/xcodebuild log
+        if: failure()
         run: |
           set -e
-          IPA=$(ls -t ios/App/build/*.ipa 2>/dev/null | head -n1)
-          if [ -z "$IPA" ]; then echo "❌ No IPA found in ios/App/build"; exit 1; fi
-          echo "Inspecting $IPA"
-          TMP=$(mktemp -d); unzip -q "$IPA" -d "$TMP"
-          APP_PATH=$(find "$TMP/Payload" -name "*.app" -maxdepth 1 | head -n1)
-
-          echo "== Check GoogleService-Info.plist in app bundle =="
-          if [ ! -f "$APP_PATH/GoogleService-Info.plist" ]; then
-            echo "❌ GoogleService-Info.plist is missing from .app"; exit 1
+          LOG=$(ls -t ~/Library/Logs/gym/*.log 2>/dev/null | head -n1 || true)
+          if [ -n "$LOG" ]; then
+            echo "== Tail of $LOG =="
+            tail -n 400 "$LOG" || true
+          else
+            echo "No gym log found."
           fi
-          /usr/bin/plutil -lint "$APP_PATH/GoogleService-Info.plist"
-          /usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" "$APP_PATH/GoogleService-Info.plist" || true
 
-          echo "== Check aps-environment (entitlements & provisioning) =="
-          /usr/bin/codesign -d --entitlements :- "$APP_PATH" > entitlements.plist
-          /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist
-          /usr/bin/security cms -D -i "$APP_PATH/embedded.mobileprovision" > profile.plist
-          /usr/libexec/PlistBuddy -c "Print :Entitlements:aps-environment" profile.plist
-
-      # 14) Artifacts / logs
+      # 17) Artifacts / logs πάντα
       - name: Upload IPA & logs
         if: always()
         uses: actions/upload-artifact@v4
