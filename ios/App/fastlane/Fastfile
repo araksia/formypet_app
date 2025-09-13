@@ -27,26 +27,25 @@ lane :release do
     keychain_password: ENV['KEYCHAIN_PASSWORD']
   )
 
-  gym(
-  scheme: "App",
-  workspace: "App.xcworkspace",
-  configuration: "Release",
-  export_method: "app-store",
-  clean: true,
-  # <-- ΡΗΤΑ output path & όνομα ipa
-  output_directory: "ios/App/build",
-  output_name: "App_#{ENV['BUILD_NUMBER']}.ipa",
-  skip_package_ipa: false,            # σιγουρέψου ότι δεν το πηδάει
-  include_bitcode: false,
-  export_options: {
-    method: "app-store",
-    signingStyle: "manual",
-    compileBitcode: false,
-    provisioningProfiles: {
-      ENV['APP_BUNDLE_ID'] => "match AppStore #{ENV['APP_BUNDLE_ID']}"
-    }
-  }
-)
+	gym(
+	  scheme: "App",
+	  workspace: "App.xcworkspace",
+	  configuration: "Release",
+	  export_method: "app-store",
+	  clean: true,
+	  output_directory: "ios/App/build",
+	  output_name: "App_#{ENV['BUILD_NUMBER']}.ipa",
+	  skip_package_ipa: false,
+	  include_bitcode: false,
+	  export_options: {
+		method: "app-store",
+		signingStyle: "manual",
+		compileBitcode: false,
+		provisioningProfiles: {
+		  ENV['APP_BUNDLE_ID'] => "match AppStore #{ENV['APP_BUNDLE_ID']}"
+		}
+	  }
+	)
 
   # Πάρε το path του IPA από το gym και κράτα το σίγουρα στο ios/App/build
   ipa_path = Actions.lane_context[SharedValues::IPA_OUTPUT_PATH]

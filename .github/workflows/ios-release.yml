@@ -1,221 +1,86 @@
-name: Build and Release iOS
+name: iOS CI
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
   push:
-    tags:
-      - ios-v*
+    branches: [ main ]
+
+env:
+  APP_BUNDLE_ID: gr.formypet.app
+  BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
-  ios:
+  ios-build:
     runs-on: macos-14
-    defaults:
-      run:
-        shell: bash
-    env:
-      LANG: en_US.UTF-8
-      LC_ALL: en_US.UTF-8
-      APP_BUNDLE_ID: gr.formypet.app
-      BUILD_NUMBER: ${{ github.run_number }}
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     steps:
-      # 1) Repo
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      # 2) Xcode 16
-      - name: Select Xcode 16
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: '16.*'
+      - name: Set Xcode 16.2
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
 
-      - name: Show selected Xcode / SDK
-        run: |
-          xcodebuild -version
-          xcrun --sdk iphoneos --show-sdk-version
-
-      # 3) Node – build web assets
-      - name: Set up Node 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Configure npm auth (optional)
-        run: |
-          if [ -n "${NPM_TOKEN:-}" ]; then
-            npm config set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
-          fi
-          npm config set audit false
-          npm config set fund false
-
-      - name: Install JS dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          elif [ -f yarn.lock ]; then
-            corepack enable
-            yarn install --frozen-lockfile
-          else
-            npm install
-          fi
-
-      - name: Build web assets (create ./dist)
-        run: npm run build
-
-      # 4) Ruby & Bundler
-      - name: Set up Ruby 3.3
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.3'
-          bundler-cache: false
-
-      - name: Install gems for iOS (cocoapods/fastlane)
+      - name: Ruby & Bundler
         working-directory: ios/App
         run: |
-          bundle config set path vendor/bundle
-          bundle install --jobs 4 --retry 3
+          gem install bundler -N
+          bundle config set path 'vendor/bundle'
+          bundle install --jobs 4
 
-      # 5) Capacitor sync (skip pods here)
-      - name: Sync Capacitor iOS (skip pods)
-        env:
-          CAPACITOR_SKIP_POD_INSTALL: '1'
-        run: npx cap sync ios
-
-      # 6) Firebase plist (BASE64 -> file)
-      - name: Write GoogleService-Info.plist
-        env:
-          FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
-        run: |
-          set -euo pipefail
-          mkdir -p ios/App/App
-          echo "$FIREBASE_IOS_PLIST_BASE64" | base64 --decode > ios/App/App/GoogleService-Info.plist
-          /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist
-
-      # 7) Ensure plist is in Copy Bundle Resources of target "App"
-      - name: Add GoogleService-Info.plist to Xcode target (Copy Bundle Resources)
-        working-directory: ios/App
-        run: |
-          set -euo pipefail
-          gem install xcodeproj -N
-          ruby - <<'RB'
-            require 'xcodeproj'
-            proj = Xcodeproj::Project.open('App.xcodeproj')
-            target = proj.targets.find { |t| t.name == 'App' } or abort 'No target App'
-
-            # remove wrong/duplicate refs
-            proj.files
-              .select { |f| f.path && File.basename(f.path) == 'GoogleService-Info.plist' }
-              .each   { |f| f.remove_from_project }
-
-            group = proj.main_group['App'] || proj.main_group.find_subpath('App', true)
-            file_ref = group.new_file('App/GoogleService-Info.plist')
-            target.resources_build_phase.add_file_reference(file_ref, true)
-            proj.save
-          RB
-
-      # 8) Entitlements (Debug=development, Release=production)
-      - name: Create entitlements files
-        run: |
-          mkdir -p ios/App/App
-          cat > ios/App/App/AppDebug.entitlements <<'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-            <key>aps-environment</key><string>development</string>
-          </dict></plist>
-          EOF
-          cat > ios/App/App/AppRelease.entitlements <<'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-            <key>aps-environment</key><string>production</string>
-          </dict></plist>
-          EOF
-
-      # 9) Inject entitlements & enable Push capability
-      - name: Inject entitlements & capabilities
-        working-directory: ios/App
-        run: |
-          gem install xcodeproj -N
-          ruby -e "require 'xcodeproj';
-          p='App.xcodeproj'; proj=Xcodeproj::Project.open(p);
-          t=proj.targets.find{|t| t.name=='App'} or abort('No target App');
-          t.build_configurations.each do |cfg|
-            cfg.build_settings['CODE_SIGN_ENTITLEMENTS'] =
-              (cfg.name == 'Debug') ? 'App/AppDebug.entitlements' : 'App/AppRelease.entitlements'
-          end
-          attrs = proj.root_object.attributes['TargetAttributes'] ||= {}
-          attrs[t.uuid] ||= {}
-          caps = attrs[t.uuid]['SystemCapabilities'] ||= {}
-          caps['com.apple.Push'] = {'enabled'=>1}
-          caps['com.apple.BackgroundModes'] = {'enabled'=>1}
-          proj.save"
-
-      # 10) CocoaPods with bundler
       - name: CocoaPods install
         working-directory: ios/App
         run: |
-          bundle exec pod repo update
-          bundle exec pod install --repo-update
+          pod repo update
+          pod install --repo-update
 
-      # 11) Show schemes & build settings (debug aid)
-      - name: Show schemes & build settings
-        run: |
-          xcodebuild -list -workspace ios/App/App.xcworkspace
-          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'INFOPLIST_FILE|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER' || true
-
-      # 12) Ensure Matchfile has app_identifier
-      - name: Ensure Matchfile has app_identifier
-        working-directory: ios/App/fastlane
-        env:
-          APP_BUNDLE_ID: ${{ env.APP_BUNDLE_ID }}
-        run: |
-          test -n "$APP_BUNDLE_ID" || { echo "❌ APP_BUNDLE_ID env missing"; exit 1; }
-          if grep -qE '^\s*app_identifier' Matchfile; then
-            sed -i.bak -E "s#^\s*app_identifier.*#app_identifier([\"$APP_BUNDLE_ID\"])#g" Matchfile
-          else
-            printf '\napp_identifier(["%s"])\n' "$APP_BUNDLE_ID" >> Matchfile
-          fi
-          echo "== Matchfile ==" && cat Matchfile
-
-      # 13) SSH for match repo (certs/profiles)
-      - name: Start ssh-agent (for match repo)
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
-
-      - name: Add github.com to known_hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-      # 14) Build & Upload via fastlane (TestFlight)
       - name: Fastlane release (TestFlight)
-        working-directory: ios/App
+        working-directory: ios/App     # <<-- ΠΟΛΥ ΣΗΜΑΝΤΙΚΟ
         env:
           APP_BUNDLE_ID: ${{ env.APP_BUNDLE_ID }}
           BUILD_NUMBER: ${{ env.BUILD_NUMBER }}
-
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_GIT_BRANCH: main
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-
-          # App Store Connect API (RAW .p8, ΟΧΙ base64)
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          # raw .p8 περιεχόμενο (ΟΧΙ base64), με \n όπως στο αρχείο:
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
         run: bundle exec fastlane release
 
-      # 15) Post-build sanity checks (IPA contents & push entitlements)
-      - name: Verify IPA (GoogleService-Info & aps-environment)
+      - name: List outputs
         if: always()
+        run: |
+          echo "== ios/App/build =="
+          ls -lah ios/App/build || true
+          echo "== .ipa found =="
+          find . -maxdepth 3 -name "*.ipa" -print || true
+
+      - name: Dump latest gym/xcodebuild log on failure
+        if: failure()
+        run: |
+          LOG=$(ls -t ~/Library/Logs/gym/*.log 2>/dev/null | head -n1 || true)
+          if [[ -n "$LOG" ]]; then
+            echo "== Showing last 300 lines of $LOG =="
+            tail -n 300 "$LOG"
+          else
+            echo "No gym log found in ~/Library/Logs/gym"
+          fi
+
+      - name: Upload logs (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcode-gym-logs
+          path: |
+            ~/Library/Logs/gym/*.log
+            ~/Library/Developer/Xcode/DerivedData/**/Logs/**/*.log
+          if-no-files-found: ignore
+
+      - name: Verify IPA & entitlements
+        if: success()
         run: |
           set -euo pipefail
           candidates=(ios/App/build/*.ipa ios/App/*.ipa *.ipa)
@@ -249,14 +114,3 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist
           /usr/bin/security cms -D -i "$APP_PATH/embedded.mobileprovision" > profile.plist
           /usr/libexec/PlistBuddy -c "Print :Entitlements:aps-environment" profile.plist
-
-      # 16) Artifacts
-      - name: Upload IPA & logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-build
-          path: |
-            ios/App/build/*.ipa
-            ~/Library/Logs/gym/*
-            ~/Library/Developer/Xcode/DerivedData/**/Logs/**
