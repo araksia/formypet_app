@@ -205,6 +205,71 @@ jobs:
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
         run: bundle exec fastlane release
 
+
+      # 14) Post-build έλεγχοι IPA (GoogleService-Info & aps-environment)
+      - name: Post-build IPA checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          # 1) Βρες IPA με ασφάλεια
+          candidates=(ios/App/build/*.ipa)
+          if [[ ${#candidates[@]} -eq 0 ]]; then
+          # fallback: δοκίμασε και άλλα πιθανά locations αν χρειάζεται
+            candidates=(ios/App/*.ipa *.ipa)
+          fi
+          if [[ ${#candidates[@]} -eq 0 ]]; then
+            echo "❌ No IPA found (tried ios/App/build, ios/App, repo root)"
+            ls -al ios/App/build || true
+            exit 1
+          fi
+          IPA="${candidates[0]}"
+          echo "📦 Inspecting: $IPA"
+
+          # 2) Extract IPA
+          TMP="$(mktemp -d)"
+          unzip -q "$IPA" -d "$TMP"
+
+          # 3) Βρες .app (χωρίς -maxdepth σε BSD find)
+          APP_PATH="$(find "$TMP/Payload" -type d -name '*.app' -print -quit)"
+          if [[ -z "$APP_PATH" ]]; then
+            echo "❌ .app not found under Payload"
+            find "$TMP" -maxdepth 3 -type d -name '*.app' 2>/dev/null || true
+            exit 1
+          fi
+          echo "🧩 App bundle: $APP_PATH"
+
+          # 4) GoogleService-Info.plist
+          echo "== Check GoogleService-Info.plist =="
+          if [[ ! -f "$APP_PATH/GoogleService-Info.plist" ]]; then
+            echo "❌ GoogleService-Info.plist is missing from .app"
+            find "$APP_PATH" -name 'GoogleService-Info.plist' | sed 's/^/ - /' || true
+            exit 1
+          fi
+          /usr/bin/plutil -lint "$APP_PATH/GoogleService-Info.plist" \
+            || { echo "❌ Invalid GoogleService-Info.plist"; exit 1; }
+          # /usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' "$APP_PATH/GoogleService-Info.plist" || true
+
+          # 5) Entitlements
+          echo "== Check aps-environment (entitlements & provisioning) =="
+          /usr/bin/codesign -d --entitlements :- "$APP_PATH" > entitlements.plist 2>/dev/null \
+            || { echo "❌ Could not extract entitlements"; exit 1; }
+          /usr/libexec/PlistBuddy -c 'Print :aps-environment' entitlements.plist \
+            || { echo "❌ aps-environment missing in entitlements"; exit 1; }
+
+          # 6) Provisioning profile
+          if [[ -f "$APP_PATH/embedded.mobileprovision" ]]; then
+            /usr/bin/security cms -D -i "$APP_PATH/embedded.mobileprovision" > profile.plist
+            /usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' profile.plist || true
+            /usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' profile.plist || true
+          else
+            echo "❌ embedded.mobileprovision missing"
+            exit 1
+          fi
+
+          echo "✅ IPA checks passed"
+    
       # 13) Επιβεβαίωση ότι το IPA έχει GoogleService-Info.plist και aps-environment
       - name: Verify Firebase plist & aps in IPA
         run: |
