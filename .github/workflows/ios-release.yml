@@ -28,11 +28,15 @@ jobs:
           cache: 'npm'
 
       - name: Configure npm auth (optional for private registry)
-        if: ${{ secrets.NPM_TOKEN != '' }}
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+            echo "✅ npm auth configured"
+          else
+            echo "ℹ️ No NPM_TOKEN provided, skipping npm auth"
+          fi
 
       - name: Install JS deps
         run: npm ci --no-audit --no-fund
