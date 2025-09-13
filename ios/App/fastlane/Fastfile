@@ -56,6 +56,9 @@ platform :ios do
       configuration: "Release",
       clean: true,
       export_method: "app-store",
+	  output_directory: "build",                  # <– φτιάχνει ios/App/build
+	  output_name: "App_#{ENV['BUILD_NUMBER']}.ipa",
+	  destination: "generic/platform=iOS",
       # Εξαναγκάζουμε το codesign να χρησιμοποιήσει το νέο keychain
       xcargs: 'OTHER_CODE_SIGN_FLAGS="--keychain build.keychain"',
       export_options: {
