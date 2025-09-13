@@ -283,21 +283,21 @@ const PetsPage = () => {
                 <CardContent className="p-0">
                   <div className="flex flex-col sm:flex-row h-full">
                     {/* Pet Image */}
-                    <div className="relative flex-shrink-0">
+                    <div className="relative flex-shrink-0 cursor-pointer" onClick={() => navigate(`/pet/${pet.id}`)}>
                       {pet.avatar_url ? (
                         <img 
                           src={pet.avatar_url} 
                           alt={pet.name}
-                          className="w-full h-32 sm:w-24 sm:h-full object-cover"
+                          className="w-full h-32 sm:w-24 sm:h-full object-cover hover:opacity-90 transition-opacity"
                         />
                       ) : (
-                        <div className="w-full h-32 sm:w-24 sm:h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                        <div className="w-full h-32 sm:w-24 sm:h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center hover:bg-primary/30 transition-colors">
                           <span className="text-3xl sm:text-2xl">{getSpeciesEmoji(pet.species)}</span>
                         </div>
                       )}
                       <Badge 
                         variant="secondary" 
-                        className="absolute top-2 left-2 text-xs bg-white/90 backdrop-blur-sm"
+                        className="absolute top-2 left-2 text-xs bg-white/90 backdrop-blur-sm pointer-events-none"
                       >
                         {getSpeciesEmoji(pet.species)} {pet.species === 'dog' ? 'Σκύλος' : pet.species === 'cat' ? 'Γάτα' : 'Κατοικίδιο'}
                       </Badge>
@@ -307,7 +307,7 @@ const PetsPage = () => {
                     <div className="flex-1 p-3 sm:p-4">
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
                         <div className="flex-1">
-                          <h3 className="font-bold text-lg sm:text-xl text-gray-900">{pet.name}</h3>
+                          <h3 className="font-bold text-lg sm:text-xl text-gray-900 cursor-pointer hover:text-primary transition-colors" onClick={() => navigate(`/pet/${pet.id}`)}>{pet.name}</h3>
                           {pet.breed && (
                             <p className="text-sm text-muted-foreground font-medium">{pet.breed}</p>
                           )}
