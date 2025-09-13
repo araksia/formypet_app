@@ -20,10 +20,10 @@ export const StreakDisplay: React.FC<StreakProps> = ({
 }) => {
   const getStreakInfo = (type: string) => {
     const types = {
-      feeding: { label: 'Φαγητό', emoji: '🍽️', color: 'text-orange-500' },
-      exercise: { label: 'Άσκηση', emoji: '🏃', color: 'text-blue-500' },
-      medical: { label: 'Υγεία', emoji: '🏥', color: 'text-red-500' },
-      general_care: { label: 'Φροντίδα', emoji: '❤️', color: 'text-pink-500' }
+      feeding: { label: 'Φαγητό', emoji: '🍽️', color: 'bg-orange-100 border-orange-200' },
+      exercise: { label: 'Άσκηση', emoji: '🏃', color: 'bg-blue-100 border-blue-200' },
+      medical: { label: 'Υγεία', emoji: '🏥', color: 'bg-purple-100 border-purple-200' },
+      general_care: { label: 'Φροντίδα', emoji: '❤️', color: 'bg-pink-100 border-pink-200' }
     };
     return types[type as keyof typeof types] || types.general_care;
   };
@@ -32,56 +32,42 @@ export const StreakDisplay: React.FC<StreakProps> = ({
 
   return (
     <div className={cn(
-      'flex items-center justify-between p-4 rounded-lg border',
-      isActive ? 'bg-gradient-to-r from-orange-50 to-red-50 border-orange-200' : 'bg-muted/50 border-muted',
+      'p-4 rounded-xl border-2',
+      streakInfo.color,
       className
     )}>
-      <div className="flex items-center space-x-3">
-        {/* Type Icon and Label */}
-        <div className="flex items-center space-x-2">
-          <span className="text-2xl">{streakInfo.emoji}</span>
+      <div className="flex items-start justify-between">
+        {/* Left side - Icon and Label */}
+        <div className="flex flex-col items-start gap-2">
+          <div className="w-10 h-10 rounded-lg bg-white/60 flex items-center justify-center">
+            <span className="text-xl">{streakInfo.emoji}</span>
+          </div>
           <div>
-            <div className="font-medium text-sm">{streakInfo.label}</div>
-            <div className="text-xs text-muted-foreground">Συνεχόμενες μέρες</div>
+            <h4 className="font-medium text-sm text-foreground">{streakInfo.label}</h4>
+            <p className="text-xs text-muted-foreground">Συνεχόμενες μέρες</p>
           </div>
         </div>
-      </div>
 
-      <div className="flex items-center space-x-4">
-        {/* Current Streak */}
-        <div className="text-center">
-          <div className="flex items-center space-x-1">
-            <Flame className={cn(
-              'h-4 w-4',
-              isActive ? 'text-orange-500' : 'text-gray-400'
-            )} />
-            <span className={cn(
-              'font-bold text-lg',
-              isActive ? 'text-orange-600' : 'text-gray-500'
-            )}>
-              {currentCount}
-            </span>
+        {/* Right side - Stats */}
+        <div className="flex items-start gap-6">
+          {/* Current Streak */}
+          <div className="text-center">
+            <div className="flex items-center gap-1 mb-1">
+              <Flame className="h-4 w-4 text-orange-500" />
+              <span className="text-2xl font-bold text-orange-600">{currentCount}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Τρέχουσα</p>
           </div>
-          <div className="text-xs text-muted-foreground">Τρέχουσα</div>
-        </div>
 
-        {/* Best Streak */}
-        <div className="text-center">
-          <div className="flex items-center space-x-1">
-            <Target className="h-4 w-4 text-yellow-500" />
-            <span className="font-bold text-lg text-yellow-600">
-              {bestCount}
-            </span>
+          {/* Best Streak */}
+          <div className="text-center">
+            <div className="flex items-center gap-1 mb-1">
+              <Target className="h-4 w-4 text-yellow-500" />
+              <span className="text-2xl font-bold text-yellow-600">{bestCount}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Καλύτερη</p>
           </div>
-          <div className="text-xs text-muted-foreground">Καλύτερη</div>
         </div>
-
-        {/* Status Badge */}
-        {isActive && currentCount > 0 && (
-          <Badge variant={currentCount >= 7 ? 'default' : 'secondary'} className="text-xs">
-            {currentCount >= 7 ? '🔥 Στα κάρβουνα!' : '💪 Συνεχίζεις!'}
-          </Badge>
-        )}
       </div>
     </div>
   );
