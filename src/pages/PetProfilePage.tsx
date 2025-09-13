@@ -536,20 +536,20 @@ const PetProfilePage = () => {
                 )}
 
                 {/* Action Buttons */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="flex flex-col gap-2">
                   <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
                     <DialogTrigger asChild>
                       <Button 
-                        variant="outline" 
+                        variant="default" 
                         size="sm"
                         onClick={openEditDialog}
-                        className="flex items-center gap-2"
+                        className="w-full flex items-center justify-center gap-2"
                       >
                         <Edit className="h-4 w-4" />
                         Επεξεργασία
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-md w-[95vw] max-h-[90vh] overflow-y-auto">
+                    <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>Επεξεργασία {pet.name}</DialogTitle>
                       </DialogHeader>
@@ -589,7 +589,7 @@ const PetProfilePage = () => {
                         </div>
 
                          {/* Basic Info */}
-                        <div className="grid grid-cols-1 gap-3">
+                        <div className="space-y-3">
                           <div>
                             <Label htmlFor="edit-name">Όνομα *</Label>
                             <Input 
@@ -618,9 +618,6 @@ const PetProfilePage = () => {
                               </SelectContent>
                             </Select>
                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3">
                           <div>
                             <Label htmlFor="edit-breed">Ράτσα</Label>
                             <Input 
@@ -641,9 +638,6 @@ const PetProfilePage = () => {
                               </SelectContent>
                             </Select>
                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3">
                           <div>
                             <Label htmlFor="edit-birth-date">Ημερομηνία Γέννησης</Label>
                             <Popover>
@@ -672,7 +666,6 @@ const PetProfilePage = () => {
                                     date > new Date() || date < new Date("1900-01-01")
                                   }
                                   initialFocus
-                                  className={cn("p-3 pointer-events-auto")}
                                 />
                               </PopoverContent>
                             </Popover>
@@ -688,15 +681,14 @@ const PetProfilePage = () => {
                               onChange={(e) => handleEditInputChange('weight', e.target.value)}
                             />
                           </div>
-                        </div>
-
-                        <div>
-                          <Label htmlFor="edit-description">Σημειώσεις</Label>
-                          <Textarea 
-                            id="edit-description" 
-                            value={editFormData.description}
-                            onChange={(e) => handleEditInputChange('description', e.target.value)}
-                          />
+                          <div>
+                            <Label htmlFor="edit-description">Σημειώσεις</Label>
+                            <Textarea 
+                              id="edit-description" 
+                              value={editFormData.description}
+                              onChange={(e) => handleEditInputChange('description', e.target.value)}
+                            />
+                          </div>
                         </div>
 
                         <div className="flex flex-col gap-2 pt-4">
@@ -719,33 +711,36 @@ const PetProfilePage = () => {
                       </form>
                     </DialogContent>
                   </Dialog>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => navigate(`/calendar?petId=${pet.id}`)}
-                    className="flex items-center gap-1 text-xs px-2"
-                  >
-                    <Calendar className="h-3 w-3" />
-                    <span className="hidden sm:inline">Ημερολόγιο</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => navigate(`/pet/${pet.id}/medical`)}
-                    className="flex items-center gap-1 text-xs px-2"
-                  >
-                    <Stethoscope className="h-3 w-3" />
-                    <span className="hidden sm:inline">Ιατρικά</span>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => navigate('/expenses')}
-                    className="flex items-center gap-1 text-xs px-2"
-                  >
-                    <Euro className="h-3 w-3" />
-                    <span className="hidden sm:inline">Έξοδα</span>
-                  </Button>
+                  
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigate(`/calendar?petId=${pet.id}`)}
+                      className="flex flex-col items-center gap-1 p-2 h-auto"
+                    >
+                      <Calendar className="h-4 w-4" />
+                      <span className="text-xs">Ημερολόγιο</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigate(`/pet/${pet.id}/medical`)}
+                      className="flex flex-col items-center gap-1 p-2 h-auto"
+                    >
+                      <Stethoscope className="h-4 w-4" />
+                      <span className="text-xs">Ιατρικά</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigate('/expenses')}
+                      className="flex flex-col items-center gap-1 p-2 h-auto"
+                    >
+                      <Euro className="h-4 w-4" />
+                      <span className="text-xs">Έξοδα</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
