@@ -95,13 +95,7 @@ jobs:
           cp ios/App/App/GoogleService-Info.plist ios/App/App/App/GoogleService-Info.plist
           /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist || true
 
-      # 1) Κάνε sync ΧΩΡΙΣ pod install
-      - name: Capacitor sync iOS (skip pod install)
-        run: |
-          export CAPACITOR_SKIP_POD_INSTALL=1
-          npx cap sync ios
-
-      # 2) Μετά εγκατέστησε CocoaPods & τρέξε pod install
+      # Εγκατάσταση CocoaPods ΠΡΙΝ από οποιοδήποτε cap που θα έκανε pod install
       - name: Install CocoaPods (Bundler or gem)
         working-directory: ios/App
         run: |
@@ -117,6 +111,10 @@ jobs:
             pod repo update
             pod install --repo-update
           fi
+
+      # ΜΟΝΟ copy για τα assets/config – ΔΕΝ τρέχει pods
+      - name: Capacitor copy iOS (no pods)
+        run: npx cap copy ios
 
       - name: Fastlane release
         working-directory: ios/App
