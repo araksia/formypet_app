@@ -1,135 +1,144 @@
-name: iOS CI (Capacitor ➜ Fastlane ➜ TestFlight)
+name: iOS Release (Capacitor + Fastlane)
 
 on:
   workflow_dispatch:
+    inputs:
+      build_number:
+        description: "Override BUILD_NUMBER (optional)"
+        required: false
   push:
-    branches: [ main ]
-    # αν θες μόνο σε tags για TestFlight, βάλε:
-    # tags: [ 'ios-*' ]
+    branches:
+      - main
+
+concurrency:
+  group: ios-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   ios-build:
     runs-on: macos-15
 
     env:
-      # --- Xcode version (ταιριάζει με logs σου) ---
-      DEVELOPER_DIR: /Applications/Xcode_16.2.app/Contents/Developer
-
-      # --- App info ---
+      # ---- Required by your Fastlane lane ----
       APP_BUNDLE_ID: gr.formypet.app
-      BUILD_NUMBER: ${{ github.run_number }}
+      BUILD_NUMBER: ${{ inputs.build_number || '237' }}
+      MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+      MATCH_GIT_BRANCH: main
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      # --- Ruby/Bundler βοήθεια για arm64 runner ---
-      BUNDLE_FORCE_RUBY_PLATFORM: "true"
+      # App Store Connect API Key (RAW .p8 περιεχόμενο – ΟΧΙ base64)
+      APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+      APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+      APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+
+      # Optional
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+
+      # Xcode
+      MD_APPLE_SDK_ROOT: /Applications/Xcode_16.2.app
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ---------- Node / build web assets ----------
+      # (Προαιρετικό) SSH agent για ιδιωτικό match repo μέσω SSH
+      # - name: Setup SSH for match
+      #   if: ${{ secrets.MATCH_SSH_PRIVATE_KEY != '' }}
+      #   uses: webfactory/ssh-agent@v0.9.0
+      #   with:
+      #     ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
+
+      - name: Setup Xcode 16.2
+        uses: apple-actions/setup-xcode@v2
+        with:
+          xcode-version: "16.2"
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: false
+
+      - name: Print tool versions
+        run: |
+          node -v
+          npm -v
+          ruby -v
+          gem -v
+          xcodebuild -version
 
       - name: Setup .npmrc (if NPM_TOKEN)
-        if: ${{ secrets.NPM_TOKEN != '' }}
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        if: ${{ env.NPM_TOKEN != '' }}
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
 
       - name: Install JS deps
         run: npm ci
 
-      - name: Build web (dist)
+      - name: Build web assets
         run: npm run build
 
-      - name: Ensure dist exists
-        run: |
-          test -f dist/index.html || { echo "❌ Missing dist/index.html (did build fail?)"; exit 1; }
-
-      # ---------- Inject GoogleService-Info.plist BEFORE sync ----------
       - name: Write GoogleService-Info.plist (from secret)
-        # Βάλε το secret GOOGLE_SERVICE_INFO_PLIST ως raw XML ή base64
-        if: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST != '' }}
+        if: ${{ env.GOOGLE_SERVICE_INFO_PLIST != '' }}
         run: |
           set -euo pipefail
           mkdir -p ios/App/App ios/App/App/App
-          CONTENT="${GOOG_PLIST}"
 
-          # Αν μοιάζει με XML/JSON, γράψτο as-is, αλλιώς δοκίμασε base64 decode
+          CONTENT="${GOOGLE_SERVICE_INFO_PLIST}"
+
+          # Αν είναι raw XML/JSON, γράψ' το αυτούσιο, αλλιώς κάνε base64 decode
           if echo "$CONTENT" | head -n1 | grep -Eqi '^\s*<\?xml|^\s*\{'; then
             printf "%s" "$CONTENT" > ios/App/App/GoogleService-Info.plist
-            printf "%s" "$CONTENT" > ios/App/App/App/GoogleService-Info.plist
           else
             printf "%s" "$CONTENT" | base64 --decode > ios/App/App/GoogleService-Info.plist || \
             printf "%s" "$CONTENT" | base64 -d        > ios/App/App/GoogleService-Info.plist
-            cp ios/App/App/GoogleService-Info.plist ios/App/App/App/GoogleService-Info.plist
           fi
 
-          echo "✅ Wrote GoogleService-Info.plist to:"
-          ls -l ios/App/App/GoogleService-Info.plist ios/App/App/App/GoogleService-Info.plist
-        env:
-          GOOG_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+          # Κάποια Xcode projects το ζητούν από nested App/App/App (ασφάλεια)
+          cp ios/App/App/GoogleService-Info.plist ios/App/App/App/GoogleService-Info.plist
 
-      # ---------- Capacitor sync ----------
+          /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist || true
+
       - name: Capacitor sync iOS
         run: npx cap sync ios
 
-      # ---------- Ruby / CocoaPods ----------
-      - name: Setup Ruby (for CocoaPods/Fastlane)
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.3'
-          bundler-cache: false   # Θέλουμε πρώτα να διορθώσουμε το Gemfile.lock platform
+      # CocoaPods μέσω Bundler (αν υπάρχει Gemfile μέσα στο ios/App)
+      - name: Install CocoaPods (Bundler or gem)
+        working-directory: ios/App
+        run: |
+          set -euo pipefail
+          if [ -f Gemfile ]; then
+            # Λύνει το "Your bundle only supports platforms [...]"
+            bundle lock --add-platform arm64-darwin-23 x86_64-darwin-23 ruby || true
+            bundle install --path vendor/bundle --jobs 4
+            bundle exec pod repo update
+            bundle exec pod install --repo-update
+          else
+            gem install cocoapods -N
+            pod repo update
+            pod install --repo-update
+          fi
 
-      - name: Fix Gemfile.lock platform & install gems
+      - name: Fastlane release
         working-directory: ios/App
         run: |
           set -e
-          echo "Local platform: $(ruby -e 'puts Gem::Platform.local')"
-          # Προσθέτουμε την πλατφόρμα του runner στο lockfile για να μην σκάει σε macOS arm64
-          bundle lock --add-platform "$(ruby -e 'puts Gem::Platform.local')" || true
-          bundle lock --add-platform ruby || true
+          if [ -f Gemfile ]; then
+            bundle exec fastlane release
+          else
+            fastlane release
+          fi
 
-          bundle config set path 'vendor/bundle'
-          bundle install --jobs 4
-
-          bundle exec pod --version
-          bundle exec pod repo update
-          bundle exec pod install --repo-update
-
-      # ---------- Build & Upload with Fastlane ----------
-      - name: Fastlane release (build + sign + TestFlight)
-        working-directory: ios/App
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-
-          # match (certs/profiles)
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          MATCH_GIT_BRANCH: main
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-
-          # App Store Connect API Key (χρησιμοποιείς key_content στο Fastfile)
-          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
-
-          # Προαιρετικά timeouts
-          FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
-
-          # app metadata
-          APP_BUNDLE_ID: ${{ env.APP_BUNDLE_ID }}
-          BUILD_NUMBER: ${{ env.BUILD_NUMBER }}
-        run: |
-          set -e
-          bundle exec fastlane release
-
-      # ---------- Inspect built IPA (runs only if build succeeded) ----------
-      - name: Inspect IPA (GoogleService & aps-environment)
+      # Τρέχει μόνο αν το build πέτυχε
+      - name: Inspect built IPA (only on success)
         if: ${{ success() }}
         run: |
           set -euo pipefail
@@ -142,7 +151,7 @@ jobs:
               break
             fi
           done
-          [[ -z "$IPA" ]] && { echo "ℹ️ No IPA found (maybe Fastlane uploaded without keeping local). Skipping."; exit 0; }
+          [[ -z "$IPA" ]] && { echo "❌ No IPA found"; exit 1; }
 
           TMP=$(mktemp -d)
           unzip -q "$IPA" -d "$TMP"
@@ -153,7 +162,7 @@ jobs:
           echo "== Check GoogleService-Info.plist =="
           if [[ ! -f "$APP_PATH/GoogleService-Info.plist" ]]; then
             echo "❌ GoogleService-Info.plist is missing from .app"
-            /usr/bin/find "$APP_PATH" -name GoogleService-Info.plist | sed 's/^/ - /' || true
+            /usr/bin/find "$APP_PATH" -name GoogleService-Info.plist | sed 's/^/ - /'
             exit 1
           fi
           /usr/bin/plutil -lint "$APP_PATH/GoogleService-Info.plist" || true
@@ -165,14 +174,12 @@ jobs:
           /usr/bin/security cms -D -i "$APP_PATH/embedded.mobileprovision" > profile.plist
           /usr/libexec/PlistBuddy -c "Print :Entitlements:aps-environment" profile.plist
 
-      # ---------- (Optional) Upload IPA as artifact ----------
       - name: Upload IPA artifact
         if: ${{ success() }}
         uses: actions/upload-artifact@v4
         with:
-          name: App-ipa
+          name: ios-ipa
           path: |
             ios/App/build/*.ipa
-            ios/App/*.ipa
-            *.ipa
-          if-no-files-found: ignore
+            **/App.dSYM.zip
+          if-no-files-found: warn
