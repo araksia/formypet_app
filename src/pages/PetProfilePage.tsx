@@ -536,7 +536,7 @@ const PetProfilePage = () => {
                 )}
 
                 {/* Action Buttons */}
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
                     <DialogTrigger asChild>
                       <Button 
@@ -549,7 +549,7 @@ const PetProfilePage = () => {
                         Επεξεργασία
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+                    <DialogContent className="sm:max-w-md w-[95vw] max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>Επεξεργασία {pet.name}</DialogTitle>
                       </DialogHeader>
@@ -588,8 +588,8 @@ const PetProfilePage = () => {
                           </div>
                         </div>
 
-                        {/* Basic Info */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                         {/* Basic Info */}
+                        <div className="grid grid-cols-1 gap-3">
                           <div>
                             <Label htmlFor="edit-name">Όνομα *</Label>
                             <Input 
@@ -620,7 +620,7 @@ const PetProfilePage = () => {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3">
                           <div>
                             <Label htmlFor="edit-breed">Ράτσα</Label>
                             <Input 
@@ -643,7 +643,7 @@ const PetProfilePage = () => {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3">
                           <div>
                             <Label htmlFor="edit-birth-date">Ημερομηνία Γέννησης</Label>
                             <Popover>
@@ -699,21 +699,21 @@ const PetProfilePage = () => {
                           />
                         </div>
 
-                        <div className="flex flex-col sm:flex-row gap-2 pt-4">
+                        <div className="flex flex-col gap-2 pt-4">
+                          <Button 
+                            type="submit" 
+                            disabled={editLoading}
+                            className="w-full"
+                          >
+                            {editLoading ? 'Αποθήκευση...' : 'Αποθήκευση'}
+                          </Button>
                           <Button 
                             type="button" 
                             variant="outline" 
                             onClick={() => setEditDialogOpen(false)}
-                            className="flex-1"
+                            className="w-full"
                           >
                             Ακύρωση
-                          </Button>
-                          <Button 
-                            type="submit" 
-                            disabled={editLoading}
-                            className="flex-1"
-                          >
-                            {editLoading ? 'Αποθήκευση...' : 'Αποθήκευση'}
                           </Button>
                         </div>
                       </form>
@@ -723,28 +723,28 @@ const PetProfilePage = () => {
                     variant="outline" 
                     size="sm"
                     onClick={() => navigate(`/calendar?petId=${pet.id}`)}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-1 text-xs px-2"
                   >
-                    <Calendar className="h-4 w-4" />
-                    Ημερολόγιο
+                    <Calendar className="h-3 w-3" />
+                    <span className="hidden sm:inline">Ημερολόγιο</span>
                   </Button>
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={() => navigate(`/pet/${pet.id}/medical`)}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-1 text-xs px-2"
                   >
-                    <Stethoscope className="h-4 w-4" />
-                    Ιατρικά
+                    <Stethoscope className="h-3 w-3" />
+                    <span className="hidden sm:inline">Ιατρικά</span>
                   </Button>
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={() => navigate('/expenses')}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-1 text-xs px-2"
                   >
-                    <Euro className="h-4 w-4" />
-                    Έξοδα
+                    <Euro className="h-3 w-3" />
+                    <span className="hidden sm:inline">Έξοδα</span>
                   </Button>
                 </div>
               </div>
