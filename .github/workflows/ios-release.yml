@@ -47,7 +47,7 @@ jobs:
           if [ -d dist ] && [ -f dist/index.html ]; then
             echo "✅ dist ok"
           elif [ -d build ] && [ -f build/index.html ]; then
-            echo "ℹ️ Using CRA build/ – φρόντισε στο capacitor.config.* webDir:\"build\""
+            echo "ℹ️ Using build/ (CRA) – ρύθμισε webDir:\"build\" στο capacitor.config.*"
           else
             echo "❌ Δεν βρέθηκαν web assets (dist/ ή build/ με index.html)"
             ls -la
@@ -59,7 +59,7 @@ jobs:
           if [ -n "${IOS_GOOGLE_PLIST_B64:-}" ]; then
             mkdir -p ios/App/App ios/App/App/App
             echo "$IOS_GOOGLE_PLIST_B64" | base64 --decode > ios/App/App/GoogleService-Info.plist
-            # Κάλυψε και το path που έχει το Xcode build phase αν είναι διπλό:
+            # Κάλυψε και το διπλό path αν το χρησιμοποιεί το build phase:
             cp ios/App/App/GoogleService-Info.plist ios/App/App/App/GoogleService-Info.plist || true
             echo "✅ Wrote GoogleService-Info.plist"
           else
@@ -68,17 +68,27 @@ jobs:
         env:
           IOS_GOOGLE_PLIST_B64: ${{ secrets.IOS_GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
 
-      - name: Capacitor sync iOS
-        run: npx cap sync ios
-
-      # ---------- Ruby / Fastlane ----------
-      - name: Setup Ruby
+      # ---------- Ruby / CocoaPods (ΠΡΙΝ το cap sync) ----------
+      - name: Setup Ruby (for CocoaPods/Pods install)
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
           bundler-cache: true
           working-directory: ios/App
 
+      - name: Ensure pods can run via bundler
+        working-directory: ios/App
+        run: |
+          bundle config set path 'vendor/bundle'
+          bundle install --jobs 4
+          bundle exec pod --version
+          bundle exec pod repo update
+
+      # ---------- Capacitor ----------
+      - name: Capacitor sync iOS
+        run: npx cap sync ios
+
+      # ---------- Fastlane ----------
       - name: Fastlane release (build & upload)
         working-directory: ios/App
         env:
@@ -89,7 +99,7 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-          # App Store Connect API (ΠΡΟΣΟΧΗ: RAW περιεχόμενο .p8, ΟΧΙ base64)
+          # App Store Connect API (RAW .p8 ΠΕΡΙΕΧΟΜΕΝΟ, ΟΧΙ base64)
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
