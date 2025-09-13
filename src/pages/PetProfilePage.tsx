@@ -457,15 +457,6 @@ const PetProfilePage = () => {
               {/* Cover Image / Color */}
               <div className="h-32 bg-gradient-to-r from-primary to-primary/80 relative">
                 <div className="absolute inset-0 bg-black/20" />
-                <div className="absolute bottom-4 left-4 text-white">
-                  <div className="flex items-center gap-2">
-                    <span className="text-3xl">{getSpeciesEmoji(pet.species)}</span>
-                    <div>
-                      <h1 className="text-2xl font-bold">{pet.name}</h1>
-                      <p className="text-sm opacity-90">{getSpeciesDisplayName(pet.species)}</p>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* Pet Avatar */}
