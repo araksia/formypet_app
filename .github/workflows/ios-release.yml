@@ -21,7 +21,7 @@ jobs:
       APP_BUNDLE_ID: gr.formypet.app
       BUILD_NUMBER: ${{ inputs.build_number || '237' }}
 
-      MATCH_GIT_URL: https://github.com/araksia/formypet-ios-certificates
+      MATCH_GIT_URL: https://x-access-token:${{ secrets.MATCH_GIT_TOKEN }}@github.com/araksia/formypet-ios-certificates.git
       MATCH_GIT_BRANCH: main
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
