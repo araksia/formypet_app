@@ -21,19 +21,18 @@ jobs:
     runs-on: macos-15
 
     env:
-      # App / Build
       APP_BUNDLE_ID: gr.formypet.app
-      BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
+      BUILD_NUMBER: ${{ inputs.build_number || '237' }}
 
-      # Fastlane Match (repo + secrets)
-      MATCH_GIT_URL: https://github.com/araksia/formypet-ios-certificates.git
+      # --- Match (SSH) ---
+      MATCH_GIT_URL: git@github.com:araksia/formypet-ios-certificates.git
       MATCH_GIT_BRANCH: main
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      # App Store Connect API Key (RAW .p8 περιεχόμενο – ΟΧΙ base64)
+      # --- App Store Connect API Key (RAW .p8, ΟΧΙ base64) ---
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
       APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
@@ -42,15 +41,28 @@ jobs:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
 
-      # PAT για το private match repo
-      MATCH_REPO_PAT: ${{ secrets.MATCH_REPO_PAT }}
-
       # Xcode
       MD_APPLE_SDK_ROOT: /Applications/Xcode_16.2.app
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # SSH agent με Deploy Key για το match repo
+      - name: Setup SSH for match (deploy key)
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
+
+      - name: Trust github.com host key & sanity check SSH access
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+          # Sanity check (δεν αποτυγχάνει αν δεν έχει TTY)
+          ssh -o StrictHostKeyChecking=yes -T git@github.com || true
+          # Πραγματικό check για το repo
+          git ls-remote --heads "$MATCH_GIT_URL" >/dev/null
 
       - name: Select Xcode 16.2
         uses: maxim-lobanov/setup-xcode@v1
@@ -76,18 +88,6 @@ jobs:
           gem -v
           xcodebuild -version
 
-      # --- Προ-αυθεντικοποίηση για το private match repo με PAT ---
-      - name: Pre-auth GitHub (PAT) for Match
-        if: ${{ env.MATCH_REPO_PAT != '' }}
-        run: |
-          set -euo pipefail
-          # 1) Καθολικό insteadOf για Ο,ΤΙ clone-άρει μέσω https://github.com/
-          git config --global url."https://x-access-token:${MATCH_REPO_PAT}@github.com/".insteadOf https://github.com/
-          # 2) Override του MATCH_GIT_URL ώστε το fastlane match να δει authed URL
-          echo "MATCH_GIT_URL=https://x-access-token:${MATCH_REPO_PAT}@github.com/araksia/formypet-ios-certificates.git" >> "$GITHUB_ENV"
-          # 3) Sanity check (χωρίς να τυπώσουμε token)
-          git ls-remote --heads https://github.com/araksia/formypet-ios-certificates.git >/dev/null || exit 1
-
       - name: Setup .npmrc (if NPM_TOKEN)
         if: ${{ env.NPM_TOKEN != '' }}
         run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
@@ -98,7 +98,7 @@ jobs:
       - name: Build web assets
         run: npm run build
 
-      # Pods via Bundler (αν υπάρχει Gemfile στο ios/App)
+      # Προετοιμασία CocoaPods πριν το cap sync (ios/App)
       - name: Prepare Ruby gems (ios/App)
         working-directory: ios/App
         run: |
@@ -131,7 +131,7 @@ jobs:
       - name: Capacitor sync iOS
         run: npx cap sync ios
 
-      - name: Ensure CocoaPods install
+      - name: Ensure CocoaPods install (ios/App)
         working-directory: ios/App
         run: |
           set -euo pipefail
