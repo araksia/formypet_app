@@ -12,6 +12,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { differenceInYears } from 'date-fns';
 import { PetCardSkeleton, PetsPageSkeleton } from '@/components/ui/skeletons';
+import SwipeableCard from '@/components/ui/SwipeableCard';
+import PullToRefresh from '@/components/ui/PullToRefresh';
 
 const PetsPage = () => {
   const navigate = useNavigate();
@@ -260,7 +262,8 @@ const PetsPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
       <Header title="Τα Κατοικίδιά μου" />
       
-      <div className="p-3 sm:p-4 pb-20 space-y-4">
+      <PullToRefresh onRefresh={fetchPets}>
+        <div className="p-3 sm:p-4 pb-20 space-y-4">
 
         {/* Loading State */}
         {loading && (
@@ -275,10 +278,36 @@ const PetsPage = () => {
         {!loading && pets.length > 0 ? (
           <div className="grid gap-3 sm:gap-4">
             {pets.map((pet, index) => (
-              <Card 
-                key={pet.id} 
+              <SwipeableCard 
+                key={pet.id}
                 className="overflow-hidden card-hover stagger-fade"
                 style={{ animationDelay: `${index * 0.1}s` }}
+                actions={[
+                  {
+                    icon: Calendar,
+                    label: 'Ημερολόγιο',
+                    onClick: () => navigate(`/calendar?petId=${pet.id}`),
+                    variant: 'calendar'
+                  },
+                  {
+                    icon: Edit,
+                    label: 'Επεξεργασία',
+                    onClick: () => navigate(`/pet/${pet.id}?edit=true`),
+                    variant: 'edit'
+                  },
+                  {
+                    icon: Stethoscope,
+                    label: 'Ιατρικά',
+                    onClick: () => navigate(`/pet/${pet.id}/medical`),
+                    variant: 'medical'
+                  },
+                  {
+                    icon: Trash2,
+                    label: 'Διαγραφή',
+                    onClick: () => openDeleteDialog(pet),
+                    variant: 'delete'
+                  }
+                ]}
               >
                 <CardContent className="p-0">
                   <div className="flex flex-col sm:flex-row h-full">
@@ -325,8 +354,8 @@ const PetsPage = () => {
                           </div>
                         </div>
                         
-                        {/* Action Buttons */}
-                        <div className="flex flex-wrap gap-1 sm:flex-col sm:gap-1">
+                        {/* Desktop Action Buttons - hidden on mobile where swipe is used */}
+                        <div className="hidden sm:flex flex-wrap gap-1 sm:flex-col sm:gap-1">
                           <div className="flex gap-1">
                             <Button 
                               variant="ghost" 
@@ -370,7 +399,7 @@ const PetsPage = () => {
                     </div>
                   </div>
                 </CardContent>
-              </Card>
+              </SwipeableCard>
             ))}
           </div>
         ) : !loading && pets.length === 0 ? (
@@ -386,7 +415,8 @@ const PetsPage = () => {
             </div>
           </Card>
         ) : null}
-      </div>
+        </div>
+      </PullToRefresh>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

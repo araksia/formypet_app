@@ -6,6 +6,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useGamification } from '@/hooks/useGamification';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { StatsCardSkeleton } from '@/components/ui/skeletons';
+import PullToRefresh from '@/components/ui/PullToRefresh';
 
 // Dashboard components
 import {
@@ -76,45 +77,47 @@ const Dashboard = () => {
   };
 
   return (
-    <div 
-      id="main-content"
-      className="space-y-6"
-      role="main"
-      aria-label="Κεντρική σελίδα εφαρμογής"
-      tabIndex={-1}
-    >
-      <WelcomeBanner 
-        userName={user?.email || user?.user_metadata?.display_name} 
-        firstPet={firstPet}
-      />
+    <PullToRefresh onRefresh={loadDashboardData}>
+      <div 
+        id="main-content"
+        className="space-y-6"
+        role="main"
+        aria-label="Κεντρική σελίδα εφαρμογής"
+        tabIndex={-1}
+      >
+        <WelcomeBanner 
+          userName={user?.email || user?.user_metadata?.display_name} 
+          firstPet={firstPet}
+        />
 
-      <QuickActions actions={quickActions} />
+        <QuickActions actions={quickActions} />
 
-      {loading ? (
-        <div className="grid grid-cols-2 gap-3">
-          {[...Array(3)].map((_, i) => (
-            <StatsCardSkeleton key={i} />
-          ))}
-        </div>
-      ) : (
-        <StatsSection statsData={statsData} />
-      )}
+        {loading ? (
+          <div className="grid grid-cols-2 gap-3">
+            {[...Array(3)].map((_, i) => (
+              <StatsCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : (
+          <StatsSection statsData={statsData} />
+        )}
 
-      <AchievementsSection 
-        userAchievements={userAchievements}
-        achievements={achievements}
-        loading={achievementsLoading}
-        onViewAll={handleViewAllAchievements}
-      />
+        <AchievementsSection 
+          userAchievements={userAchievements}
+          achievements={achievements}
+          loading={achievementsLoading}
+          onViewAll={handleViewAllAchievements}
+        />
 
-      <UpcomingEventsSection
-        events={upcomingEvents}
-        loading={loading}
-        onViewAll={handleViewAllEvents}
-        onEventClick={handleEventClick}
-        onAddEvent={() => navigate('/add-event')}
-      />
-    </div>
+        <UpcomingEventsSection
+          events={upcomingEvents}
+          loading={loading}
+          onViewAll={handleViewAllEvents}
+          onEventClick={handleEventClick}
+          onAddEvent={() => navigate('/add-event')}
+        />
+      </div>
+    </PullToRefresh>
   );
 };
 
