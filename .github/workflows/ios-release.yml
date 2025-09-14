@@ -141,7 +141,7 @@ jobs:
           fi
 
       # --------- PRE-FLIGHT ΔΙΑΓΝΩΣΤΙΚΑ ---------
-      - name: Preflight: verify iOS project
+      - name: Preflight verify iOS project
         run: |
           set -euo pipefail
           echo "== Tree ios/App =="
