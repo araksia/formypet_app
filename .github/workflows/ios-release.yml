@@ -21,35 +21,52 @@ jobs:
     runs-on: macos-15
 
     env:
-      # ---- App / Build ----
       APP_BUNDLE_ID: gr.formypet.app
-      BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
+      BUILD_NUMBER: ${{ inputs.build_number || '237' }}
 
-      # ---- Match repo (slug) & PAT ----
-      MATCH_GIT_REPO: araksia/formypet-ios-certificates
-      MATCH_REPO_PAT: ${{ secrets.MATCH_REPO_PAT }}
-
-      # ---- Fastlane/Match secrets ----
+      # Match με SSH Deploy Key
+      MATCH_GIT_URL: git@github.com:araksia/formypet-ios-certificates.git
+      MATCH_GIT_BRANCH: main
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      # ---- App Store Connect API Key (RAW .p8, ΟΧΙ base64) ----
+      # App Store Connect API Key (RAW .p8, ΟΧΙ base64)
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-      APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+      APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
 
-      # ---- Optional ----
+      # Προαιρετικά
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
 
-      # ---- Xcode ----
+      # Xcode
       MD_APPLE_SDK_ROOT: /Applications/Xcode_16.2.app
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # SSH agent για το Deploy Key του match repo
+      - name: Setup SSH for match (deploy key)
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
+
+      - name: Add github.com to known_hosts
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Sanity check SSH access
+        run: |
+          set -euo pipefail
+          echo "Testing git ls-remote on $MATCH_GIT_URL"
+          GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=yes" \
+            git ls-remote --heads "$MATCH_GIT_URL" >/dev/null
+          echo "✅ SSH access OK"
 
       - name: Select Xcode 16.2
         uses: maxim-lobanov/setup-xcode@v1
@@ -85,41 +102,7 @@ jobs:
       - name: Build web assets
         run: npm run build
 
-      # ---------- Φτιάχνουμε tokened URL για το match ----------
-      - name: Build MATCH_GIT_URL (tokened) & sanity check
-        run: |
-          set -euo pipefail
-
-          if [ -z "${MATCH_REPO_PAT:-}" ]; then
-            echo "❌ MATCH_REPO_PAT is empty. Βάλε PAT με scope 'repo' στα Secrets."
-            exit 1
-          fi
-
-          # Plain και tokened URLs
-          PLAIN_URL="https://github.com/${MATCH_GIT_REPO}.git"
-          TOKENED_URL="https://x-access-token:${MATCH_REPO_PAT}@github.com/${MATCH_GIT_REPO}.git"
-
-          # Αποθήκευση για επόμενα βήματα / Fastlane
-          echo "MATCH_GIT_URL=${TOKENED_URL}" >> "$GITHUB_ENV"
-          echo "MATCH_GIT_URL_PLAIN=${PLAIN_URL}" >> "$GITHUB_ENV"
-
-          echo "🔎 Checking repo existence via GitHub API..."
-          CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: token ${MATCH_REPO_PAT}" \
-            "https://api.github.com/repos/${MATCH_GIT_REPO}")
-          echo "GitHub API status for ${MATCH_GIT_REPO}: ${CODE}"
-          if [ "${CODE}" != "200" ]; then
-            echo "❌ Repo δεν βρέθηκε ή το PAT δεν έχει πρόσβαση."
-            echo "   - Έλεγξε το slug: ${MATCH_GIT_REPO}"
-            echo "   - Το PAT πρέπει να έχει scope: repo (και SSO authorization αν είναι σε org)."
-            exit 1
-          fi
-
-          echo "🔐 Testing git ls-remote with tokened URL (δεν τυπώνεται το token)..."
-          GIT_ASKPASS=true GIT_TERMINAL_PROMPT=0 git ls-remote --heads "${TOKENED_URL}" >/dev/null
-          echo "✅ Tokened ls-remote OK"
-
-      # ---------- Προετοιμασία Bundler/CocoaPods ΠΡΙΝ το cap sync ----------
+      # Προετοιμασία CocoaPods πριν το cap sync
       - name: Prepare Ruby gems (ios/App)
         working-directory: ios/App
         run: |
@@ -169,9 +152,6 @@ jobs:
 
       - name: Fastlane release
         working-directory: ios/App
-        env:
-          # Δίνουμε στο Fastlane το tokened URL
-          MATCH_GIT_URL: ${{ env.MATCH_GIT_URL }}
         run: |
           set -e
           if [ -f Gemfile ]; then
@@ -186,7 +166,7 @@ jobs:
           echo "== Gym logs in ~/Library/Logs/gym =="
           ls -la ~/Library/Logs/gym || true
           LOG=$(ls -t ~/Library/Logs/gym/*.log 2>/dev/null | head -n1 || true)
-          [ -n "$LOG" ] && tail -n 400 "$LOG" || echo "No gym log found"
+          [ -n "$LOG" ] && tail -n 300 "$LOG" || echo "No gym log found"
           echo "== Fastlane build_logs =="
           ls -la ios/App/fastlane/build_logs || true
           LAST=$(ls -t ios/App/fastlane/build_logs/*.log 2>/dev/null | head -n1 || true)
