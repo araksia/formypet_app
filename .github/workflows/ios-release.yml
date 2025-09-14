@@ -90,8 +90,11 @@ jobs:
       - name: Test access to match repo
         run: |
           set -euo pipefail
-          echo "Testing access to MATCH_GIT_URL (masked)..."
-          git ls-remote "${MATCH_GIT_URL%%:*}://***:***@${MATCH_GIT_URL#*@}" -h | head -n1 || exit 1
+          echo "Testing access (token will be masked in logs):"
+          # Εμφάνισε ΜΟΝΟ masked για log
+          echo "${MATCH_GIT_URL}" | sed -E 's#://[^@]+@#://***:***@#'
+          # Κάνε το request με το ΠΡΑΓΜΑΤΙΚΟ URL (όχι masked)
+          git ls-remote --heads "$MATCH_GIT_URL" >/dev/null
 
       # Ruby gems/CocoaPods στην iOS πλευρά ΠΡΙΝ το cap sync
       - name: Prepare Ruby gems (ios/App)
