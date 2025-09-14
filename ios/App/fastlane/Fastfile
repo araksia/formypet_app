@@ -5,22 +5,22 @@ require 'shellwords'
 # =========================
 
 def read_build_settings(scheme:, configuration:)
-  # 1) workspace+scheme
   cmd1 = %W[
     xcodebuild -showBuildSettings
     -workspace App.xcworkspace
     -scheme #{scheme}
     -configuration #{configuration}
+    -sdk iphoneos
   ].map(&:shellescape).join(" ")
   out = Actions.sh(cmd1, log: false) rescue ""
 
-  # 2) fallback: project+target (συχνά ίδιο όνομα με scheme)
   if out.to_s.strip.empty? || !out.include?("Build settings")
     cmd2 = %W[
       xcodebuild -showBuildSettings
       -project App.xcodeproj
       -target #{scheme}
       -configuration #{configuration}
+      -sdk iphoneos
     ].map(&:shellescape).join(" ")
     out = Actions.sh(cmd2, log: false) rescue ""
   end
