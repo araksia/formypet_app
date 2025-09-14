@@ -26,7 +26,6 @@ jobs:
 
       # === MATCH REPO (HTTPS + PAT) ===
       GH_USER: ${{ secrets.GH_USER }}
-      MATCH_REPO_PAT: ${{ secrets.MATCH_REPO_PAT }}
       MATCH_GIT_BRANCH: main
       # ΣΥΝΘΕΤΟΥΜΕ το URL με μέσα τα creds:
       OWNER: araksia
