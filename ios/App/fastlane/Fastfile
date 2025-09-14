@@ -3,7 +3,7 @@ default_platform :ios
 platform :ios do
   desc "Build & upload to TestFlight"
   lane :release do
-    # CI-friendly keychain
+    # 1) Keychain για CI
     create_keychain(
       name: "ci",
       default_keychain: true,
@@ -12,28 +12,31 @@ platform :ios do
       password: ENV["KEYCHAIN_PASSWORD"]
     )
 
-    # App Store Connect API Key (Secrets: ID/Issuer/Base64 key)
+    # 2) App Store Connect API key (RAW .p8, ΟΧΙ base64)
     api_key = app_store_connect_api_key(
-    key_id:      ENV.fetch('APP_STORE_CONNECT_API_KEY_ID'),
-    issuer_id:   ENV.fetch('APP_STORE_CONNECT_API_ISSUER_ID'),
-    key_content: ENV.fetch('APP_STORE_CONNECT_API_KEY_CONTENT')
-  )
-
-    # Certificates & Provisioning (match repo)
-    match(
-	    git_url(ENV['MATCH_GIT_URL'])
-		git_branch(ENV['MATCH_GIT_BRANCH'] || 'main')
-		storage_mode('git')
-		type('appstore')
-		app_identifier(['gr.formypet.app'])
-		team_id(ENV['APPLE_TEAM_ID'])
-  
+      key_id:      ENV.fetch('APP_STORE_CONNECT_API_KEY_ID'),
+      issuer_id:   ENV.fetch('APP_STORE_CONNECT_API_ISSUER_ID'),
+      key_content: ENV.fetch('APP_STORE_CONNECT_API_KEY_CONTENT')
     )
 
-    # Αυξάνουμε build number από το CI run_number
-    increment_build_number(build_number: ENV["BUILD_NUMBER"])
+    # 3) match (ΠΡΟΣΟΧΗ: key: value, με κόμματα)
+    match(
+      type: "appstore",
+      readonly: true,
+      storage_mode: "git",
+      git_url: ENV.fetch('MATCH_GIT_URL'),
+      git_branch: (ENV['MATCH_GIT_BRANCH'] || 'main'),
+      app_identifier: ENV.fetch('APP_BUNDLE_ID'),
+      team_id: ENV.fetch('APPLE_TEAM_ID'),
+      keychain_name: "ci",
+      keychain_password: ENV.fetch('MATCH_KEYCHAIN_PASSWORD'),
+      api_key: api_key
+    )
 
-    # Build
+    # 4) Build number
+    increment_build_number(build_number: ENV['BUILD_NUMBER'])
+
+    # 5) Build/Archive
     gym(
       workspace: "App.xcworkspace",
       scheme: "App",
@@ -43,11 +46,10 @@ platform :ios do
       output_directory: "build",
       output_name: "App-#{Time.now.strftime('%Y%m%d')}.ipa",
       include_symbols: true,
-      include_bitcode: false,
-      silent: false
+      include_bitcode: false
     )
 
-    # Safety: fail αν λείπει το aps-environment στον υπογεγραμμένο .app
+    # 6) Safety check: aps-environment
     sh <<~BASH
       set -e
       IPA=$(ls -t build/*.ipa | head -n1)
@@ -58,7 +60,7 @@ platform :ios do
       /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist
     BASH
 
-    # Upload στο TestFlight
+    # 7) Upload TestFlight
     pilot(
       api_key: api_key,
       skip_submission: true,
