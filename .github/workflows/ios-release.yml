@@ -7,7 +7,10 @@ on:
         description: "Override BUILD_NUMBER (optional)"
         required: false
   push:
-    branches: [main]
+    branches: [ main ]
+
+permissions:
+  contents: read
 
 concurrency:
   group: ios-release-${{ github.ref }}
@@ -18,17 +21,19 @@ jobs:
     runs-on: macos-15
 
     env:
+      # ----- Fastlane / app env -----
       APP_BUNDLE_ID: gr.formypet.app
       BUILD_NUMBER: ${{ inputs.build_number || '237' }}
 
-      MATCH_GIT_URL: https://x-access-token:${{ secrets.MATCH_GIT_TOKEN }}@github.com/araksia/formypet-ios-certificates.git
+      # Fastlane match repo (δώσε URL μέσω secret)
+      MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
       MATCH_GIT_BRANCH: main
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      # App Store Connect API Key (RAW .p8, ΟΧΙ base64)
+      # App Store Connect API Key (RAW .p8 περιεχόμενο – ΟΧΙ base64)
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
       APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
@@ -37,6 +42,7 @@ jobs:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
 
+      # Xcode path hint
       MD_APPLE_SDK_ROOT: /Applications/Xcode_16.2.app
 
     steps:
@@ -59,7 +65,7 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.3"
+          ruby-version: '3.3'
           bundler-cache: false
 
       - name: Print tool versions
@@ -85,24 +91,32 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ios/App/App ios/App/App/App
+
           CONTENT="${GOOGLE_SERVICE_INFO_PLIST}"
+
+          # Αν είναι raw XML/JSON, γράψ' το αυτούσιο, αλλιώς κάνε base64 decode
           if echo "$CONTENT" | head -n1 | grep -Eqi '^\s*<\?xml|^\s*\{'; then
             printf "%s" "$CONTENT" > ios/App/App/GoogleService-Info.plist
           else
             printf "%s" "$CONTENT" | base64 --decode > ios/App/App/GoogleService-Info.plist || \
             printf "%s" "$CONTENT" | base64 -d        > ios/App/App/GoogleService-Info.plist
           fi
+
+          # Μερικά projects το κοιτάνε και σε nested App/App/App
           cp ios/App/App/GoogleService-Info.plist ios/App/App/App/GoogleService-Info.plist
+
           /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist || true
 
-      # Εγκατάσταση CocoaPods ΠΡΙΝ από οποιοδήποτε cap που θα έκανε pod install
+      - name: Capacitor sync iOS
+        run: npx cap sync ios
+
       - name: Install CocoaPods (Bundler or gem)
         working-directory: ios/App
         run: |
           set -euo pipefail
           if [ -f Gemfile ]; then
             bundle lock --add-platform arm64-darwin-23 x86_64-darwin-23 ruby || true
-            bundle config set path vendor/bundle
+            bundle config set path 'vendor/bundle'
             bundle install --jobs 4
             bundle exec pod repo update
             bundle exec pod install --repo-update
@@ -112,15 +126,12 @@ jobs:
             pod install --repo-update
           fi
 
-      # ΜΟΝΟ copy για τα assets/config – ΔΕΝ τρέχει pods
-      - name: Capacitor copy iOS (no pods)
-        run: npx cap copy ios
-        
-      - name: Setup SSH for match
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }} 
-          
+      - name: Verify Xcode workspace & scheme
+        run: |
+          xcodebuild -list -workspace ios/App/App.xcworkspace
+          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App | \
+            egrep "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN|PROVISIONING_PROFILE_SPECIFIER" || true
+
       - name: Fastlane release
         working-directory: ios/App
         run: |
@@ -131,6 +142,31 @@ jobs:
             fastlane release
           fi
 
+      # --- Logs: πάντα τυπώνουμε/ανεβάζουμε για debug ---
+      - name: Show xcodebuild logs (tail)
+        if: always()
+        run: |
+          echo "== Gym logs in ~/Library/Logs/gym =="
+          ls -la ~/Library/Logs/gym || true
+          LOG=$(ls -t ~/Library/Logs/gym/*.log 2>/dev/null | head -n1 || true)
+          [ -n "$LOG" ] && { echo "Printing last 400 lines of $LOG"; tail -n 400 "$LOG"; } || echo "No gym log found"
+
+          echo "== Fastlane build_logs =="
+          ls -la ios/App/fastlane/build_logs || true
+          LAST_LOCAL_LOG=$(ls -t ios/App/fastlane/build_logs/*.log 2>/dev/null | head -n1 || true)
+          [ -n "$LAST_LOCAL_LOG" ] && { echo "Printing last 200 lines of $LAST_LOCAL_LOG"; tail -n 200 "$LAST_LOCAL_LOG"; } || echo "No local fastlane log"
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-logs
+          path: |
+            ~/Library/Logs/gym/**
+            ios/App/fastlane/build_logs/**
+          if-no-files-found: warn
+
+      # --- Έλεγχος του IPA μόνο αν πέτυχε το build ---
       - name: Inspect built IPA (only on success)
         if: ${{ success() }}
         run: |
@@ -145,6 +181,7 @@ jobs:
             fi
           done
           [[ -z "$IPA" ]] && { echo "❌ No IPA found"; exit 1; }
+
           TMP=$(mktemp -d)
           unzip -q "$IPA" -d "$TMP"
           APP_PATH=$(/usr/bin/find "$TMP/Payload" -type d -name '*.app' -print -quit)
