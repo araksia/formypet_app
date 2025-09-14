@@ -48,23 +48,24 @@ platform :ios do
 
     gym(
       workspace: "App.xcworkspace",
-      scheme: "App",
-      configuration: "Release",
-      clean: true,
-      sdk: "iphoneos",
-      export_method: "app-store",
-      output_directory: "build",
-      output_name: "App-#{Time.now.strftime('%Y%m%d')}.ipa",
-      include_symbols: true,
-      include_bitcode: false,
-      xcargs: signing_args,
-      export_options: {
-        signingStyle: "manual",
-        provisioningProfiles: {
-          "gr.formypet.app" => "match AppStore gr.formypet.app"
-        }
-      },
-      silent: false
+	  scheme: "App",
+	  configuration: "Release",
+	  clean: true,
+	  sdk: "iphoneos",
+	  export_method: "app-store",
+	  output_directory: "build",
+	  output_name: "App-#{Time.now.strftime('%Y%m%d')}.ipa",
+	  include_symbols: true,
+	  include_bitcode: false,
+	  result_bundle: true,  # 🔥 ΠΑΡΕ .xcresult για να δούμε ακριβές error
+	  xcargs: signing_args,
+	  export_options: {
+		signingStyle: "manual",
+		provisioningProfiles: {
+		  "gr.formypet.app" => "match AppStore gr.formypet.app"
+		}
+	  },
+	  silent: false
     )
 
     # Safety check
