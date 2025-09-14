@@ -24,7 +24,6 @@ jobs:
       APP_BUNDLE_ID: gr.formypet.app
       BUILD_NUMBER: ${{ inputs.build_number || '237' }}
 
-      # --- fastlane match ---
       MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
       MATCH_GIT_BRANCH: main
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
@@ -32,12 +31,10 @@ jobs:
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      # --- App Store Connect API ---
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
       APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
 
-      # --- Optional ---
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
 
@@ -47,9 +44,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # =========================
-      # SSH Deploy Key for match
-      # =========================
+      # SSH key για match repo
       - name: Start ssh-agent & add deploy key
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -60,17 +55,10 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -t rsa,ecdsa -H github.com >> ~/.ssh/known_hosts
 
-      - name: Sanity check SSH access to MATCH_GIT_URL
-        run: |
-          if [ -z "${MATCH_GIT_URL:-}" ]; then
-            echo "❌ MATCH_GIT_URL is empty"; exit 1
-          fi
-          git ls-remote --heads "${MATCH_GIT_URL}" >/dev/null
-          echo "✅ SSH access OK"
+      - name: Sanity check SSH access
+        run: git ls-remote --heads "${MATCH_GIT_URL}"
 
-      # =========================
       # Toolchains
-      # =========================
       - name: Select Xcode 16.2
         uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -86,8 +74,6 @@ jobs:
         run: |
           xcodebuild -version
           xcodebuild -showsdks
-          xcrun --sdk iphoneos --show-sdk-version
-          xcrun --sdk iphoneos --show-sdk-path
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -100,16 +86,7 @@ jobs:
           ruby-version: '3.3'
           bundler-cache: false
 
-      - name: Print tool versions
-        run: |
-          node -v
-          npm -v
-          ruby -v
-          gem -v
-
-      # =========================
       # Web build
-      # =========================
       - name: Setup .npmrc (if NPM_TOKEN)
         if: ${{ env.NPM_TOKEN != '' }}
         run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
@@ -120,9 +97,7 @@ jobs:
       - name: Build web assets
         run: npm run build
 
-      # =========================
       # CocoaPods / Capacitor
-      # =========================
       - name: Prepare Ruby gems (ios/App)
         working-directory: ios/App
         run: |
@@ -136,7 +111,7 @@ jobs:
             pod --version
           fi
 
-      - name: Write GoogleService-Info.plist (from secret)
+      - name: Write GoogleService-Info.plist
         if: ${{ env.GOOGLE_SERVICE_INFO_PLIST != '' }}
         run: |
           mkdir -p ios/App/App ios/App/App/App
@@ -148,7 +123,6 @@ jobs:
             printf "%s" "$CONTENT" | base64 -d        > ios/App/App/GoogleService-Info.plist
           fi
           cp ios/App/App/GoogleService-Info.plist ios/App/App/App/GoogleService-Info.plist
-          /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist || true
 
       - name: Capacitor sync iOS
         run: npx cap sync ios
@@ -159,14 +133,30 @@ jobs:
           pod repo update
           pod install --repo-update
 
+      # Προβλημάκια με shared scheme? Τσέκαρέ το πριν
+      - name: Verify shared scheme exists
+        run: |
+          SCHEMES_DIR="ios/App/App.xcodeproj/xcshareddata/xcschemes"
+          ls -la "$SCHEMES_DIR" || true
+          if ! /usr/bin/find "$SCHEMES_DIR" -name "App.xcscheme" -print | grep -q .; then
+            echo "❌ Shared scheme 'App' not found. Commit it from Xcode (Product → Scheme → Manage Schemes → Shared)."
+            exit 1
+          fi
+          echo "✅ Shared scheme 'App' found."
+
+      # Swift Package resolve preflight
+      - name: Resolve Swift Packages
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -clonedSourcePackagesDirPath "$HOME/spm-cache"
+
       - name: Verify workspace & scheme
         run: |
           xcodebuild -list -workspace ios/App/App.xcworkspace
-          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App | egrep "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN|PROVISIONING_PROFILE_SPECIFIER|SDKROOT" || true
 
-      # =========================
       # Fastlane
-      # =========================
       - name: Fastlane release
         working-directory: ios/App
         env:
@@ -178,20 +168,14 @@ jobs:
             fastlane release
           fi
 
-      # =========================
-      # Diagnostics
-      # =========================
-      - name: Show xcodebuild logs (first error)
+      # Diagnostics αν αποτύχει
+      - name: Print first errors (gym & raw)
         if: failure()
         run: |
           LOG=$(ls -t ~/Library/Logs/gym/*.log 2>/dev/null | head -n1 || true)
           if [ -n "$LOG" ]; then
-            echo ">> First error line:"
-            grep -nE "❌|error:|fatal error:" "$LOG" | head -n1 || true
-            echo ">> Last 200 lines:"
-            tail -n 200 "$LOG"
-          else
-            echo "No gym log found"
+            echo "== First errors in gym log =="
+            grep -nE "❌|error:|fatal error:|CodeSign|Provisioning" "$LOG" | head -n 10 || true
           fi
 
       - name: Upload build logs
@@ -204,37 +188,30 @@ jobs:
             ios/App/fastlane/build_logs/**
           if-no-files-found: warn
 
+      # xcresult artifact για να δούμε compile/codesign errors
+      - name: Upload xcresult bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcode-xcresult
+          path: |
+            ios/App/build/*.xcresult
+            ~/Library/Logs/gym/*.xcresult
+          if-no-files-found: ignore
+
+      # Inspect IPA
       - name: Inspect built IPA (only on success)
         if: ${{ success() }}
         run: |
-          candidates=(ios/App/build/*.ipa ios/App/*.ipa *.ipa)
-          IPA=""
-          for c in "${candidates[@]}"; do
-            if [[ -f $c ]]; then
-              echo "📦 Inspecting: $c"
-              IPA="$c"
-              break
-            fi
-          done
+          IPA=$(ls -t ios/App/build/*.ipa 2>/dev/null | head -n1 || true)
           [[ -z "$IPA" ]] && { echo "❌ No IPA found"; exit 1; }
-
+          echo "📦 Inspecting $IPA"
           TMP=$(mktemp -d)
           unzip -q "$IPA" -d "$TMP"
           APP_PATH=$(/usr/bin/find "$TMP/Payload" -type d -name '*.app' -print -quit)
           echo "🧩 App bundle: $APP_PATH"
-
-          echo "== Check GoogleService-Info.plist =="
-          if [[ ! -f "$APP_PATH/GoogleService-Info.plist" ]]; then
-            echo "❌ GoogleService-Info.plist is missing from .app"
-            exit 1
-          fi
-          /usr/bin/plutil -lint "$APP_PATH/GoogleService-Info.plist" || true
-
-          echo "== Check aps-environment (entitlements & provisioning) =="
           /usr/bin/codesign -d --entitlements :- "$APP_PATH" > entitlements.plist
-          /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist
-          /usr/bin/security cms -D -i "$APP_PATH/embedded.mobileprovision" > profile.plist
-          /usr/libexec/PlistBuddy -c "Print :Entitlements:aps-environment" profile.plist
+          /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist || true
 
       - name: Upload IPA artifact
         if: ${{ success() }}
