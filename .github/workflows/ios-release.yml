@@ -6,6 +6,7 @@ on:
       build_number:
         description: "Override BUILD_NUMBER (optional)"
         required: false
+        default: "237"
   push:
     branches: [ main ]
 
@@ -23,19 +24,16 @@ jobs:
     env:
       SCHEME_NAME: App
       APP_BUNDLE_ID: gr.formypet.app
-      BUILD_NUMBER: ${{ inputs.build_number || '237' }}
-
+      BUILD_NUMBER: ${{ inputs.build_number }}
       MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
       MATCH_GIT_BRANCH: main
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
       APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
-
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
 
@@ -58,12 +56,12 @@ jobs:
       - name: Sanity check SSH access to MATCH_GIT_URL
         run: |
           git ls-remote --heads "${MATCH_GIT_URL}"
-          echo "✅ SSH access OK"
+          echo "SSH access OK"
 
       - name: Select Xcode 16.2
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.2'
+          xcode-version: "16.2"
 
       - name: Force DEVELOPER_DIR
         run: |
@@ -76,7 +74,6 @@ jobs:
           xcodebuild -version
           xcodebuild -showsdks
           xcrun --sdk iphoneos --show-sdk-version
-          xcrun --sdk iphoneos --show-sdk-path
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -86,7 +83,7 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.3'
+          ruby-version: "3.3"
           bundler-cache: false
 
       - name: Print tool versions
@@ -150,74 +147,81 @@ jobs:
           SCHEMES_DIR="$PROJ/xcshareddata/xcschemes"
           SCHEME_PATH="$SCHEMES_DIR/${SCHEME_NAME}.xcscheme"
           mkdir -p "$SCHEMES_DIR"
+
           if [ ! -f "$PBX" ]; then
-            echo "❌ project.pbxproj not found at $PBX"; exit 1
+            echo "project.pbxproj not found at $PBX"; exit 1
           fi
+
           if [ -f "$SCHEME_PATH" ]; then
-            echo "✅ Shared scheme already exists: $SCHEME_PATH"
+            echo "Shared scheme already exists: $SCHEME_PATH"
             exit 0
           fi
-          echo "🔎 Extracting target UUID for '${SCHEME_NAME}'..."
+
+          echo "Extracting target UUID for '${SCHEME_NAME}'..."
           TARGET_UUID=$(awk '
-            {
-              gsub(/^[ \t]+/, "", $0)
-              if ($0 ~ /\/\* '"${SCHEME_NAME}"' \*\/[ \t]*=[ \t]*\{/) {
-                split($0, a, /[ \t]+/); print a[1]; exit
-              }
-            }
+            { gsub(/^[ \t]+/, "", $0) }
+            /\/\* '"${SCHEME_NAME}"' \*\/[ \t]*=[ \t]*\{/ { split($0,a,/[\t ]+/); print a[1]; exit }
           ' "$PBX")
+
           if [ -z "${TARGET_UUID:-}" ]; then
-            echo "❌ Could not find PBXNativeTarget for '${SCHEME_NAME}' in $PBX"
-            grep -n "PBXNativeTarget" "$PBX" | head -n 50 || true
+            echo "Could not find PBXNativeTarget for '${SCHEME_NAME}' in $PBX"
             exit 1
           fi
+
           BUILDABLE_NAME="${SCHEME_NAME}.app"
-          cat > "$SCHEME_PATH" <<EOF
-            <?xml version="1.0" encoding="UTF-8"?>
-            <Scheme LastUpgradeVersion="1630" version="1.7">
-              <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES">
-                <BuildActionEntries>
-                  <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
-                    <BuildableReference
-                      BuildableIdentifier="primary"
-                      BlueprintIdentifier="${TARGET_UUID}"
-                      BuildableName="${BUILDABLE_NAME}"
-                      BlueprintName="${SCHEME_NAME}"
-                      ReferencedContainer="container:App.xcodeproj">
-                    </BuildableReference>
-                  </BuildActionEntry>
-                </BuildActionEntries>
-              </BuildAction>
-              <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES">
-                <Testables></Testables>
-              </TestAction>
-              <LaunchAction buildConfiguration="Release" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES">
-                <BuildableProductRunnable runnableDebuggingMode="0">
-                  <BuildableReference
-                    BuildableIdentifier="primary"
-                    BlueprintIdentifier="${TARGET_UUID}"
-                    BuildableName="${BUILDABLE_NAME}"
-                    BlueprintName="${SCHEME_NAME}"
-                    ReferencedContainer="container:App.xcodeproj">
-                  </BuildableReference>
-                </BuildableProductRunnable>
-              </LaunchAction>
-              <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES">
-                <BuildableProductRunnable runnableDebuggingMode="0">
-                  <BuildableReference
-                    BuildableIdentifier="primary"
-                    BlueprintIdentifier="${TARGET_UUID}"
-                    BuildableName="${BUILDABLE_NAME}"
-                    BlueprintName="${SCHEME_NAME}"
-                    ReferencedContainer="container:App.xcodeproj">
-                  </BuildableReference>
-                </BuildableProductRunnable>
-              </ProfileAction>
-              <AnalyzeAction buildConfiguration="Debug"/>
-              <ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>
-            </Scheme>
-            EOF
-          echo "✅ Created shared scheme at: $SCHEME_PATH"
+
+          # Safe heredoc (single-quoted) so XML header is preserved verbatim
+          cat <<'XML' > "$SCHEME_PATH"
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme LastUpgradeVersion="1630" version="1.7">
+  <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES">
+    <BuildActionEntries>
+      <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+        <BuildableReference
+          BuildableIdentifier="primary"
+          BlueprintIdentifier="__TARGET_UUID__"
+          BuildableName="__BUILDABLE_NAME__"
+          BlueprintName="__SCHEME_NAME__"
+          ReferencedContainer="container:App.xcodeproj">
+        </BuildableReference>
+      </BuildActionEntry>
+    </BuildActionEntries>
+  </BuildAction>
+  <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES">
+    <Testables></Testables>
+  </TestAction>
+  <LaunchAction buildConfiguration="Release" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES">
+    <BuildableProductRunnable runnableDebuggingMode="0">
+      <BuildableReference
+        BuildableIdentifier="primary"
+        BlueprintIdentifier="__TARGET_UUID__"
+        BuildableName="__BUILDABLE_NAME__"
+        BlueprintName="__SCHEME_NAME__"
+        ReferencedContainer="container:App.xcodeproj">
+      </BuildableReference>
+    </BuildableProductRunnable>
+  </LaunchAction>
+  <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES">
+    <BuildableProductRunnable runnableDebuggingMode="0">
+      <BuildableReference
+        BuildableIdentifier="primary"
+        BlueprintIdentifier="__TARGET_UUID__"
+        BuildableName="__BUILDABLE_NAME__"
+        BlueprintName="__SCHEME_NAME__"
+        ReferencedContainer="container:App.xcodeproj">
+      </BuildableReference>
+    </BuildableProductRunnable>
+  </ProfileAction>
+  <AnalyzeAction buildConfiguration="Debug"/>
+  <ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>
+</Scheme>
+XML
+
+          # Replace placeholders
+          sed -i '' "s/__TARGET_UUID__/${TARGET_UUID}/g" "$SCHEME_PATH"
+          sed -i '' "s/__BUILDABLE_NAME__/${BUILDABLE_NAME}/g" "$SCHEME_PATH"
+          sed -i '' "s/__SCHEME_NAME__/${SCHEME_NAME}/g" "$SCHEME_PATH"
+
           xcodebuild -list -project "$PROJ" || true
           xcodebuild -list -workspace ios/App/App.xcworkspace || true
 
@@ -231,7 +235,7 @@ jobs:
       - name: Verify workspace & scheme
         run: |
           xcodebuild -list -workspace ios/App/App.xcworkspace
-          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme "${SCHEME_NAME}" | egrep "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN|PROVISIONING_PROFILE_SPECIFIER|SDKROOT" || true
+          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme "${SCHEME_NAME}" | grep -E "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN|PROVISIONING_PROFILE_SPECIFIER|SDKROOT" || true
 
       - name: Fastlane release
         working-directory: ios/App
@@ -281,12 +285,12 @@ jobs:
         if: ${{ success() }}
         run: |
           IPA=$(ls -t ios/App/build/*.ipa 2>/dev/null | head -n1 || true)
-          [[ -z "$IPA" ]] && { echo "❌ No IPA found"; exit 1; }
-          echo "📦 Inspecting $IPA"
+          if [ -z "$IPA" ]; then
+            echo "No IPA found"; exit 1
+          fi
           TMP=$(mktemp -d)
           unzip -q "$IPA" -d "$TMP"
           APP_PATH=$(/usr/bin/find "$TMP/Payload" -type d -name '*.app' -print -quit)
-          echo "🧩 App bundle: $APP_PATH"
           /usr/bin/codesign -d --entitlements :- "$APP_PATH" > entitlements.plist
           /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist || true
 
