@@ -1,3 +1,49 @@
+require 'shellwords'
+
+# Βοηθητικό: βρες και κάνε expand το πραγματικό Info.plist από τα build settings
+def resolve_infoplist_path(scheme:, configuration:)
+  # Τρέχουμε μέσα στον φάκελο ios/App (εκεί καλούμε τη lane)
+  cmd = [
+    "xcodebuild",
+    "-showBuildSettings",
+    "-workspace", "App.xcworkspace",
+    "-scheme", scheme.to_s,
+    "-configuration", configuration.to_s
+  ].map(&:shellescape).join(" ")
+
+  out = Actions.sh(cmd, log: false) rescue ""
+  inf = out.lines.grep(/^\s*INFOPLIST_FILE\s*=/).last&.split("=", 2)&.last&.strip
+  src = out.lines.grep(/^\s*SRCROOT\s*=/).last&.split("=", 2)&.last&.strip
+  projdir = out.lines.grep(/^\s*PROJECT_DIR\s*=/).last&.split("=", 2)&.last&.strip
+
+  return nil if inf.nil? || inf.empty?
+
+  base = src || projdir || Dir.pwd
+  vars = {
+    "SRCROOT"     => base,
+    "PROJECT_DIR" => base,
+    "TARGET_NAME" => scheme.to_s,
+    "PRODUCT_NAME"=> scheme.to_s
+  }
+
+  # Κάνε expand $(VAR) και ${VAR}
+  expanded = inf.dup
+  vars.each do |k, v|
+    expanded.gsub!("$(#{k})", v)
+    expanded.gsub!(/\$\{#{k}\}/, v)
+  end
+
+  # Αν παραμείνουν σχετικές διαδρομές, κάν’ τες absolute με βάση το PROJECT_DIR/SRCROOT
+  abs = File.expand_path(expanded, base)
+
+  # Μικρή βοήθεια: αν δεν υπάρχει ακόμα, δοκίμασε και σε σχέση με τον τρέχοντα φάκελο
+  return abs if File.exist?(abs)
+  alt = File.expand_path(expanded, Dir.pwd)
+  return alt if File.exist?(alt)
+
+  nil
+end
+
 default_platform :ios
 
 platform :ios do
@@ -33,24 +79,22 @@ platform :ios do
       api_key: api_key
     )
 
-    # 4) Build number (AGV αν υπάρχει, αλλιώς fallback σε υπαρκτό Info.plist)
+    # 4) Build number (AGV αν υπάρχει, αλλιώς γράφουμε στο αληθινό Info.plist που δηλώνει το target)
+    scheme = (ENV['SCHEME_NAME'] || "App")
+    config = "Release"
+
     begin
       bn = ENV['BUILD_NUMBER'].to_s.strip
       UI.user_error!("BUILD_NUMBER env is empty") if bn.empty?
       increment_build_number(build_number: bn) # agvtool / CURRENT_PROJECT_VERSION
     rescue => e
-      UI.important("agvtool failed (Apple Generic Versioning not enabled). Fallback to Info.plist: #{e}")
+      UI.important("AGV/`increment_build_number` failed: #{e}")
+      UI.message("Falling back to Info.plist from build settings (scheme=#{scheme}, config=#{config})")
 
-      # Σχετικά με το ios/App (τρέχεις εδώ το fastlane)
-      candidates = [
-        "App/Info.plist",            # Capacitor default
-        "App/App/Info.plist",        # εναλλακτικό αν υπάρχει
-        "App/Supporting/Info.plist", # άλλα κοινά paths
-        "App/Resources/Info.plist",
-        "App/Config/Info.plist"
-      ]
-      plist_path = candidates.find { |p| File.exist?(p) }
-      UI.user_error!("Couldn't find Info.plist. Tried: #{candidates.join(', ')}") unless plist_path
+      plist_path = resolve_infoplist_path(scheme: scheme, configuration: config)
+      unless plist_path && File.exist?(plist_path)
+        UI.user_error!("Couldn't locate Info.plist from build settings for scheme='#{scheme}', config='#{config}'.")
+      end
 
       UI.message("Using Info.plist at: #{plist_path}")
       set_info_plist_value(
@@ -76,8 +120,8 @@ platform :ios do
 
     gym(
       workspace: "App.xcworkspace",
-      scheme: (ENV['SCHEME_NAME'] || "App"),
-      configuration: "Release",
+      scheme: scheme,
+      configuration: config,
       clean: true,
       sdk: "iphoneos",
       export_method: "app-store",
