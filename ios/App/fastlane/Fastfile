@@ -28,7 +28,7 @@ platform :ios do
       app_identifier: ENV["APP_BUNDLE_ID"],
       team_id: ENV["APPLE_TEAM_ID"],
       keychain_name: "ci",
-      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"]
+      keychain_password: ENV['KEYCHAIN_PASSWORD']
     )
 
     # Αυξάνουμε build number από το CI run_number
