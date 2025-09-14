@@ -23,25 +23,24 @@ jobs:
     env:
       # ---- App / Build ----
       APP_BUNDLE_ID: gr.formypet.app
-      BUILD_NUMBER: ${{ inputs.build_number || '237' }}
+      BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
 
-      # ---- fastlane match (certs/profiles) ----
-      MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-      MATCH_GIT_BRANCH: main
+      # ---- Match repo (μη secret το slug, secret το PAT) ----
+      MATCH_GIT_REPO: araksia/formypet-ios-certificates
+      MATCH_REPO_PAT: ${{ secrets.MATCH_REPO_PAT }}
+
+      # ---- Fastlane/Match secrets ----
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      # Optional: Personal Access Token για ιδιωτικό match repo (HTTPS)
-      MATCH_REPO_PAT: ${{ secrets.MATCH_REPO_PAT }}
-
       # ---- App Store Connect API Key (RAW .p8, ΟΧΙ base64) ----
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-      APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+      APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
 
-      # ---- Optional JS / Firebase ----
+      # ---- Optional ----
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
 
@@ -68,24 +67,13 @@ jobs:
           ruby-version: '3.3'
           bundler-cache: false
 
-      - name: Versions
+      - name: Print tool versions
         run: |
           node -v
           npm -v
           ruby -v
           gem -v
           xcodebuild -version
-
-      # Optional: pre-auth για match repo με PAT (HTTPS)
-      - name: (Optional) Pre-auth match repo via PAT
-        if: ${{ env.MATCH_REPO_PAT != '' }}
-        run: |
-          set -euo pipefail
-          git config --global url."https://x-access-token:${MATCH_REPO_PAT}@github.com/".insteadOf https://github.com/
-          # Sanity check (δεν τυπώνουμε το token)
-          if [ -n "${MATCH_GIT_URL:-}" ]; then
-            git ls-remote --heads "${MATCH_GIT_URL}" >/dev/null
-          fi
 
       - name: Setup .npmrc (if NPM_TOKEN)
         if: ${{ env.NPM_TOKEN != '' }}
@@ -97,7 +85,51 @@ jobs:
       - name: Build web assets
         run: npm run build
 
-      # Προετοιμασία Pods μέσω Bundler αν υπάρχει Gemfile στο ios/App
+      # ---------- PREAUTH για το match repo με PAT ----------
+      - name: Build MATCH_GIT_URL & pre-auth
+        run: |
+          set -euo pipefail
+          # 1) Φτιάχνουμε καθαρό HTTPS URL από το slug
+          URL="https://github.com/${MATCH_GIT_REPO}.git"
+          echo "MATCH_GIT_URL=${URL}" >> "$GITHUB_ENV"
+
+          # 2) Pre-auth ώστε Ο,ΤΙ περνάει από github.com να χρησιμοποιεί το PAT
+          if [ -n "${MATCH_REPO_PAT:-}" ]; then
+            git config --global url."https://x-access-token:${MATCH_REPO_PAT}@github.com/".insteadOf https://github.com/
+            git config --global url."https://x-access-token:${MATCH_REPO_PAT}@github.com/".insteadOf ssh://git@github.com/
+            git config --global url."https://x-access-token:${MATCH_REPO_PAT}@github.com/".insteadOf git@github.com:
+          fi
+
+          echo "✅ MATCH_GIT_URL set to: ${URL}"
+
+      - name: Check PAT access via GitHub API (debug)
+        run: |
+          set -euo pipefail
+          if [ -z "${MATCH_REPO_PAT:-}" ]; then
+            echo "⚠️  No MATCH_REPO_PAT provided, skipping API check"
+            exit 0
+          fi
+          SLUG="${MATCH_GIT_REPO}"
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token ${MATCH_REPO_PAT}" \
+            "https://api.github.com/repos/${SLUG}")
+          echo "GitHub API status for ${SLUG}: ${CODE}"
+          if [ "${CODE}" != "200" ]; then
+            echo "❌ Το PAT ΔΕΝ έχει πρόσβαση στο repo ή το repo δεν υπάρχει/είναι λάθος slug."
+            echo "   - Βεβαιώσου ότι το repo υπάρχει και είναι ακριβώς: ${SLUG}"
+            echo "   - Το PAT πρέπει να έχει scope: repo (και SSO authorized, αν το repo είναι σε org με SSO)."
+            exit 1
+          fi
+          echo "✅ PAT has access"
+
+      - name: Sanity check ls-remote
+        run: |
+          set -euo pipefail
+          echo "Testing git ls-remote on ${MATCH_GIT_URL}"
+          git ls-remote --heads "${MATCH_GIT_URL}" >/dev/null
+          echo "✅ ls-remote OK"
+
+      # ---------- Προετοιμασία Bundler/CocoaPods ΠΡΙΝ το cap sync ----------
       - name: Prepare Ruby gems (ios/App)
         working-directory: ios/App
         run: |
@@ -140,50 +172,11 @@ jobs:
             pod install --repo-update
           fi
 
-      # 
-      - name: Preflight verify iOS project
+      - name: Verify Xcode workspace & scheme
         run: |
-          set -euo pipefail
-          echo "== Tree ios/App =="
-          ls -la ios/App || true
-          echo "== Tree ios/App/App =="
-          ls -la ios/App/App || true
-
-          echo "== List workspace schemes =="
           xcodebuild -list -workspace ios/App/App.xcworkspace
+          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App | egrep "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN|PROVISIONING_PROFILE_SPECIFIER" || true
 
-          echo "== Show build settings (key signing vars) =="
-          xcodebuild -showBuildSettings \
-            -workspace ios/App/App.xcworkspace \
-            -scheme App -configuration Release -sdk iphoneos \
-          | egrep "PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN|PROVISIONING_PROFILE|PROVISIONING_PROFILE_SPECIFIER" || true
-
-      - name: Verify GoogleService-Info exists before build
-        run: |
-          set -euo pipefail
-          test -f ios/App/App/GoogleService-Info.plist && echo "OK: GoogleService-Info.plist present" || (echo "Missing GoogleService-Info.plist"; exit 1)
-
-      # --------- RAW XCODEBUILD ΓΙΑ ΝΑ ΒΓΑΙΝΕΙ ΤΟ ΑΛΗΘΙΝΟ ERROR ---------
-      - name: Dry-run archive with raw xcodebuild
-        run: |
-          set -euo pipefail
-          xcodebuild \
-            -workspace ios/App/App.xcworkspace \
-            -scheme App \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            -archivePath build/App.xcarchive \
-            clean archive | tee raw-xcodebuild.log
-
-      - name: Upload raw xcodebuild log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: raw-xcodebuild-log
-          path: raw-xcodebuild.log
-
-      # --------- FASTLANE ---------
       - name: Fastlane release
         working-directory: ios/App
         run: |
@@ -194,7 +187,6 @@ jobs:
             fastlane release
           fi
 
-      # --------- LOGS / ARTIFACTS ---------
       - name: Show xcodebuild logs (tail)
         if: always()
         run: |
