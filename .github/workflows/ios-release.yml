@@ -25,7 +25,7 @@ jobs:
       APP_BUNDLE_ID: gr.formypet.app
       BUILD_NUMBER: ${{ inputs.build_number || github.run_number }}
 
-      # ---- Match repo (μη secret το slug, secret το PAT) ----
+      # ---- Match repo (slug) & PAT ----
       MATCH_GIT_REPO: araksia/formypet-ios-certificates
       MATCH_REPO_PAT: ${{ secrets.MATCH_REPO_PAT }}
 
@@ -85,49 +85,39 @@ jobs:
       - name: Build web assets
         run: npm run build
 
-      # ---------- PREAUTH για το match repo με PAT ----------
-      - name: Build MATCH_GIT_URL & pre-auth
+      # ---------- Φτιάχνουμε tokened URL για το match ----------
+      - name: Build MATCH_GIT_URL (tokened) & sanity check
         run: |
           set -euo pipefail
-          # 1) Φτιάχνουμε καθαρό HTTPS URL από το slug
-          URL="https://github.com/${MATCH_GIT_REPO}.git"
-          echo "MATCH_GIT_URL=${URL}" >> "$GITHUB_ENV"
 
-          # 2) Pre-auth ώστε Ο,ΤΙ περνάει από github.com να χρησιμοποιεί το PAT
-          if [ -n "${MATCH_REPO_PAT:-}" ]; then
-            git config --global url."https://x-access-token:${MATCH_REPO_PAT}@github.com/".insteadOf https://github.com/
-            git config --global url."https://x-access-token:${MATCH_REPO_PAT}@github.com/".insteadOf ssh://git@github.com/
-            git config --global url."https://x-access-token:${MATCH_REPO_PAT}@github.com/".insteadOf git@github.com:
-          fi
-
-          echo "✅ MATCH_GIT_URL set to: ${URL}"
-
-      - name: Check PAT access via GitHub API (debug)
-        run: |
-          set -euo pipefail
           if [ -z "${MATCH_REPO_PAT:-}" ]; then
-            echo "⚠️  No MATCH_REPO_PAT provided, skipping API check"
-            exit 0
-          fi
-          SLUG="${MATCH_GIT_REPO}"
-          CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: token ${MATCH_REPO_PAT}" \
-            "https://api.github.com/repos/${SLUG}")
-          echo "GitHub API status for ${SLUG}: ${CODE}"
-          if [ "${CODE}" != "200" ]; then
-            echo "❌ Το PAT ΔΕΝ έχει πρόσβαση στο repo ή το repo δεν υπάρχει/είναι λάθος slug."
-            echo "   - Βεβαιώσου ότι το repo υπάρχει και είναι ακριβώς: ${SLUG}"
-            echo "   - Το PAT πρέπει να έχει scope: repo (και SSO authorized, αν το repo είναι σε org με SSO)."
+            echo "❌ MATCH_REPO_PAT is empty. Βάλε PAT με scope 'repo' στα Secrets."
             exit 1
           fi
-          echo "✅ PAT has access"
 
-      - name: Sanity check ls-remote
-        run: |
-          set -euo pipefail
-          echo "Testing git ls-remote on ${MATCH_GIT_URL}"
-          git ls-remote --heads "${MATCH_GIT_URL}" >/dev/null
-          echo "✅ ls-remote OK"
+          # Plain και tokened URLs
+          PLAIN_URL="https://github.com/${MATCH_GIT_REPO}.git"
+          TOKENED_URL="https://x-access-token:${MATCH_REPO_PAT}@github.com/${MATCH_GIT_REPO}.git"
+
+          # Αποθήκευση για επόμενα βήματα / Fastlane
+          echo "MATCH_GIT_URL=${TOKENED_URL}" >> "$GITHUB_ENV"
+          echo "MATCH_GIT_URL_PLAIN=${PLAIN_URL}" >> "$GITHUB_ENV"
+
+          echo "🔎 Checking repo existence via GitHub API..."
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token ${MATCH_REPO_PAT}" \
+            "https://api.github.com/repos/${MATCH_GIT_REPO}")
+          echo "GitHub API status for ${MATCH_GIT_REPO}: ${CODE}"
+          if [ "${CODE}" != "200" ]; then
+            echo "❌ Repo δεν βρέθηκε ή το PAT δεν έχει πρόσβαση."
+            echo "   - Έλεγξε το slug: ${MATCH_GIT_REPO}"
+            echo "   - Το PAT πρέπει να έχει scope: repo (και SSO authorization αν είναι σε org)."
+            exit 1
+          fi
+
+          echo "🔐 Testing git ls-remote with tokened URL (δεν τυπώνεται το token)..."
+          GIT_ASKPASS=true GIT_TERMINAL_PROMPT=0 git ls-remote --heads "${TOKENED_URL}" >/dev/null
+          echo "✅ Tokened ls-remote OK"
 
       # ---------- Προετοιμασία Bundler/CocoaPods ΠΡΙΝ το cap sync ----------
       - name: Prepare Ruby gems (ios/App)
@@ -179,6 +169,9 @@ jobs:
 
       - name: Fastlane release
         working-directory: ios/App
+        env:
+          # Δίνουμε στο Fastlane το tokened URL
+          MATCH_GIT_URL: ${{ env.MATCH_GIT_URL }}
         run: |
           set -e
           if [ -f Gemfile ]; then
