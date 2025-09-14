@@ -255,7 +255,25 @@ jobs:
           else
             fastlane release
           fi
-
+      - name: Dump xcodebuild root cause
+        if: failure()
+        run: |
+          set -euo pipefail
+          LOG=$(ls -t ~/Library/Logs/gym/*.log 2>/dev/null | head -n1 || true)
+          if [ -z "$LOG" ]; then
+            echo "No gym log found"; exit 0
+          fi
+          echo "== First 10 error lines =="
+          grep -nE "error:|fatal error:|CodeSign|Provisioning|ld: " "$LOG" | head -n 10 || true
+          echo "== Context around first error =="
+          LN=$(grep -nE "error:|fatal error:|CodeSign|Provisioning|ld: " "$LOG" | head -n1 | cut -d: -f1 || echo "")
+          if [ -n "$LN" ]; then
+            START=$((LN>80?LN-80:1)); END=$((LN+120))
+            sed -n "${START},${END}p" "$LOG"
+          else
+            tail -n 300 "$LOG"
+          fi
+        
       - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
