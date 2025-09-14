@@ -230,6 +230,19 @@ jobs:
             ~/Library/Logs/gym/**
             ios/App/fastlane/build_logs/**
           if-no-files-found: warn
+          
+      - name: Dump first error line from gym log
+        if: failure()
+        run: |
+          LOG=$(ls -t ~/Library/Logs/gym/*.log 2>/dev/null | head -n1 || true)
+          if [ -n "$LOG" ]; then
+            echo ">> First error line:"
+            grep -nE "error:|❌|fatal error:" "$LOG" | head -n1 || true
+            echo ">> Last 200 lines:"
+            tail -n 200 "$LOG"
+          else
+            echo "No gym log found"
+          fi
 
       - name: Inspect built IPA (only on success)
         if: ${{ success() }}
