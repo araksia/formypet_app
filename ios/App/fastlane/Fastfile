@@ -141,8 +141,7 @@ platform :ios do
       end
     end
 
-    # 5) Pin Xcode 16.2
-    xcode_select("/Applications/Xcode_16.2.app")
+    
 
     # 6) Gym (Archive) — Automatic signing + πιθανό override του CURRENT_PROJECT_VERSION
     signing_args = [
