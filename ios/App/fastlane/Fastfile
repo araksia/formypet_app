@@ -1,52 +1,71 @@
-lane :release do
-  api_key = app_store_connect_api_key(
-    key_id:      ENV.fetch('APP_STORE_CONNECT_API_KEY_ID'),
-    issuer_id:   ENV.fetch('APP_STORE_CONNECT_API_ISSUER_ID'),
-    key_content: ENV.fetch('APP_STORE_CONNECT_API_KEY_CONTENT')
-  )
+default_platform :ios
 
-  increment_build_number(build_number: ENV['BUILD_NUMBER'])
+platform :ios do
+  desc "Build & upload to TestFlight"
+  lane :release do
+    # CI-friendly keychain
+    create_keychain(
+      name: "ci",
+      default_keychain: true,
+      unlock: true,
+      timeout: 3600,
+      password: ENV["KEYCHAIN_PASSWORD"]
+    )
 
-  create_keychain(
-    name: "build.keychain",
-    password: ENV['KEYCHAIN_PASSWORD'],
-    default_keychain: true,
-    unlock: true,
-    timeout: 3600,
-    lock_when_sleeps: true
-  )
+    # App Store Connect API Key (Secrets: ID/Issuer/Base64 key)
+    api_key = app_store_connect_api_key(
+      key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
+      issuer_id: ENV["APP_STORE_CONNECT_API_ISSUER_ID"],
+      key_content: ENV["APP_STORE_CONNECT_API_KEY_CONTENT"],
+      is_key_content_base64: true,
+      duration: 1200
+    )
 
-  match(
-    type: "appstore",
-    readonly: true,
-    git_url: ENV['MATCH_GIT_URL'],
-    git_branch: ENV['MATCH_GIT_BRANCH'],
-    app_identifier: ENV['APP_BUNDLE_ID'],
-    team_id: ENV['APPLE_TEAM_ID'],
-    keychain_name: "build.keychain",
-    keychain_password: ENV['KEYCHAIN_PASSWORD']
-  )
+    # Certificates & Provisioning (match repo)
+    match(
+      type: "appstore",
+      git_url: ENV["MATCH_GIT_URL"],
+      git_branch: ENV["MATCH_GIT_BRANCH"] || "main",
+      readonly: true,
+      app_identifier: ENV["APP_BUNDLE_ID"],
+      team_id: ENV["APPLE_TEAM_ID"],
+      keychain_name: "ci",
+      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"]
+    )
 
-	gym(
-	  scheme: "App",
-	  workspace: "App.xcworkspace",
-	  configuration: "Release",
-	  clean: true,
-	  export_method: "app-store",
-	  # για να βλέπουμε raw xcodebuild και να κρατάει logs τοπικά στο repo
-	  disable_xcpretty: true,
-	  buildlog_path: "./fastlane/build_logs"
-	)
+    # Αυξάνουμε build number από το CI run_number
+    increment_build_number(build_number: ENV["BUILD_NUMBER"])
 
-  # Πάρε το path του IPA από το gym και κράτα το σίγουρα στο ios/App/build
-  ipa_path = Actions.lane_context[SharedValues::IPA_OUTPUT_PATH]
-  sh "mkdir -p build && cp \"#{ipa_path}\" build/"
+    # Build
+    gym(
+      workspace: "App.xcworkspace",
+      scheme: "App",
+      configuration: "Release",
+      clean: true,
+      export_method: "app-store",
+      output_directory: "build",
+      output_name: "App-#{Time.now.strftime('%Y%m%d')}.ipa",
+      include_symbols: true,
+      include_bitcode: false,
+      silent: false
+    )
 
-  upload_to_testflight(
-    api_key: api_key,
-    app_identifier: ENV['APP_BUNDLE_ID'],
-    skip_waiting_for_build_processing: true
-  )
+    # Safety: fail αν λείπει το aps-environment στον υπογεγραμμένο .app
+    sh <<~BASH
+      set -e
+      IPA=$(ls -t build/*.ipa | head -n1)
+      echo "Inspecting $IPA"
+      TMP=$(mktemp -d); unzip -q "$IPA" -d "$TMP"
+      APP_PATH=$(find "$TMP/Payload" -name "*.app" -maxdepth 1 | head -n1)
+      /usr/bin/codesign -d --entitlements :- "$APP_PATH" > entitlements.plist
+      /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist
+    BASH
 
-  # ❌ ΜΗΝ βάλεις clean_build_artifacts εδώ, αλλιώς θα σβήσει το IPA
+    # Upload στο TestFlight
+    pilot(
+      api_key: api_key,
+      skip_submission: true,
+      skip_waiting_for_build_processing: true
+    )
+  end
 end
