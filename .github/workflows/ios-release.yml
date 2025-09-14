@@ -55,44 +55,20 @@ jobs:
           ssh-keyscan -t rsa,ecdsa -H github.com >> ~/.ssh/known_hosts
 
       - name: Sanity check SSH access to MATCH_GIT_URL
-        run: |
-          git ls-remote --heads "${MATCH_GIT_URL}"
+        run: git ls-remote --heads "${MATCH_GIT_URL}"
 
-      - name: Select Xcode 16.2
+      # ---- Pin Xcode 16.1 to avoid missing iOS 18.2 SDK ----
+      - name: Select Xcode 16.1
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "16.2"
+          xcode-version: "16.1"
 
-      - name: Install Xcode additional components
+      - name: First launch & DEVELOPER_DIR
         run: |
-          sudo /Applications/Xcode_16.2.app/Contents/Developer/usr/bin/xcodebuild -runFirstLaunch || true
+          sudo /Applications/Xcode_16.1.app/Contents/Developer/usr/bin/xcodebuild -runFirstLaunch || true
           sudo xcodebuild -license accept || true
-
-      - name: Verify iPhoneOS SDKs present
-        run: |
-          ls -la /Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs || true
-          xcrun --sdk iphoneos --show-sdk-version || true
-
-      - name: Fallback to Xcode 16.1 if iOS 18.2 SDK not found
-        run: |
-          SDK_DIR="/Applications/Xcode_16.2.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.sdk"
-          if [ ! -d "$SDK_DIR" ]; then
-            echo "XCODE_VERSION=16.1" >> "$GITHUB_ENV"
-          else
-            echo "XCODE_VERSION=16.2" >> "$GITHUB_ENV"
-          fi
-
-      - name: Re-select Xcode after fallback
-        if: env.XCODE_VERSION != '16.2'
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: ${{ env.XCODE_VERSION }}
-
-      - name: Set DEVELOPER_DIR (final)
-        run: |
-          : "${XCODE_VERSION:=16.2}"
-          sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
-          echo "DEVELOPER_DIR=/Applications/Xcode_${XCODE_VERSION}.app/Contents/Developer" >> "$GITHUB_ENV"
+          sudo xcode-select -s /Applications/Xcode_16.1.app
+          echo "DEVELOPER_DIR=/Applications/Xcode_16.1.app/Contents/Developer" >> "$GITHUB_ENV"
           xcode-select -p
           xcrun --sdk iphoneos --show-sdk-version
 
@@ -116,16 +92,13 @@ jobs:
 
       - name: Setup .npmrc (if NPM_TOKEN)
         if: ${{ env.NPM_TOKEN != '' }}
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
 
       - name: Install JS deps
-        run: |
-          npm ci
+        run: npm ci
 
       - name: Build web assets
-        run: |
-          npm run build
+        run: npm run build
 
       - name: Prepare Ruby gems (ios/App)
         working-directory: ios/App
@@ -155,8 +128,7 @@ jobs:
           /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist || true
 
       - name: Capacitor sync iOS
-        run: |
-          npx cap sync ios
+        run: npx cap sync ios
 
       - name: Ensure CocoaPods install
         working-directory: ios/App
@@ -173,22 +145,12 @@ jobs:
           SCHEME_PATH="$SCHEMES_DIR/${SCHEME_NAME}.xcscheme"
           mkdir -p "$SCHEMES_DIR"
 
-          if [ ! -f "$PBX" ]; then
-            echo "project.pbxproj not found at $PBX"; exit 1
-          fi
-
+          [ -f "$PBX" ] || { echo "project.pbxproj not found at $PBX"; exit 1; }
           if [ -f "$SCHEME_PATH" ]; then
-            echo "Shared scheme already exists: $SCHEME_PATH"
-            exit 0
-          fi
+            echo "Shared scheme already exists: $SCHEME_PATH"; exit 0; fi
 
-          echo "Extracting target UUID for '${SCHEME_NAME}'..."
           TARGET_UUID=$(awk '{gsub(/^[ \t]+/,"",$0)} /\/\* '"${SCHEME_NAME}"' \*\/[ \t]*=[ \t]*\{/ { split($0,a,/[ \t]+/); print a[1]; exit }' "$PBX") || true
-          if [ -z "${TARGET_UUID:-}" ]; then
-            echo "Could not find PBXNativeTarget for '${SCHEME_NAME}' in $PBX"
-            exit 1
-          fi
-
+          [ -n "${TARGET_UUID:-}" ] || { echo "No PBXNativeTarget for ${SCHEME_NAME}"; exit 1; }
           BUILDABLE_NAME="${SCHEME_NAME}.app"
 
           {
@@ -256,7 +218,7 @@ jobs:
       - name: Verify workspace & scheme
         run: |
           xcodebuild -list -workspace ios/App/App.xcworkspace
-          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme "${SCHEME_NAME}" -configuration Release -sdk iphoneos | grep -E "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN|PROVISIONING_PROFILE_SPECIFIER|SDKROOT" || true
+          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme "${SCHEME_NAME}" -configuration Release -sdk iphoneos | grep -E "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN|SDKROOT" || true
 
       - name: Set BUILD_NUMBER env (input or run number)
         run: |
@@ -265,31 +227,6 @@ jobs:
           else
             echo "BUILD_NUMBER=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
           fi
-
-      - name: Reveal build settings (non-fatal)
-        run: |
-          set +e
-          xcodebuild -showBuildSettings \
-            -workspace ios/App/App.xcworkspace \
-            -scheme "${SCHEME_NAME}" \
-            -configuration Release \
-            -sdk iphoneos > /tmp/buildsettings_ws.txt 2>&1
-          RC=$?
-          if [ $RC -ne 0 ]; then
-            xcodebuild -showBuildSettings \
-              -project ios/App/App.xcodeproj \
-              -target "${SCHEME_NAME}" \
-              -configuration Release \
-              -sdk iphoneos > /tmp/buildsettings_proj.txt 2>&1
-          fi
-          egrep "INFOPLIST_FILE|SRCROOT|PROJECT_DIR" /tmp/buildsettings_ws.txt 2>/dev/null || true
-          egrep "INFOPLIST_FILE|SRCROOT|PROJECT_DIR" /tmp/buildsettings_proj.txt 2>/dev/null || true
-          echo "Searching for Info.plist with CFBundleIdentifier=${APP_BUNDLE_ID} ..."
-          find ios -name Info.plist -print0 | while IFS= read -r -d '' p; do
-            id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$p" 2>/dev/null || true)
-            [ "$id" = "${APP_BUNDLE_ID}" ] && echo "MATCH: $p"
-          done
-          exit 0
 
       - name: Fastlane release
         working-directory: ios/App
@@ -310,16 +247,10 @@ jobs:
           if [ -z "$LOG" ]; then
             echo "No gym log found"; exit 0
           fi
-          echo "== First 10 error lines =="
-          grep -nE "error:|fatal error:|CodeSign|Provisioning|ld: " "$LOG" | head -n 10 || true
-          echo "== Context around first error =="
-          LN=$(grep -nE "error:|fatal error:|CodeSign|Provisioning|ld: " "$LOG" | head -n1 | cut -d: -f1 || echo "")
-          if [ -n "$LN" ]; then
-            START=$((LN>80?LN-80:1)); END=$((LN+120))
-            sed -n "${START},${END}p" "$LOG"
-          else
-            tail -n 300 "$LOG"
-          fi
+          echo "== First 12 error lines =="
+          grep -nE "error:|fatal error:|CodeSign|Provisioning|ld: " "$LOG" | head -n 12 || true
+          echo "== Tail (last 200) =="
+          tail -n 200 "$LOG" || true
 
       - name: Upload build logs
         if: always()
@@ -346,8 +277,7 @@ jobs:
         run: |
           IPA=$(ls -t ios/App/build/*.ipa 2>/dev/null | head -n1 || true)
           if [ -z "$IPA" ]; then
-            echo "No IPA found"
-            exit 1
+            echo "No IPA found"; exit 1
           fi
           TMP=$(mktemp -d)
           unzip -q "$IPA" -d "$TMP"
