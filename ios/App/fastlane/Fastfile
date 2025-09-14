@@ -1,48 +1,66 @@
 require 'shellwords'
 
-# Βοηθητικό: βρες και κάνε expand το πραγματικό Info.plist από τα build settings
-def resolve_infoplist_path(scheme:, configuration:)
-  # Τρέχουμε μέσα στον φάκελο ios/App (εκεί καλούμε τη lane)
-  cmd = [
-    "xcodebuild",
-    "-showBuildSettings",
-    "-workspace", "App.xcworkspace",
-    "-scheme", scheme.to_s,
-    "-configuration", configuration.to_s
+# === Helpers =================================================================
+
+def read_build_settings(scheme:, configuration:)
+  # 1) Προσπάθησε με workspace+scheme
+  cmd1 = %W[
+    xcodebuild -showBuildSettings
+    -workspace App.xcworkspace
+    -scheme #{scheme}
+    -configuration #{configuration}
   ].map(&:shellescape).join(" ")
+  out = Actions.sh(cmd1, log: false) rescue ""
 
-  out = Actions.sh(cmd, log: false) rescue ""
-  inf = out.lines.grep(/^\s*INFOPLIST_FILE\s*=/).last&.split("=", 2)&.last&.strip
-  src = out.lines.grep(/^\s*SRCROOT\s*=/).last&.split("=", 2)&.last&.strip
-  projdir = out.lines.grep(/^\s*PROJECT_DIR\s*=/).last&.split("=", 2)&.last&.strip
+  # 2) Fallback: project+target (το scheme μας δείχνει σε target με ίδιο όνομα)
+  if out.to_s.strip.empty? || !out.include?("Build settings")
+    cmd2 = %W[
+      xcodebuild -showBuildSettings
+      -project App.xcodeproj
+      -target #{scheme}
+      -configuration #{configuration}
+    ].map(&:shellescape).join(" ")
+    out = Actions.sh(cmd2, log: false) rescue ""
+  end
 
-  return nil if inf.nil? || inf.empty?
+  out
+end
 
-  base = src || projdir || Dir.pwd
-  vars = {
-    "SRCROOT"     => base,
-    "PROJECT_DIR" => base,
-    "TARGET_NAME" => scheme.to_s,
-    "PRODUCT_NAME"=> scheme.to_s
-  }
+def resolve_infoplist_path_and_mode(scheme:, configuration:)
+  out = read_build_settings(scheme: scheme, configuration: configuration)
+  return [nil, :unknown] if out.to_s.strip.empty?
 
-  # Κάνε expand $(VAR) και ${VAR}
-  expanded = inf.dup
-  vars.each do |k, v|
+  # Πιάσε σημαντικά settings
+  infoplist_file = out.lines.grep(/^\s*INFOPLIST_FILE\s*=/).last&.split("=",2)&.last&.strip
+  generate_auto = out.lines.grep(/^\s*GENERATE_INFOPLIST_FILE\s*=\s*YES/i).any?
+  srcroot = out.lines.grep(/^\s*(SRCROOT|PROJECT_DIR)\s*=/).last&.split("=",2)&.last&.strip || Dir.pwd
+
+  if generate_auto && (infoplist_file.nil? || infoplist_file.empty?)
+    # Xcode θα παράξει το Info.plist => δεν υπάρχει αρχείο για να πειράξουμε
+    return [nil, :generated]
+  end
+
+  return [nil, :unknown] if infoplist_file.to_s.empty?
+
+  # Expand $(VAR) / ${VAR}
+  expanded = infoplist_file.dup
+  { "SRCROOT" => srcroot, "PROJECT_DIR" => srcroot }.each do |k,v|
     expanded.gsub!("$(#{k})", v)
     expanded.gsub!(/\$\{#{k}\}/, v)
   end
-
-  # Αν παραμείνουν σχετικές διαδρομές, κάν’ τες absolute με βάση το PROJECT_DIR/SRCROOT
-  abs = File.expand_path(expanded, base)
-
-  # Μικρή βοήθεια: αν δεν υπάρχει ακόμα, δοκίμασε και σε σχέση με τον τρέχοντα φάκελο
-  return abs if File.exist?(abs)
-  alt = File.expand_path(expanded, Dir.pwd)
-  return alt if File.exist?(alt)
-
-  nil
+  abs = File.expand_path(expanded, srcroot)
+  File.exist?(abs) ? [abs, :file] : [nil, :unknown]
 end
+
+# Αν δεν βρούμε από build settings, δοκίμασε να ταιριάξεις με βάση το bundle id
+def find_plist_by_bundle_id(root:, bundle_id:)
+  Dir.glob(File.join(root, "**/Info.plist")).find do |p|
+    id = `/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "#{p}" 2>/dev/null`.strip
+    id == bundle_id
+  end
+end
+
+# === Lane ====================================================================
 
 default_platform :ios
 
@@ -79,35 +97,50 @@ platform :ios do
       api_key: api_key
     )
 
-    # 4) Build number (AGV αν υπάρχει, αλλιώς γράφουμε στο αληθινό Info.plist που δηλώνει το target)
+    # 4) Build number
     scheme = (ENV['SCHEME_NAME'] || "App")
     config = "Release"
+    bn = ENV['BUILD_NUMBER'].to_s.strip
+    UI.user_error!("BUILD_NUMBER env is empty") if bn.empty?
 
+    # Προσπάθησε πρώτα AGV (CURRENT_PROJECT_VERSION)
+    agv_ok = false
     begin
-      bn = ENV['BUILD_NUMBER'].to_s.strip
-      UI.user_error!("BUILD_NUMBER env is empty") if bn.empty?
-      increment_build_number(build_number: bn) # agvtool / CURRENT_PROJECT_VERSION
+      increment_build_number(build_number: bn)
+      agv_ok = true
     rescue => e
-      UI.important("AGV/`increment_build_number` failed: #{e}")
-      UI.message("Falling back to Info.plist from build settings (scheme=#{scheme}, config=#{config})")
+      UI.important("AGV (increment_build_number) failed: #{e}")
+    end
 
-      plist_path = resolve_infoplist_path(scheme: scheme, configuration: config)
-      unless plist_path && File.exist?(plist_path)
-        UI.user_error!("Couldn't locate Info.plist from build settings for scheme='#{scheme}', config='#{config}'.")
+    # Αν AGV δεν είναι ενεργό, δες αν υπάρχει φυσικό Info.plist· αλλιώς θα κάνουμε override στο archive
+    extra_version_xcargs = ""
+    unless agv_ok
+      plist_path, mode = resolve_infoplist_path_and_mode(scheme: scheme, configuration: config)
+
+      case mode
+      when :file
+        UI.message("Using Info.plist at: #{plist_path}")
+        set_info_plist_value(path: plist_path, key: "CFBundleVersion", value: bn)
+      when :generated
+        UI.important("GENERATE_INFOPLIST_FILE=YES (no physical Info.plist). Will override CFBundleVersion via xcodebuild.")
+        extra_version_xcargs = " CURRENT_PROJECT_VERSION=#{bn}"
+      else
+        # Τελευταία προσπάθεια: αναζήτηση με βάση bundle id
+        guessed = find_plist_by_bundle_id(root: ".", bundle_id: ENV.fetch('APP_BUNDLE_ID'))
+        if guessed && File.exist?(guessed)
+          UI.message("Found Info.plist by bundle id at: #{guessed}")
+          set_info_plist_value(path: guessed, key: "CFBundleVersion", value: bn)
+        else
+          UI.important("Couldn't resolve a physical Info.plist. Will override CFBundleVersion via xcodebuild.")
+          extra_version_xcargs = " CURRENT_PROJECT_VERSION=#{bn}"
+        end
       end
-
-      UI.message("Using Info.plist at: #{plist_path}")
-      set_info_plist_value(
-        path: plist_path,
-        key: "CFBundleVersion",
-        value: ENV['BUILD_NUMBER']
-      )
     end
 
     # 5) Pin Xcode 16.2
     xcode_select("/Applications/Xcode_16.2.app")
 
-    # 6) Gym (Archive) με ρητά signing flags για ΟΛΑ τα targets
+    # 6) Gym (Archive) με signing & πιθανό override του CURRENT_PROJECT_VERSION
     signing_args = [
       "-allowProvisioningUpdates",
       "CODE_SIGN_STYLE=Manual",
@@ -130,7 +163,7 @@ platform :ios do
       include_symbols: true,
       include_bitcode: false,
       result_bundle: true,
-      xcargs: signing_args,
+      xcargs: [signing_args, extra_version_xcargs].join(" "),
       export_options: {
         signingStyle: "manual",
         provisioningProfiles: {
