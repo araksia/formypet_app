@@ -8,8 +8,7 @@ on:
         required: false
         default: "237"
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 permissions:
   contents: read
@@ -57,21 +56,37 @@ jobs:
       - name: Sanity check SSH access to MATCH_GIT_URL
         run: git ls-remote --heads "${MATCH_GIT_URL}"
 
-      # ========= Xcode 15.4 (iOS SDK 17.5) =========
-      - name: Select Xcode 15.4
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: "15.4"
-
-      - name: First launch & DEVELOPER_DIR
+      # ========= Auto-pick Xcode that has iPhoneOS SDK installed =========
+      - name: Select best available Xcode (auto)
         run: |
-          sudo /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/xcodebuild -runFirstLaunch || true
+          set -euo pipefail
+          CANDIDATES=(
+            /Applications/Xcode_16.4.app
+            /Applications/Xcode_16.3.app
+            /Applications/Xcode_16.2.app
+            /Applications/Xcode_16.1.app
+            /Applications/Xcode_16.app
+          )
+          PICK=""
+          for X in "${CANDIDATES[@]}"; do
+            if [ -d "$X" ] && compgen -G "$X/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS*.sdk" > /dev/null; then
+              PICK="$X"
+              break
+            fi
+          done
+          if [ -z "$PICK" ]; then
+            echo "❌ No Xcode with iPhoneOS SDK found among: ${CANDIDATES[*]}"
+            ls -la /Applications || true
+            exit 1
+          fi
+          echo "✅ Using Xcode: $PICK"
+          sudo xcode-select -s "$PICK"
+          echo "DEVELOPER_DIR=$PICK/Contents/Developer" >> "$GITHUB_ENV"
+          sudo "$PICK/Contents/Developer/usr/bin/xcodebuild" -runFirstLaunch || true
           sudo xcodebuild -license accept || true
-          sudo xcode-select -s /Applications/Xcode_15.4.app
-          echo "DEVELOPER_DIR=/Applications/Xcode_15.4.app/Contents/Developer" >> "$GITHUB_ENV"
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
-          ls -la /Applications/Xcode_15.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs || true
+          ls -la "$PICK/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs"
 
       # ========= Toolchains =========
       - name: Setup Node
@@ -225,7 +240,7 @@ jobs:
           xcodebuild -list -workspace ios/App/App.xcworkspace
           xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme "${SCHEME_NAME}" -configuration Release -sdk iphoneos | grep -E "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN|SDKROOT" || true
 
-      # ========= BUILD_NUMBER from input or run number =========
+      # ========= BUILD_NUMBER =========
       - name: Set BUILD_NUMBER env
         run: |
           if [ -n "${{ inputs.build_number }}" ]; then
