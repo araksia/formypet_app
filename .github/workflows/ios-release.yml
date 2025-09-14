@@ -45,6 +45,20 @@ jobs:
       MD_APPLE_SDK_ROOT: /Applications/Xcode_16.2.app
 
     steps:
+    
+      # Μετά το "Select Xcode 16.2"
+      - name: Force DEVELOPER_DIR to Xcode 16.2
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.2.app
+          echo "DEVELOPER_DIR=/Applications/Xcode_16.2.app" >> $GITHUB_ENV
+          xcode-select -p
+
+      - name: Show installed SDKs
+        run: |
+          xcodebuild -showsdks
+          xcrun --sdk iphoneos --show-sdk-version
+          xcrun --sdk iphoneos --show-sdk-path
+          
       - name: Checkout
         uses: actions/checkout@v4
 

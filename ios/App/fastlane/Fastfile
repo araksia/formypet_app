@@ -38,15 +38,18 @@ platform :ios do
 
     # 5) Build/Archive
     gym(
-      workspace: "App.xcworkspace",
-      scheme: "App",
-      configuration: "Release",
-      clean: true,
-      export_method: "app-store",
-      output_directory: "build",
-      output_name: "App-#{Time.now.strftime('%Y%m%d')}.ipa",
-      include_symbols: true,
-      include_bitcode: false
+       workspace: "App.xcworkspace",
+	   scheme: "App",
+	   configuration: "Release",
+	   clean: true,
+	   export_method: "app-store",
+	   output_directory: "build",
+	   output_name: "App-#{Time.now.strftime('%Y%m%d')}.ipa",
+	   include_symbols: true,
+	   include_bitcode: false,
+	   # 👇 Ζήτησε ρητά το device SDK
+	   xcargs: "-sdk iphoneos",
+	   destination: "generic/platform=iOS"
     )
 
     # 6) Safety check: aps-environment
