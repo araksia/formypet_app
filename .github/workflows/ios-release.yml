@@ -167,97 +167,90 @@ jobs:
           PROJ="ios/App/App.xcodeproj"
           PBX="$PROJ/project.pbxproj"
           SCHEMES_DIR="$PROJ/xcshareddata/xcschemes"
+          SCHEME_PATH="$SCHEMES_DIR/${SCHEME_NAME}.xcscheme"
+
           mkdir -p "$SCHEMES_DIR"
 
           if [ ! -f "$PBX" ]; then
             echo "❌ project.pbxproj not found at $PBX"; exit 1
           fi
 
-          if [ -f "$SCHEMES_DIR/${SCHEME_NAME}.xcscheme" ]; then
-            echo "✅ Shared scheme already exists: $SCHEMES_DIR/${SCHEME_NAME}.xcscheme"
+          if [ -f "$SCHEME_PATH" ]; then
+            echo "✅ Shared scheme already exists: $SCHEME_PATH"
             exit 0
           fi
 
-          echo "🔎 Extracting target UUID/product from project.pbxproj..."
-          TARGET_UUID=$(awk '/\/\* '"${SCHEME_NAME}"' \*\/ = \{/{print $1; exit}' "$PBX" | tr -d ' ')
+          echo "🔎 Extracting target UUID for '${SCHEME_NAME}'..."
+          TARGET_UUID=$(awk '
+            {
+              gsub(/^[ \t]+/, "", $0)
+              if ($0 ~ /\/\* '"${SCHEME_NAME}"' \*\/[ \t]*=[ \t]*\{/) {
+                split($0, a, /[ \t]+/); print a[1]; exit
+              }
+            }
+          ' "$PBX")
+
           if [ -z "${TARGET_UUID:-}" ]; then
             echo "❌ Could not find PBXNativeTarget for '${SCHEME_NAME}' in $PBX"
-            echo "   Available targets:"; grep -n "PBXNativeTarget" -n "$PBX" | head -n 50 || true
+            echo "   Available targets in project:"
+            grep -E "PBXNativeTarget|/\* .* \*/ = \{" -n "$PBX" | head -n 80 || true
             exit 1
           fi
 
-          PRODUCT_NAME=$(awk -v uuid="$TARGET_UUID" '
-            $0 ~ uuid" " && $0 ~ /\=\ \{/ {inblock=1}
-            inblock && /productName/ {gsub(/[; ]/,""); split($0,a,"="); print a[2]; exit}
-          ' "$PBX")
+          BUILDABLE_NAME="${SCHEME_NAME}.app"
 
-          BUILDABLE_NAME=$(awk -v uuid="$TARGET_UUID" '
-            $0 ~ uuid" " && $0 ~ /\=\ \{/ {inblock=1}
-            inblock && /path = .*\.app/ {match($0,/path = ([^;]+)\.app/,m); if (m[1]!=""){print m[1]".app"; exit}}
-          ' "$PBX")
-
-          [ -z "${PRODUCT_NAME:-}" ] && PRODUCT_NAME="${SCHEME_NAME}"
-          [ -z "${BUILDABLE_NAME:-}" ] && BUILDABLE_NAME="${PRODUCT_NAME}.app"
-
-          echo "🆔 TARGET_UUID=$TARGET_UUID"
-          echo "📦 PRODUCT_NAME=$PRODUCT_NAME"
-          echo "🧱 BUILDABLE_NAME=$BUILDABLE_NAME"
-
-          SCHEME_PATH="$SCHEMES_DIR/${SCHEME_NAME}.xcscheme"
           cat > "$SCHEME_PATH" <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <Scheme
-             LastUpgradeVersion = "1630"
-             version = "1.7">
-             <BuildAction parallelizeBuildables = "YES" buildImplicitDependencies = "YES">
-                <BuildActionEntries>
-                   <BuildActionEntry buildForTesting = "YES" buildForRunning = "YES" buildForProfiling = "YES" buildForArchiving = "YES" buildForAnalyzing = "YES">
-                      <BuildableReference
-                         BuildableIdentifier = "primary"
-                         BlueprintIdentifier = "${TARGET_UUID}"
-                         BuildableName = "${BUILDABLE_NAME}"
-                         BlueprintName = "${SCHEME_NAME}"
-                         ReferencedContainer = "container:App.xcodeproj">
-                      </BuildableReference>
-                   </BuildActionEntry>
-                </BuildActionEntries>
-             </BuildAction>
-             <TestAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv = "YES">
-                <Testables></Testables>
-             </TestAction>
-             <LaunchAction buildConfiguration = "Release" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle = "0" useCustomWorkingDirectory = "NO" ignoresPersistentStateOnLaunch = "NO" debugDocumentVersioning = "YES" debugServiceExtension = "internal" allowLocationSimulation = "YES">
-                <BuildableProductRunnable runnableDebuggingMode = "0">
-                   <BuildableReference
-                      BuildableIdentifier = "primary"
-                      BlueprintIdentifier = "${TARGET_UUID}"
-                      BuildableName = "${BUILDABLE_NAME}"
-                      BlueprintName = "${SCHEME_NAME}"
-                      ReferencedContainer = "container:App.xcodeproj">
-                   </BuildableReference>
-                </BuildableProductRunnable>
-             </LaunchAction>
-             <ProfileAction buildConfiguration = "Release" shouldUseLaunchSchemeArgsEnv = "YES" savedToolIdentifier = "" useCustomWorkingDirectory = "NO" debugDocumentVersioning = "YES">
-                <BuildableProductRunnable runnableDebuggingMode = "0">
-                   <BuildableReference
-                      BuildableIdentifier = "primary"
-                      BlueprintIdentifier = "${TARGET_UUID}"
-                      BuildableName = "${BUILDABLE_NAME}"
-                      BlueprintName = "${SCHEME_NAME}"
-                      ReferencedContainer = "container:App.xcodeproj">
-                   </BuildableReference>
-                </BuildableProductRunnable>
-             </ProfileAction>
-             <AnalyzeAction buildConfiguration = "Debug"/>
-             <ArchiveAction buildConfiguration = "Release" revealArchiveInOrganizer = "YES"/>
-          </Scheme>
-          EOF
-
-          # Remove leading spaces from here-doc indentation
-          sed -i '' -e 's/^[[:space:]]\{10\}//' "$SCHEME_PATH" || true
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme
+   LastUpgradeVersion = "1630"
+   version = "1.7">
+   <BuildAction parallelizeBuildables = "YES" buildImplicitDependencies = "YES">
+      <BuildActionEntries>
+         <BuildActionEntry buildForTesting = "YES" buildForRunning = "YES" buildForProfiling = "YES" buildForArchiving = "YES" buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "${TARGET_UUID}"
+               BuildableName = "${BUILDABLE_NAME}"
+               BlueprintName = "${SCHEME_NAME}"
+               ReferencedContainer = "container:App.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+      </BuildActionEntries>
+   </BuildAction>
+   <TestAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv = "YES">
+      <Testables></Testables>
+   </TestAction>
+   <LaunchAction buildConfiguration = "Release" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle = "0" useCustomWorkingDirectory = "NO" ignoresPersistentStateOnLaunch = "NO" debugDocumentVersioning = "YES" debugServiceExtension = "internal" allowLocationSimulation = "YES">
+      <BuildableProductRunnable runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "${TARGET_UUID}"
+            BuildableName = "${BUILDABLE_NAME}"
+            BlueprintName = "${SCHEME_NAME}"
+            ReferencedContainer = "container:App.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+   </LaunchAction>
+   <ProfileAction buildConfiguration = "Release" shouldUseLaunchSchemeArgsEnv = "YES" savedToolIdentifier = "" useCustomWorkingDirectory = "NO" debugDocumentVersioning = "YES">
+      <BuildableProductRunnable runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "${TARGET_UUID}"
+            BuildableName = "${BUILDABLE_NAME}"
+            BlueprintName = "${SCHEME_NAME}"
+            ReferencedContainer = "container:App.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+   </ProfileAction>
+   <AnalyzeAction buildConfiguration = "Debug"/>
+   <ArchiveAction buildConfiguration = "Release" revealArchiveInOrganizer = "YES"/>
+</Scheme>
+EOF
 
           echo "✅ Created shared scheme at: $SCHEME_PATH"
-          # Show that xcodebuild now sees it
+          echo "== xcodebuild -list (project) =="
           xcodebuild -list -project "$PROJ" || true
+          echo "== xcodebuild -list (workspace) =="
           xcodebuild -list -workspace ios/App/App.xcworkspace || true
 
       # (προαιρετικά) Resolve Swift Packages
