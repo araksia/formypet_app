@@ -3,7 +3,6 @@ default_platform :ios
 platform :ios do
   desc "Build & upload to TestFlight"
   lane :release do
-    # 1) Keychain για CI
     create_keychain(
       name: "ci",
       default_keychain: true,
@@ -12,14 +11,12 @@ platform :ios do
       password: ENV["KEYCHAIN_PASSWORD"]
     )
 
-    # 2) App Store Connect API key
     api_key = app_store_connect_api_key(
       key_id:      ENV.fetch('APP_STORE_CONNECT_API_KEY_ID'),
       issuer_id:   ENV.fetch('APP_STORE_CONNECT_API_ISSUER_ID'),
       key_content: ENV.fetch('APP_STORE_CONNECT_API_KEY_CONTENT')
     )
 
-    # 3) match για provisioning profiles
     match(
       type: "appstore",
       readonly: true,
@@ -33,11 +30,21 @@ platform :ios do
       api_key: api_key
     )
 
-    # 4) Build number
     increment_build_number(build_number: ENV['BUILD_NUMBER'])
 
-    # 5) Build/Archive
+    # Xcode pin
     xcode_select("/Applications/Xcode_16.2.app")
+
+    # ---- ΣΗΜΑΝΤΙΚΟ: ΡΗΤΑ signing flags για ΟΛΑ τα targets ----
+    signing_args = %W[
+      -allowProvisioningUpdates
+      CODE_SIGN_STYLE=Manual
+      DEVELOPMENT_TEAM=#{ENV.fetch('APPLE_TEAM_ID')}
+      PROVISIONING_PROFILE_SPECIFIER=match\ AppStore\ #{ENV.fetch('APP_BUNDLE_ID')}
+      CODE_SIGN_IDENTITY=Apple\ Distribution
+      ONLY_ACTIVE_ARCH=NO
+      ENABLE_USER_SCRIPT_SANDBOXING=NO
+    ].join(' ')
 
     gym(
       workspace: "App.xcworkspace",
@@ -50,7 +57,7 @@ platform :ios do
       output_name: "App-#{Time.now.strftime('%Y%m%d')}.ipa",
       include_symbols: true,
       include_bitcode: false,
-      xcargs: "-allowProvisioningUpdates CODE_SIGN_STYLE=Manual",
+      xcargs: signing_args,
       export_options: {
         signingStyle: "manual",
         provisioningProfiles: {
@@ -60,7 +67,7 @@ platform :ios do
       silent: false
     )
 
-    # 6) Safety check
+    # Safety check
     sh <<~BASH
       IPA=$(ls -t build/*.ipa | head -n1)
       TMP=$(mktemp -d); unzip -q "$IPA" -d "$TMP"
@@ -69,7 +76,6 @@ platform :ios do
       /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist
     BASH
 
-    # 7) Upload TestFlight
     pilot(
       api_key: api_key,
       skip_submission: true,

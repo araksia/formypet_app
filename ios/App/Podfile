@@ -28,13 +28,12 @@ target 'App' do
 end
 
 post_install do |installer|
-  installer.pods_project.targets.each do |t|
-    t.build_configurations.each do |config|
-      # Ελάχιστο iOS για όλα τα pods
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
-
-      # (προαιρετικά) Λιγότερος θόρυβος από warnings των Pods
-      config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
+    installer.pods_project.targets.each do |t|
+      t.build_configurations.each do |c|
+        c.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0' # ίδιο με το παραπάνω
+        # Προαιρετικά για Xcode 16 warnings:
+        c.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+      end
     end
   end
 end
