@@ -1,9 +1,11 @@
 require 'shellwords'
 
-# === Helpers =================================================================
+# =========================
+# Helpers
+# =========================
 
 def read_build_settings(scheme:, configuration:)
-  # 1) Προσπάθησε με workspace+scheme
+  # 1) workspace+scheme
   cmd1 = %W[
     xcodebuild -showBuildSettings
     -workspace App.xcworkspace
@@ -12,7 +14,7 @@ def read_build_settings(scheme:, configuration:)
   ].map(&:shellescape).join(" ")
   out = Actions.sh(cmd1, log: false) rescue ""
 
-  # 2) Fallback: project+target (το scheme μας δείχνει σε target με ίδιο όνομα)
+  # 2) fallback: project+target (συχνά ίδιο όνομα με scheme)
   if out.to_s.strip.empty? || !out.include?("Build settings")
     cmd2 = %W[
       xcodebuild -showBuildSettings
@@ -26,33 +28,32 @@ def read_build_settings(scheme:, configuration:)
   out
 end
 
+# Εντόπισε αν υπάρχει φυσικό Info.plist ή αν το Xcode το παράγει (GENERATE_INFOPLIST_FILE=YES)
 def resolve_infoplist_path_and_mode(scheme:, configuration:)
   out = read_build_settings(scheme: scheme, configuration: configuration)
   return [nil, :unknown] if out.to_s.strip.empty?
 
-  # Πιάσε σημαντικά settings
-  infoplist_file = out.lines.grep(/^\s*INFOPLIST_FILE\s*=/).last&.split("=",2)&.last&.strip
-  generate_auto = out.lines.grep(/^\s*GENERATE_INFOPLIST_FILE\s*=\s*YES/i).any?
-  srcroot = out.lines.grep(/^\s*(SRCROOT|PROJECT_DIR)\s*=/).last&.split("=",2)&.last&.strip || Dir.pwd
+  inf = out.lines.grep(/^\s*INFOPLIST_FILE\s*=/).last&.split("=",2)&.last&.strip
+  generated = out.lines.grep(/^\s*GENERATE_INFOPLIST_FILE\s*=\s*YES/i).any?
+  base = out.lines.grep(/^\s*(SRCROOT|PROJECT_DIR)\s*=/).last&.split("=",2)&.last&.strip || Dir.pwd
 
-  if generate_auto && (infoplist_file.nil? || infoplist_file.empty?)
-    # Xcode θα παράξει το Info.plist => δεν υπάρχει αρχείο για να πειράξουμε
+  if generated && (inf.nil? || inf.empty?)
     return [nil, :generated]
   end
 
-  return [nil, :unknown] if infoplist_file.to_s.empty?
+  return [nil, :unknown] if inf.to_s.empty?
 
-  # Expand $(VAR) / ${VAR}
-  expanded = infoplist_file.dup
-  { "SRCROOT" => srcroot, "PROJECT_DIR" => srcroot }.each do |k,v|
+  expanded = inf.dup
+  { "SRCROOT" => base, "PROJECT_DIR" => base }.each do |k,v|
     expanded.gsub!("$(#{k})", v)
     expanded.gsub!(/\$\{#{k}\}/, v)
   end
-  abs = File.expand_path(expanded, srcroot)
+
+  abs = File.expand_path(expanded, base)
   File.exist?(abs) ? [abs, :file] : [nil, :unknown]
 end
 
-# Αν δεν βρούμε από build settings, δοκίμασε να ταιριάξεις με βάση το bundle id
+# Τελευταίο καταφύγιο: βρες Info.plist που να έχει CFBundleIdentifier == APP_BUNDLE_ID
 def find_plist_by_bundle_id(root:, bundle_id:)
   Dir.glob(File.join(root, "**/Info.plist")).find do |p|
     id = `/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "#{p}" 2>/dev/null`.strip
@@ -60,7 +61,9 @@ def find_plist_by_bundle_id(root:, bundle_id:)
   end
 end
 
-# === Lane ====================================================================
+# =========================
+# Fastlane
+# =========================
 
 default_platform :ios
 
@@ -97,26 +100,28 @@ platform :ios do
       api_key: api_key
     )
 
-    # 4) Build number
+    # 4) Build number (AGV ή fallback)
     scheme = (ENV['SCHEME_NAME'] || "App")
     config = "Release"
-    bn = ENV['BUILD_NUMBER'].to_s.strip
-    UI.user_error!("BUILD_NUMBER env is empty") if bn.empty?
 
-    # Προσπάθησε πρώτα AGV (CURRENT_PROJECT_VERSION)
+    # ανθεκτική επιλογή build number
+    bn = ENV['BUILD_NUMBER'].to_s.strip
+    bn = ENV['GITHUB_RUN_NUMBER'].to_s.strip if bn.empty?
+    bn = ENV['GITHUB_RUN_ATTEMPT'].to_s.strip if bn.empty?
+    bn = Time.now.strftime('%Y%m%d%H%M') if bn.empty?
+    UI.message("Using BUILD_NUMBER=#{bn}")
+
     agv_ok = false
     begin
-      increment_build_number(build_number: bn)
+      increment_build_number(build_number: bn) # AGV / CURRENT_PROJECT_VERSION
       agv_ok = true
     rescue => e
       UI.important("AGV (increment_build_number) failed: #{e}")
     end
 
-    # Αν AGV δεν είναι ενεργό, δες αν υπάρχει φυσικό Info.plist· αλλιώς θα κάνουμε override στο archive
     extra_version_xcargs = ""
     unless agv_ok
       plist_path, mode = resolve_infoplist_path_and_mode(scheme: scheme, configuration: config)
-
       case mode
       when :file
         UI.message("Using Info.plist at: #{plist_path}")
@@ -125,7 +130,6 @@ platform :ios do
         UI.important("GENERATE_INFOPLIST_FILE=YES (no physical Info.plist). Will override CFBundleVersion via xcodebuild.")
         extra_version_xcargs = " CURRENT_PROJECT_VERSION=#{bn}"
       else
-        # Τελευταία προσπάθεια: αναζήτηση με βάση bundle id
         guessed = find_plist_by_bundle_id(root: ".", bundle_id: ENV.fetch('APP_BUNDLE_ID'))
         if guessed && File.exist?(guessed)
           UI.message("Found Info.plist by bundle id at: #{guessed}")
@@ -140,13 +144,11 @@ platform :ios do
     # 5) Pin Xcode 16.2
     xcode_select("/Applications/Xcode_16.2.app")
 
-    # 6) Gym (Archive) με signing & πιθανό override του CURRENT_PROJECT_VERSION
+    # 6) Gym (Archive) — Automatic signing + πιθανό override του CURRENT_PROJECT_VERSION
     signing_args = [
       "-allowProvisioningUpdates",
-      "CODE_SIGN_STYLE=Manual",
+      "CODE_SIGN_STYLE=Automatic",
       "DEVELOPMENT_TEAM=#{ENV.fetch('APPLE_TEAM_ID')}",
-      "PROVISIONING_PROFILE_SPECIFIER=match AppStore #{ENV.fetch('APP_BUNDLE_ID')}",
-      "CODE_SIGN_IDENTITY=Apple Distribution",
       "ONLY_ACTIVE_ARCH=NO",
       "ENABLE_USER_SCRIPT_SANDBOXING=NO"
     ].join(" ")
@@ -165,10 +167,7 @@ platform :ios do
       result_bundle: true,
       xcargs: [signing_args, extra_version_xcargs].join(" "),
       export_options: {
-        signingStyle: "manual",
-        provisioningProfiles: {
-          ENV.fetch('APP_BUNDLE_ID') => "match AppStore #{ENV.fetch('APP_BUNDLE_ID')}"
-        }
+        signingStyle: "automatic"
       },
       silent: false
     )
@@ -183,7 +182,7 @@ platform :ios do
       /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist || true
     BASH
 
-    # 8) Upload στο TestFlight (χωρίς submit)
+    # 8) Upload στο TestFlight
     pilot(
       api_key: api_key,
       skip_submission: true,
