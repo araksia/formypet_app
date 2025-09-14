@@ -21,11 +21,9 @@ jobs:
     runs-on: macos-15
 
     env:
-      # ----- Fastlane / app env -----
       APP_BUNDLE_ID: gr.formypet.app
       BUILD_NUMBER: ${{ inputs.build_number || '237' }}
 
-      # Fastlane match repo (δώσε URL μέσω secret)
       MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
       MATCH_GIT_BRANCH: main
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
@@ -33,16 +31,14 @@ jobs:
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      # App Store Connect API Key (RAW .p8 περιεχόμενο – ΟΧΙ base64)
+      # RAW .p8 περιεχόμενο – ΟΧΙ base64
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
       APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
 
-      # Προαιρετικά
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
 
-      # Xcode path hint
       MD_APPLE_SDK_ROOT: /Applications/Xcode_16.2.app
 
     steps:
@@ -53,9 +49,6 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '16.2'
-
-      - name: Check Xcode
-        run: xcodebuild -version
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -86,31 +79,8 @@ jobs:
       - name: Build web assets
         run: npm run build
 
-      - name: Write GoogleService-Info.plist (from secret)
-        if: ${{ env.GOOGLE_SERVICE_INFO_PLIST != '' }}
-        run: |
-          set -euo pipefail
-          mkdir -p ios/App/App ios/App/App/App
-
-          CONTENT="${GOOGLE_SERVICE_INFO_PLIST}"
-
-          # Αν είναι raw XML/JSON, γράψ' το αυτούσιο, αλλιώς κάνε base64 decode
-          if echo "$CONTENT" | head -n1 | grep -Eqi '^\s*<\?xml|^\s*\{'; then
-            printf "%s" "$CONTENT" > ios/App/App/GoogleService-Info.plist
-          else
-            printf "%s" "$CONTENT" | base64 --decode > ios/App/App/GoogleService-Info.plist || \
-            printf "%s" "$CONTENT" | base64 -d        > ios/App/App/GoogleService-Info.plist
-          fi
-
-          # Μερικά projects το κοιτάνε και σε nested App/App/App
-          cp ios/App/App/GoogleService-Info.plist ios/App/App/App/GoogleService-Info.plist
-
-          /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist || true
-
-      - name: Capacitor sync iOS
-        run: npx cap sync ios
-
-      - name: Install CocoaPods (Bundler or gem)
+      # >>> ΠΡΙΝ το cap sync: φτιάξε Bundler/CocoaPods στο ios/App
+      - name: Prepare Ruby gems (ios/App)
         working-directory: ios/App
         run: |
           set -euo pipefail
@@ -118,19 +88,45 @@ jobs:
             bundle lock --add-platform arm64-darwin-23 x86_64-darwin-23 ruby || true
             bundle config set path 'vendor/bundle'
             bundle install --jobs 4
-            bundle exec pod repo update
-            bundle exec pod install --repo-update
+            bundle exec pod --version
           else
             gem install cocoapods -N
-            pod repo update
+            pod --version
+          fi
+
+      - name: Write GoogleService-Info.plist (from secret)
+        if: ${{ env.GOOGLE_SERVICE_INFO_PLIST != '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p ios/App/App ios/App/App/App
+          CONTENT="${GOOGLE_SERVICE_INFO_PLIST}"
+          if echo "$CONTENT" | head -n1 | grep -Eqi '^\s*<\?xml|^\s*\{'; then
+            printf "%s" "$CONTENT" > ios/App/App/GoogleService-Info.plist
+          else
+            printf "%s" "$CONTENT" | base64 --decode > ios/App/App/GoogleService-Info.plist || \
+            printf "%s" "$CONTENT" | base64 -d        > ios/App/App/GoogleService-Info.plist
+          fi
+          cp ios/App/App/GoogleService-Info.plist ios/App/App/App/GoogleService-Info.plist
+          /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist || true
+
+      - name: Capacitor sync iOS
+        run: npx cap sync ios
+
+      # (προαιρετικά, για σιγουριά) pod install με/χωρίς Bundler
+      - name: Ensure CocoaPods install
+        working-directory: ios/App
+        run: |
+          set -euo pipefail
+          if [ -f Gemfile ]; then
+            bundle exec pod install --repo-update
+          else
             pod install --repo-update
           fi
 
       - name: Verify Xcode workspace & scheme
         run: |
           xcodebuild -list -workspace ios/App/App.xcworkspace
-          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App | \
-            egrep "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN|PROVISIONING_PROFILE_SPECIFIER" || true
+          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App | egrep "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN|PROVISIONING_PROFILE_SPECIFIER" || true
 
       - name: Fastlane release
         working-directory: ios/App
@@ -142,19 +138,17 @@ jobs:
             fastlane release
           fi
 
-      # --- Logs: πάντα τυπώνουμε/ανεβάζουμε για debug ---
       - name: Show xcodebuild logs (tail)
         if: always()
         run: |
           echo "== Gym logs in ~/Library/Logs/gym =="
           ls -la ~/Library/Logs/gym || true
           LOG=$(ls -t ~/Library/Logs/gym/*.log 2>/dev/null | head -n1 || true)
-          [ -n "$LOG" ] && { echo "Printing last 400 lines of $LOG"; tail -n 400 "$LOG"; } || echo "No gym log found"
-
+          [ -n "$LOG" ] && tail -n 400 "$LOG" || echo "No gym log found"
           echo "== Fastlane build_logs =="
           ls -la ios/App/fastlane/build_logs || true
-          LAST_LOCAL_LOG=$(ls -t ios/App/fastlane/build_logs/*.log 2>/dev/null | head -n1 || true)
-          [ -n "$LAST_LOCAL_LOG" ] && { echo "Printing last 200 lines of $LAST_LOCAL_LOG"; tail -n 200 "$LAST_LOCAL_LOG"; } || echo "No local fastlane log"
+          LAST=$(ls -t ios/App/fastlane/build_logs/*.log 2>/dev/null | head -n1 || true)
+          [ -n "$LAST" ] && tail -n 200 "$LAST" || echo "No local fastlane log"
 
       - name: Upload build logs
         if: always()
@@ -166,7 +160,6 @@ jobs:
             ios/App/fastlane/build_logs/**
           if-no-files-found: warn
 
-      # --- Έλεγχος του IPA μόνο αν πέτυχε το build ---
       - name: Inspect built IPA (only on success)
         if: ${{ success() }}
         run: |
