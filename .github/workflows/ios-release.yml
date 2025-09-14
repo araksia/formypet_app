@@ -22,28 +22,20 @@ jobs:
 
     env:
       APP_BUNDLE_ID: gr.formypet.app
-      BUILD_NUMBER: ${{ inputs.build_number || '237' }}
+      BUILD_NUMBER: ${{ github.event.inputs.build_number || '237' }}
 
-      # === MATCH REPO (HTTPS + PAT) ===
-      GH_USER: ${{ secrets.GH_USER }}
+      # ΣΩΣΤΟ: ολόκληρο το URL με PAT
+      MATCH_GIT_URL: https://x-access-token:${{ secrets.MATCH_REPO_PAT }}@github.com/araksia/formypet-ios-certificates.git
       MATCH_GIT_BRANCH: main
-      # ΣΥΝΘΕΤΟΥΜΕ το URL με μέσα τα creds:
-      OWNER: araksia
-      CERTS_REPO: formypet-ios-certificates
-      MATCH_REPO_PAT: ${{ secrets.MATCH_REPO_PAT }}  # το PAT που έφτιαξες
-      MATCH_GIT_URL: https://x-access-token:${{ secrets.MATCH_REPO_PAT }}@github.com/${{ env.OWNER }}/${{ env.CERTS_REPO }}.git
-
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      # App Store Connect API key (RAW .p8 – ΟΧΙ base64)
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
       APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
 
-      # Προαιρετικά
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
 
@@ -86,7 +78,14 @@ jobs:
 
       - name: Build web assets
         run: npm run build
-
+      - name: Build MATCH_GIT_URL env var
+        run: |
+          echo "MATCH_GIT_URL=https://x-access-token:${MATCH_REPO_PAT}@github.com/${OWNER}/${CERTS_REPO}.git" >> $GITHUB_ENV
+        env:
+          OWNER: araksia
+          CERTS_REPO: formypet-ios-certificates
+          MATCH_REPO_PAT: ${{ secrets.MATCH_REPO_PAT }}
+    
       # --- Early check: έχουμε πρόσβαση στο certificates repo; κόψε νωρίς αν όχι
       - name: Test access to match repo
         run: |
