@@ -24,18 +24,24 @@ jobs:
       APP_BUNDLE_ID: gr.formypet.app
       BUILD_NUMBER: ${{ inputs.build_number || '237' }}
 
-      MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+      # === MATCH REPO (HTTPS + PAT) ===
+      GH_USER: ${{ secrets.GH_USER }}
+      MATCH_REPO_PAT: ${{ secrets.MATCH_REPO_PAT }}
       MATCH_GIT_BRANCH: main
+      # ΣΥΝΘΕΤΟΥΜΕ το URL με μέσα τα creds:
+      MATCH_GIT_URL: https://${{ secrets.GH_USER }}:${{ secrets.MATCH_REPO_PAT }}@github.com/araksia/formypet-ios-certificates.git
+
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      # RAW .p8 περιεχόμενο – ΟΧΙ base64
+      # App Store Connect API key (RAW .p8 – ΟΧΙ base64)
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
       APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
 
+      # Προαιρετικά
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
 
@@ -79,7 +85,14 @@ jobs:
       - name: Build web assets
         run: npm run build
 
-      # >>> ΠΡΙΝ το cap sync: φτιάξε Bundler/CocoaPods στο ios/App
+      # --- Early check: έχουμε πρόσβαση στο certificates repo; κόψε νωρίς αν όχι
+      - name: Test access to match repo
+        run: |
+          set -euo pipefail
+          echo "Testing access to MATCH_GIT_URL (masked)..."
+          git ls-remote "${MATCH_GIT_URL%%:*}://***:***@${MATCH_GIT_URL#*@}" -h | head -n1 || exit 1
+
+      # Ruby gems/CocoaPods στην iOS πλευρά ΠΡΙΝ το cap sync
       - name: Prepare Ruby gems (ios/App)
         working-directory: ios/App
         run: |
@@ -112,7 +125,6 @@ jobs:
       - name: Capacitor sync iOS
         run: npx cap sync ios
 
-      # (προαιρετικά, για σιγουριά) pod install με/χωρίς Bundler
       - name: Ensure CocoaPods install
         working-directory: ios/App
         run: |
