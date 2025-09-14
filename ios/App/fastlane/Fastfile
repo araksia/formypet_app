@@ -21,12 +21,12 @@ platform :ios do
 
     # Certificates & Provisioning (match repo)
     match(
-      type: "appstore",
-      git_url: ENV["MATCH_GIT_URL"],
-      git_branch: ENV["MATCH_GIT_BRANCH"] || "main",
-      readonly: true,
-      app_identifier: ENV["APP_BUNDLE_ID"],
-      team_id: ENV["APPLE_TEAM_ID"],
+	    git_url(ENV['MATCH_GIT_URL'])
+		git_branch(ENV['MATCH_GIT_BRANCH'] || 'main')
+		storage_mode('git')
+		type('appstore')
+		app_identifier(['gr.formypet.app'])
+		team_id(ENV['APPLE_TEAM_ID'])
   
     )
 

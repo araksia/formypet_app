@@ -29,7 +29,10 @@ jobs:
       MATCH_REPO_PAT: ${{ secrets.MATCH_REPO_PAT }}
       MATCH_GIT_BRANCH: main
       # ΣΥΝΘΕΤΟΥΜΕ το URL με μέσα τα creds:
-      MATCH_GIT_URL: https://${{ secrets.GH_USER }}:${{ secrets.MATCH_REPO_PAT }}@github.com/araksia/formypet-ios-certificates.git
+      OWNER: araksia
+      CERTS_REPO: formypet-ios-certificates
+      MATCH_REPO_PAT: ${{ secrets.MATCH_REPO_PAT }}  # το PAT που έφτιαξες
+      MATCH_GIT_URL: https://x-access-token:${{ secrets.MATCH_REPO_PAT }}@github.com/${{ env.OWNER }}/${{ env.CERTS_REPO }}.git
 
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
