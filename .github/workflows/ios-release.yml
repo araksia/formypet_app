@@ -237,7 +237,14 @@ jobs:
         run: |
           xcodebuild -list -workspace ios/App/App.xcworkspace
           xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme "${SCHEME_NAME}" | grep -E "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN|PROVISIONING_PROFILE_SPECIFIER|SDKROOT" || true
-
+      - name: Set BUILD_NUMBER env
+        run: |
+          if [ -n "${{ inputs.build_number }}" ]; then
+            echo "BUILD_NUMBER=${{ inputs.build_number }}" >> "$GITHUB_ENV"
+          else
+            echo "BUILD_NUMBER=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          fi
+    
       - name: Fastlane release
         working-directory: ios/App
         env:
