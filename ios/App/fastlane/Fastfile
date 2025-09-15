@@ -9,7 +9,6 @@ def sh_quiet(cmd)
 end
 
 def read_build_settings(scheme:, configuration:)
-  # 1) workspace+scheme (iphoneos)
   cmd1 = %W[
     xcodebuild -showBuildSettings
     -workspace App.xcworkspace
@@ -19,7 +18,6 @@ def read_build_settings(scheme:, configuration:)
   ].map(&:shellescape).join(" ")
   out = sh_quiet(cmd1)
 
-  # 2) fallback: project+target (iphoneos)
   if out.to_s.strip.empty? || !out.include?("Build settings")
     cmd2 = %W[
       xcodebuild -showBuildSettings
@@ -34,7 +32,6 @@ def read_build_settings(scheme:, configuration:)
   out
 end
 
-# Εντόπισε physical Info.plist ή generated (GENERATE_INFOPLIST_FILE=YES)
 def resolve_infoplist_path_and_mode(scheme:, configuration:)
   out = read_build_settings(scheme: scheme, configuration: configuration)
   return [nil, :unknown] if out.to_s.strip.empty?
@@ -58,7 +55,6 @@ def resolve_infoplist_path_and_mode(scheme:, configuration:)
   File.exist?(abs) ? [abs, :file] : [nil, :unknown]
 end
 
-# Μάζεψε bundle IDs που ξεκινούν από το base_id (app + extensions)
 def discover_bundle_ids(root:, base_id:)
   ids = []
   Dir.glob(File.join(root, "**/Info.plist")).each do |p|
@@ -94,7 +90,7 @@ platform :ios do
       key_content: ENV.fetch('APP_STORE_CONNECT_API_KEY_CONTENT')
     )
 
-    # 3) match (certs & profiles μέσω git/SSH) - AppStore/Distribution
+    # 3) match (App Store profiles/certs από git μέσω SSH)
     match(
       type: "appstore",
       readonly: true,
@@ -120,7 +116,7 @@ platform :ios do
 
     agv_ok = false
     begin
-      increment_build_number(build_number: bn) # AGV / CURRENT_PROJECT_VERSION
+      increment_build_number(build_number: bn)
       agv_ok = true
     rescue => e
       UI.important("AGV (increment_build_number) failed: #{e}")
@@ -157,26 +153,24 @@ platform :ios do
       end
     end
 
-    # 5) Log Xcode/SDK — σεβόμαστε DEVELOPER_DIR από το workflow
+    # 5) Log Xcode/SDK
     sh "xcodebuild -version || true"
     sh "xcrun --sdk iphoneos --show-sdk-version || true"
 
-    # 6) Signing για ARCHIVE: Automatic (Pods safe), profiles ΜΟΝΟ στο export
+    # 6) ARCHIVE: Automatic signing (Pods safe) — ΧΩΡΙΣ CODE_SIGN_IDENTITY / ΧΩΡΙΣ PP_SPECIFIER
     base_id = ENV.fetch('APP_BUNDLE_ID')
     match_map = (lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {})
     main_profile_spec = match_map[base_id] || "match AppStore #{base_id}"
 
-    # provisioningProfiles για app + extensions στο export
+    # Export provisioning profiles για app + extensions
     bundle_ids = discover_bundle_ids(root: ".", base_id: base_id)
     provisioning_map = {}
     bundle_ids.each { |bid| provisioning_map[bid] = (match_map[bid] || "match AppStore #{bid}") }
     provisioning_map = { base_id => main_profile_spec } if provisioning_map.empty?
 
-    # QUOTED xcargs (Automatic στο archive, ΧΩΡΙΣ PP_SPECIFIER)
     kv = {
       "CODE_SIGN_STYLE" => "Automatic",
       "DEVELOPMENT_TEAM" => ENV.fetch('APPLE_TEAM_ID'),
-      "CODE_SIGN_IDENTITY" => "Apple Distribution",
       "CODE_SIGNING_ALLOWED" => "YES",
       "CODE_SIGNING_REQUIRED" => "YES",
       "ONLY_ACTIVE_ARCH" => "NO",
@@ -200,11 +194,11 @@ platform :ios do
       include_symbols: true,
       include_bitcode: false,
       result_bundle: true,
-      xcargs: xcargs_final,   # <-- Automatic στο archive
+      xcargs: xcargs_final,   # Automatic στο archive, χωρίς identity/profile
       export_options: {
-        signingStyle: "manual",                      # <-- manual στο export
+        signingStyle: "manual",                      # manual στο export
         signingCertificate: "Apple Distribution",
-        provisioningProfiles: provisioning_map       # <-- προφίλ ανά bundle id
+        provisioningProfiles: provisioning_map       # προφίλ ανά bundle id
       },
       silent: false
     )
