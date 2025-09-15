@@ -86,11 +86,12 @@ jobs:
         with:
           xcode-version: '16.4'
 
-      - name: Export DEVELOPER_DIR and show SDKs
+      - name: Detect & export DEVELOPER_DIR
         run: |
           set -euo pipefail
+          DEVELOPER_DIR="$(xcode-select -p)"
+          echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
           echo "DEVELOPER_DIR=$DEVELOPER_DIR"
-          xcode-select -p || true
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
           xcrun --sdk iphoneos --show-sdk-path
