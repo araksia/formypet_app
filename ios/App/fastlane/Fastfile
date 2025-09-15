@@ -110,11 +110,14 @@ platform :ios do
       include_symbols: true,
       include_bitcode: false,
       xcargs: xargs,
-      skip_profile_detection: true,   # μην «πειράζει» το gym τις επιλογές μας
+      skip_profile_detection: true,
       silent: false,
-	  xcodebuild_formatter: "",          # <— χωρίς beautifier,
-      buildlog_path: "./fastlane/logs",  # <— να ξέρουμε πού θα βγει το log,
-      skip_profile_detection: true
+	  xcodebuild_formatter: "",
+      buildlog_path: "./fastlane/logs",
+      
+      # --- ΠΡΟΣΘΕΣΕ ΑΥΤΗ ΤΗ ΓΡΑΜΜΗ ---
+      xcodebuild_command: "xcodebuild -jobs 2" 
+      # ---------------------------------
     )
 
     # 11) Entitlements sanity (optional)
