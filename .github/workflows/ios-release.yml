@@ -231,19 +231,19 @@ jobs:
             echo "xcresult: $XCR"
             /usr/bin/xcrun xcresulttool get --path "$XCR" --format json > ios/App/build/xcresult.json
             /usr/bin/xcrun xcresulttool get --path "$XCR" --format json | /usr/bin/python3 - <<'PY'
-import json,sys
-j=json.load(sys.stdin)
-actions=j.get('actions',[])
-for a in actions:
-  rs=a.get('actionResult',{})
-  issues=rs.get('issues',{})
-  for key in ('errorSummaries','warningSummaries','testFailureSummaries'):
-    for s in issues.get(key,[]):
-      msg=s.get('message','')
-      loc=s.get('documentLocationInCreatingWorkspace',{}).get('url','')
-      print(f"[{key.upper()}] {msg}")
-      if loc: print(f"  at {loc}")
-PY
+            import json,sys
+            j=json.load(sys.stdin)
+            actions=j.get('actions',[])
+            for a in actions:
+              rs=a.get('actionResult',{})
+              issues=rs.get('issues',{})
+              for key in ('errorSummaries','warningSummaries','testFailureSummaries'):
+                for s in issues.get(key,[]):
+                  msg=s.get('message','')
+                  loc=s.get('documentLocationInCreatingWorkspace',{}).get('url','')
+                  print(f"[{key.upper()}] {msg}")
+                  if loc: print(f"  at {loc}")
+            PY
           else
             echo "No xcresult bundle found."
           fi
