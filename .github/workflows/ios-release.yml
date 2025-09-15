@@ -164,7 +164,14 @@ jobs:
           fi
           cp ios/App/App/GoogleService-Info.plist ios/App/App/App/GoogleService-Info.plist
           /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist || true
-
+      
+      - name: Clean Old Pods and Caches
+        working-directory: ios/App
+        run: |
+          echo "Removing Pods directory and Podfile.lock"
+          rm -rf Pods
+          rm -f Podfile.lock
+      
       - name: Capacitor sync iOS
         run: npx cap sync ios
 
