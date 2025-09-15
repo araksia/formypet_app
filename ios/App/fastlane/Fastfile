@@ -111,7 +111,8 @@ platform :ios do
       include_bitcode: false,
       xcargs: xargs,
       skip_profile_detection: true,   # μην «πειράζει» το gym τις επιλογές μας
-      silent: false
+      silent: false,
+	  xcodebuild_formatter: ""
     )
 
     # 11) Entitlements sanity (optional)
