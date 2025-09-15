@@ -13,6 +13,8 @@ import { useAuth } from '@/components/AuthProvider';
 import { differenceInYears } from 'date-fns';
 import { PetCardSkeleton, PetsPageSkeleton } from '@/components/ui/skeletons';
 import SwipeableCard from '@/components/ui/SwipeableCard';
+import { VirtualList } from '@/components/ui/VirtualList';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import PullToRefresh from '@/components/ui/PullToRefresh';
 
 const PetsPage = () => {
@@ -276,8 +278,13 @@ const PetsPage = () => {
 
         {/* Pets Grid/List */}
         {!loading && pets.length > 0 ? (
-          <div className="grid gap-3 sm:gap-4">
-            {pets.map((pet, index) => (
+          <VirtualList
+            items={pets}
+            itemHeight={200}
+            containerHeight={600}
+            className="space-y-3 sm:space-y-4"
+            gap={16}
+            renderItem={(pet, index, isVisible) => (
               <SwipeableCard 
                 key={pet.id}
                 className="overflow-hidden card-hover stagger-fade"
@@ -314,10 +321,17 @@ const PetsPage = () => {
                     {/* Pet Image */}
                     <div className="relative flex-shrink-0 cursor-pointer" onClick={() => navigate(`/pet/${pet.id}`)}>
                       {pet.avatar_url ? (
-                        <img 
-                          src={pet.avatar_url} 
+                        <OptimizedImage
+                          src={pet.avatar_url}
                           alt={pet.name}
-                          className="w-full h-32 sm:w-24 sm:h-full object-cover hover:opacity-90 transition-opacity"
+                          className="w-full h-32 sm:w-24 sm:h-full hover:opacity-90 transition-opacity"
+                          aspectRatio="4/3"
+                          lazyLoad={!isVisible}
+                          errorFallback={
+                            <div className="w-full h-32 sm:w-24 sm:h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                              <span className="text-3xl sm:text-2xl">{getSpeciesEmoji(pet.species)}</span>
+                            </div>
+                          }
                         />
                       ) : (
                         <div className="w-full h-32 sm:w-24 sm:h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center hover:bg-primary/30 transition-colors">
@@ -400,8 +414,8 @@ const PetsPage = () => {
                   </div>
                 </CardContent>
               </SwipeableCard>
-            ))}
-          </div>
+            )}
+          />
         ) : !loading && pets.length === 0 ? (
           <Card className="p-8 bounce-in">
             <div className="text-center space-y-4">

@@ -2,6 +2,14 @@
 const CACHE_NAME = 'formypet-v1';
 const STATIC_CACHE = 'formypet-static-v1';
 const DYNAMIC_CACHE = 'formypet-dynamic-v1';
+const IMAGE_CACHE = 'formypet-images-v1';
+
+// Cache size limits (in bytes)
+const CACHE_SIZE_LIMITS = {
+  [STATIC_CACHE]: 10 * 1024 * 1024, // 10MB
+  [DYNAMIC_CACHE]: 15 * 1024 * 1024, // 15MB  
+  [IMAGE_CACHE]: 50 * 1024 * 1024, // 50MB
+};
 
 // Assets to cache immediately
 const STATIC_ASSETS = [
@@ -48,7 +56,7 @@ self.addEventListener('activate', (event) => {
       .then((cacheNames) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
-            if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
+            if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE && cacheName !== IMAGE_CACHE) {
               console.log('🗑️ ForMyPet SW: Deleting old cache:', cacheName);
               return caches.delete(cacheName);
             }
@@ -81,7 +89,10 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/') || url.hostname.includes('supabase')) {
     // API requests - network first, cache fallback
     event.respondWith(handleApiRequest(request));
-  } else if (url.pathname.match(/\.(js|css|png|jpg|jpeg|gif|svg|webp|woff2?)$/)) {
+  } else if (url.pathname.match(/\.(png|jpg|jpeg|gif|svg|webp|avif)$/i)) {
+    // Images - cache first with size management
+    event.respondWith(handleImageRequest(request));
+  } else if (url.pathname.match(/\.(js|css|woff2?)$/)) {
     // Static assets - cache first
     event.respondWith(handleStaticAsset(request));
   } else {
@@ -160,6 +171,109 @@ async function handleStaticAsset(request) {
     throw error;
   }
 }
+
+// Handle image requests with intelligent caching
+async function handleImageRequest(request) {
+  try {
+    // Try cache first
+    const cachedResponse = await caches.match(request);
+    if (cachedResponse) {
+      console.log('💾 ForMyPet SW: Serving image from cache:', request.url);
+      return cachedResponse;
+    }
+    
+    // Not in cache, fetch from network
+    console.log('🌐 ForMyPet SW: Fetching image from network:', request.url);
+    const networkResponse = await fetch(request);
+    
+    if (networkResponse.ok) {
+      // Check if it's a reasonable size to cache (< 5MB per image)
+      const contentLength = networkResponse.headers.get('content-length');
+      const imageSize = contentLength ? parseInt(contentLength) : 0;
+      
+      if (imageSize < 5 * 1024 * 1024) { // 5MB limit per image
+        const cache = await caches.open(IMAGE_CACHE);
+        
+        // Check cache size and clean if needed
+        await manageCacheSize(IMAGE_CACHE, CACHE_SIZE_LIMITS[IMAGE_CACHE]);
+        
+        cache.put(request, networkResponse.clone());
+        console.log('📥 ForMyPet SW: Image cached:', request.url, `(${(imageSize / 1024).toFixed(1)}KB)`);
+      } else {
+        console.log('⚠️ ForMyPet SW: Image too large to cache:', request.url, `(${(imageSize / 1024 / 1024).toFixed(1)}MB)`);
+      }
+    }
+    
+    return networkResponse;
+  } catch (error) {
+    console.error('❌ ForMyPet SW: Failed to fetch image:', request.url, error);
+    
+    // Return a fallback image for pet avatars
+    if (request.url.includes('avatar') || request.url.includes('pet')) {
+      return new Response(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+          <rect width="200" height="200" fill="#f3f4f6"/>
+          <text x="100" y="100" text-anchor="middle" dy="0.35em" font-family="system-ui, sans-serif" font-size="60">🐾</text>
+        </svg>
+      `, {
+        headers: { 'Content-Type': 'image/svg+xml' }
+      });
+    }
+    
+    throw error;
+  }
+}
+
+// Manage cache size by removing oldest entries
+async function manageCacheSize(cacheName, maxSize) {
+  try {
+    const cache = await caches.open(cacheName);
+    const requests = await cache.keys();
+    
+    if (requests.length === 0) return;
+    
+    // Calculate current cache size
+    let totalSize = 0;
+    const entries = [];
+    
+    for (const request of requests) {
+      const response = await cache.match(request);
+      if (response) {
+        const size = response.headers.get('content-length');
+        const entrySize = size ? parseInt(size) : 10000; // Estimate 10KB if unknown
+        totalSize += entrySize;
+        
+        entries.push({
+          request,
+          size: entrySize,
+          date: new Date(response.headers.get('date') || Date.now())
+        });
+      }
+    }
+    
+    // If cache is too large, remove oldest entries
+    if (totalSize > maxSize) {
+      console.log(`🧹 ForMyPet SW: Cache ${cacheName} is ${(totalSize / 1024 / 1024).toFixed(1)}MB, cleaning up...`);
+      
+      // Sort by date (oldest first)
+      entries.sort((a, b) => a.date - b.date);
+      
+      let removedSize = 0;
+      const targetSize = maxSize * 0.8; // Remove until we're at 80% of limit
+      
+      for (const entry of entries) {
+        if (totalSize - removedSize <= targetSize) break;
+        
+        await cache.delete(entry.request);
+        removedSize += entry.size;
+        console.log(`🗑️ ForMyPet SW: Removed cached item: ${entry.request.url}`);
+      }
+      
+      console.log(`✅ ForMyPet SW: Cache cleanup complete. Removed ${(removedSize / 1024 / 1024).toFixed(1)}MB`);
+    }
+  } catch (error) {
+    console.error(`❌ ForMyPet SW: Cache size management failed for ${cacheName}:`, error);
+  }
 
 // Handle app shell with cache-first strategy
 async function handleAppShell(request) {
