@@ -1,3 +1,5 @@
+# ios/App/Fastfile
+
 default_platform :ios
 
 platform :ios do
@@ -62,7 +64,6 @@ platform :ios do
           name = sh("/usr/libexec/PlistBuddy -c \"Print :Name\" prof.plist").to_s.strip rescue ""
           appid = sh("/usr/libexec/PlistBuddy -c \"Print :Entitlements:application-identifier\" prof.plist").to_s.strip rescue ""
           uuid = sh("/usr/libexec/PlistBuddy -c \"Print :UUID\" prof.plist").to_s.strip rescue ""
-          # Θέλουμε ακριβές name και σωστό app id (TEAMID.BUNDLEID)
           if name == profile_name && appid.end_with?(".#{bundle_id}")
             profile_uuid = uuid
             UI.message("Using provisioning profile: #{name} (UUID=#{uuid})")
@@ -74,7 +75,14 @@ platform :ios do
       end
     UI.user_error!("Could not find UUID for provisioning profile '#{profile_name}'") unless profile_uuid && !profile_uuid.empty?
 
-    # 8) QUOTED xcargs, αλλά χωρίς SPECIFIER με κενά — περνάμε UUID
+    # 8) Βεβαιώσου ότι το keychain είναι ξεκλείδωτο ΠΡΙΝ το build
+    UI.header("Ensuring Keychain is Unlocked")
+    unlock_keychain(
+      name: "ci",
+      password: ENV["KEYCHAIN_PASSWORD"]
+    )
+
+    # 9) QUOTED xcargs, αλλά χωρίς SPECIFIER με κενά — περνάμε UUID
     xargs = [
       'CODE_SIGN_STYLE=Manual',
       "DEVELOPMENT_TEAM=#{team_id}",
@@ -84,7 +92,7 @@ platform :ios do
       'ENABLE_USER_SCRIPT_SANDBOXING=NO'
     ].join(' ')
 
-    # 9) Export options (name mapping OK για export)
+    # 10) Export options (name mapping OK για export)
     export_opts = {
       method: "app-store",
       signingStyle: "manual",
@@ -96,7 +104,7 @@ platform :ios do
       manageAppVersionAndBuildNumber: false
     }
 
-    # 10) Archive & Export
+    # 11) Archive & Export
     gym(
       workspace: workspace,
       scheme: scheme,
@@ -112,15 +120,12 @@ platform :ios do
       xcargs: xargs,
       skip_profile_detection: true,
       silent: false,
-	  xcodebuild_formatter: "",
+      xcodebuild_formatter: "",
       buildlog_path: "./fastlane/logs",
-      
-      # --- ΠΡΟΣΘΕΣΕ ΑΥΤΗ ΤΗ ΓΡΑΜΜΗ ---
-      xcodebuild_command: "xcodebuild -jobs 2" 
-      # ---------------------------------
+      xcodebuild_command: "xcodebuild -jobs 2" # Περιορισμός παραλληλισμού
     )
 
-    # 11) Entitlements sanity (optional)
+    # 12) Entitlements sanity (optional)
     sh <<~BASH
       set -e
       IPA=$(ls -t build/*.ipa | head -n1)
@@ -131,7 +136,7 @@ platform :ios do
       /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist || true
     BASH
 
-    # 12) Upload TestFlight
+    # 13) Upload TestFlight
     pilot(
       api_key: api_key,
       skip_submission: true,
