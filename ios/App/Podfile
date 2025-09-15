@@ -37,7 +37,10 @@ post_install do |installer|
 		  # 2. Απενεργοποιούμε το code signing για τα Pods
 		  config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
 		  
-		  # 3. Αυτό είναι χρήσιμο, το κρατάμε
+		  # 3. Αλλάζουμε το Swift optimization για να σώσουμε μνήμη
+		  config.build_settings['SWIFT_COMPILATION_MODE'] = 'incremental'
+		  
+		  # 4. Αυτό είναι χρήσιμο, το κρατάμε
 		  config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
 		end
 	end
