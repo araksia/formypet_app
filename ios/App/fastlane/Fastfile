@@ -1,80 +1,9 @@
-require 'shellwords'
-
-# =========================
-# Helpers
-# =========================
-
-def sh_quiet(cmd)
-  Actions.sh(cmd, log: false) rescue ""
-end
-
-def read_build_settings(scheme:, configuration:)
-  cmd1 = %W[
-    xcodebuild -showBuildSettings
-    -workspace App.xcworkspace
-    -scheme #{scheme}
-    -configuration #{configuration}
-    -sdk iphoneos
-  ].map(&:shellescape).join(" ")
-  out = sh_quiet(cmd1)
-
-  if out.to_s.strip.empty? || !out.include?("Build settings")
-    cmd2 = %W[
-      xcodebuild -showBuildSettings
-      -project App.xcodeproj
-      -target #{scheme}
-      -configuration #{configuration}
-      -sdk iphoneos
-    ].map(&:shellescape).join(" ")
-    out = sh_quiet(cmd2)
-  end
-
-  out
-end
-
-def resolve_infoplist_path_and_mode(scheme:, configuration:)
-  out = read_build_settings(scheme: scheme, configuration: configuration)
-  return [nil, :unknown] if out.to_s.strip.empty?
-
-  inf = out.lines.grep(/^\s*INFOPLIST_FILE\s*=/).last&.split("=",2)&.last&.strip
-  generated = out.lines.grep(/^\s*GENERATE_INFOPLIST_FILE\s*=\s*YES/i).any?
-  base = out.lines.grep(/^\s*(SRCROOT|PROJECT_DIR)\s*=/).last&.split("=",2)&.last&.strip || Dir.pwd
-
-  if generated && (inf.nil? || inf.empty?)
-    return [nil, :generated]
-  end
-
-  return [nil, :unknown] if inf.to_s.empty?
-
-  expanded = inf.dup
-  { "SRCROOT" => base, "PROJECT_DIR" => base }.each do |k,v|
-    expanded.gsub!("$(#{k})", v)
-    expanded.gsub!(/\$\{#{k}\}/, v)
-  end
-  abs = File.expand_path(expanded, base)
-  File.exist?(abs) ? [abs, :file] : [nil, :unknown]
-end
-
-def discover_bundle_ids(root:, base_id:)
-  ids = []
-  Dir.glob(File.join(root, "**/Info.plist")).each do |p|
-    id = sh_quiet(%Q{/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "#{p}" 2>/dev/null}).strip
-    next if id.empty?
-    ids << id if id == base_id || id.start_with?("#{base_id}.")
-  end
-  ids.uniq
-end
-
-# =========================
-# Fastlane
-# =========================
-
 default_platform :ios
 
 platform :ios do
-  desc "Build & upload to TestFlight"
+  desc "Build & upload to TestFlight (Capacitor, Pods unsigned; App target manual Distribution)"
   lane :release do
-    # 1) Keychain για CI
+    # 1) CI keychain
     create_keychain(
       name: "ci",
       default_keychain: true,
@@ -83,14 +12,14 @@ platform :ios do
       password: ENV["KEYCHAIN_PASSWORD"]
     )
 
-    # 2) App Store Connect API key (RAW .p8)
+    # 2) App Store Connect API key
     api_key = app_store_connect_api_key(
       key_id:      ENV.fetch('APP_STORE_CONNECT_API_KEY_ID'),
       issuer_id:   ENV.fetch('APP_STORE_CONNECT_API_ISSUER_ID'),
       key_content: ENV.fetch('APP_STORE_CONNECT_API_KEY_CONTENT')
     )
 
-    # 3) match (App Store profiles/certs από git μέσω SSH)
+    # 3) match (App Store distribution)
     match(
       type: "appstore",
       readonly: true,
@@ -104,116 +33,75 @@ platform :ios do
       api_key: api_key
     )
 
-    # 4) Build number (AGV ή fallback)
-    scheme = (ENV['SCHEME_NAME'] || "App")
-    config = "Release"
-
-    bn = ENV['BUILD_NUMBER'].to_s.strip
-    bn = ENV['GITHUB_RUN_NUMBER'].to_s.strip  if bn.empty?
-    bn = ENV['GITHUB_RUN_ATTEMPT'].to_s.strip if bn.empty?
-    bn = Time.now.strftime('%Y%m%d%H%M')      if bn.empty?
-    UI.message("Using BUILD_NUMBER=#{bn}")
-
-    agv_ok = false
-    begin
+    # 4) Build number
+    bn = (ENV['BUILD_NUMBER'] || "").strip
+    if bn.empty?
+      UI.important("BUILD_NUMBER is empty; skipping increment_build_number")
+    else
       increment_build_number(build_number: bn)
-      agv_ok = true
-    rescue => e
-      UI.important("AGV (increment_build_number) failed: #{e}")
     end
 
-    extra_version_xcargs = ""
-    unless agv_ok
-      plist_path, mode = resolve_infoplist_path_and_mode(scheme: scheme, configuration: config)
-      case mode
-      when :file
-        UI.message("Using Info.plist at: #{plist_path}")
-        set_info_plist_value(path: plist_path, key: "CFBundleVersion", value: bn)
-      when :generated
-        UI.important("GENERATE_INFOPLIST_FILE=YES (no physical Info.plist). Will override CFBundleVersion via xcodebuild.")
-        extra_version_xcargs = " CURRENT_PROJECT_VERSION=#{bn}"
-      else
-        guessed_ids = discover_bundle_ids(root: ".", base_id: ENV.fetch('APP_BUNDLE_ID'))
-        if guessed_ids.any?
-          plist = Dir.glob("**/Info.plist").find do |p|
-            id = sh_quiet(%Q{/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "#{p}" 2>/dev/null}).strip
-            guessed_ids.include?(id)
-          end
-          if plist && File.exist?(plist)
-            UI.message("Found Info.plist by bundle id at: #{plist}")
-            set_info_plist_value(path: plist, key: "CFBundleVersion", value: bn)
-          else
-            UI.important("Couldn't resolve a physical Info.plist. Will override CFBundleVersion via xcodebuild.")
-            extra_version_xcargs = " CURRENT_PROJECT_VERSION=#{bn}"
-          end
-        else
-          UI.important("Couldn't resolve a physical Info.plist. Will override CFBundleVersion via xcodebuild.")
-          extra_version_xcargs = " CURRENT_PROJECT_VERSION=#{bn}"
-        end
-      end
-    end
+    # 5) Info/Lint (προαιρετικά – βοηθά στο diagnose)
+    sh("xcodebuild -version || true")
+    sh("xcrun --sdk iphoneos --show-sdk-version || true")
 
-    # 5) Log Xcode/SDK
-    sh "xcodebuild -version || true"
-    sh "xcrun --sdk iphoneos --show-sdk-version || true"
+    # 6) Targeting workspace/scheme
+    scheme    = (ENV['SCHEME_NAME'] || 'App')
+    workspace = "App.xcworkspace"
 
-    # 6) ARCHIVE: Automatic signing (Pods safe) — ΧΩΡΙΣ CODE_SIGN_IDENTITY / ΧΩΡΙΣ PP_SPECIFIER
-    base_id = ENV.fetch('APP_BUNDLE_ID')
-    match_map = (lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {})
-    main_profile_spec = match_map[base_id] || "match AppStore #{base_id}"
+    # 7) Manual Distribution signing ΜΟΝΟ για το App target μέσω xcargs
+    #    - Δεν πειράζουμε Pods (τις έχουμε κάνει unsigned στο YAML)
+    #    - Απενεργοποιούμε το Automatic για το App και δίνουμε ρητά Distribution προφίλ/identity
+    xargs = [
+      "CODE_SIGN_STYLE=Manual",
+      "DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
+      "PROVISIONING_PROFILE_SPECIFIER=match AppStore #{ENV['APP_BUNDLE_ID']}",
+      "CODE_SIGN_IDENTITY=Apple Distribution",
+      "ONLY_ACTIVE_ARCH=NO",
+      "ENABLE_USER_SCRIPT_SANDBOXING=NO"
+    ].join(" ")
 
-    # Export provisioning profiles για app + extensions
-    bundle_ids = discover_bundle_ids(root: ".", base_id: base_id)
-    provisioning_map = {}
-    bundle_ids.each { |bid| provisioning_map[bid] = (match_map[bid] || "match AppStore #{bid}") }
-    provisioning_map = { base_id => main_profile_spec } if provisioning_map.empty?
-
-    kv = {
-      "CODE_SIGN_STYLE" => "Automatic",
-      "DEVELOPMENT_TEAM" => ENV.fetch('APPLE_TEAM_ID'),
-      "CODE_SIGNING_ALLOWED" => "YES",
-      "CODE_SIGNING_REQUIRED" => "YES",
-      "ONLY_ACTIVE_ARCH" => "NO",
-      "ENABLE_USER_SCRIPT_SANDBOXING" => "NO"
+    # 8) Export options: manual + explicit provisioningProfiles mapping
+    export_opts = {
+      method: "app-store",
+      signingStyle: "manual",
+      provisioningProfiles: {
+        ENV['APP_BUNDLE_ID'] => "match AppStore #{ENV['APP_BUNDLE_ID']}"
+      },
+      compileBitcode: false,
+      uploadBitcode: false,
+      manageAppVersionAndBuildNumber: false
     }
-    quoted_pairs = kv.map { |k,v| "#{k}=#{Shellwords.escape(v.to_s)}" }
-    signing_args = ["-allowProvisioningUpdates", *quoted_pairs].join(" ")
-    xcargs_final = [signing_args, extra_version_xcargs].reject(&:empty?).join(" ")
 
-    UI.message("Signing args: #{quoted_pairs.join(' ')}")
-
-    # 7) Archive & Export
+    # 9) Archive & Export με gym
     gym(
-      workspace: "App.xcworkspace",
+      workspace: workspace,
       scheme: scheme,
-      configuration: config,
+      configuration: "Release",
       clean: true,
+      destination: "generic/platform=iOS",
       export_method: "app-store",
+      export_options: export_opts,
       output_directory: "build",
       output_name: "App-#{Time.now.strftime('%Y%m%d')}.ipa",
       include_symbols: true,
       include_bitcode: false,
-      result_bundle: true,
-      xcargs: xcargs_final,   # Automatic στο archive, χωρίς identity/profile
-      export_options: {
-        signingStyle: "manual",                      # manual στο export
-        signingCertificate: "Apple Distribution",
-        provisioningProfiles: provisioning_map       # προφίλ ανά bundle id
-      },
+      xcargs: xargs,
       silent: false
     )
 
-    # 8) Safety check (προαιρετικό)
+    # 10) Safety check (προαιρετικό)
     sh <<~BASH
       set -e
       IPA=$(ls -t build/*.ipa | head -n1)
+      echo "Inspecting $IPA"
       TMP=$(mktemp -d); unzip -q "$IPA" -d "$TMP"
       APP_PATH=$(find "$TMP/Payload" -name "*.app" -maxdepth 1 | head -n1)
       /usr/bin/codesign -d --entitlements :- "$APP_PATH" > entitlements.plist
       /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist || true
     BASH
 
-    # 9) Upload στο TestFlight
+    # 11) Upload TestFlight
     pilot(
       api_key: api_key,
       skip_submission: true,
