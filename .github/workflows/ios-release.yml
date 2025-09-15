@@ -216,20 +216,33 @@ jobs:
       # =========================
       # Logs & artifacts
       # =========================
-      - name: Dump xcodebuild errors from gym log
+      - name: Dump XCResult compiler errors (on failure)
         if: failure()
         run: |
           set -euo pipefail
-          LOG=$(ls -t ~/Library/Logs/gym/*.log ./ios/App/fastlane/logs/*.log 2>/dev/null | head -n1 || true)
-          if [ -z "$LOG" ]; then
-            echo "No gym log found"
-            exit 0
+          # Βρες το πιο πρόσφατο .xcresult (από gym ή από Archives)
+          BUNDLE="$(ls -t ios/App/build/*.xcresult 2>/dev/null | head -n1 || true)"
+          if [ -z "${BUNDLE}" ]; then
+            BUNDLE="$(ls -t ~/Library/Developer/Xcode/Archives/*/*.xcresult 2>/dev/null | head -n1 || true)"
           fi
-          echo "== ERROR lines =="
-          grep -nE " error: |fatal error:|Undefined symbols|ld: |Command CompileSwift failed|Command Ld failed|No such file or directory|Provisioning|CodeSign" "$LOG" | head -n 200 || true
+
+          if [ -z "${BUNDLE}" ]; then
+            echo "❌ No .xcresult bundle found."; exit 0
+          fi
+
+          echo "📦 Using xcresult: ${BUNDLE}"
+          # Κάνε human-readable dump
+          xcrun xcresulttool formatDescription \
+            -resultBundlePath "${BUNDLE}" \
+            -outputPath xcresult.txt \
+            -format txt
+
+          echo "== First 200 compiler errors/warnings =="
+          grep -nE " error: |fatal error:|Undefined symbol|Command CompileSwift failed|Command Ld failed|non-modular|No such module|Cannot find type|cannot find '.*' in scope" xcresult.txt | head -n 200 || true
+
           echo
-          echo "== Last 300 lines =="
-          tail -n 300 "$LOG" || true
+          echo "== Tail of xcresult (last 400 lines) =="
+          tail -n 400 xcresult.txt || true
 
       - name: Upload artifacts (logs, result bundles, IPAs)
         if: always()
