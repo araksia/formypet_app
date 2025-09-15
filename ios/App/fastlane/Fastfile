@@ -34,7 +34,7 @@ def read_build_settings(scheme:, configuration:)
   out
 end
 
-# Βρες αν χρησιμοποιείται physical Info.plist ή generated (GENERATE_INFOPLIST_FILE=YES)
+# Εντόπισε physical Info.plist ή generated (GENERATE_INFOPLIST_FILE=YES)
 def resolve_infoplist_path_and_mode(scheme:, configuration:)
   out = read_build_settings(scheme: scheme, configuration: configuration)
   return [nil, :unknown] if out.to_s.strip.empty?
@@ -58,7 +58,7 @@ def resolve_infoplist_path_and_mode(scheme:, configuration:)
   File.exist?(abs) ? [abs, :file] : [nil, :unknown]
 end
 
-# Μάζεψε όλα τα bundle IDs του project που ξεκινούν από το base_id (π.χ. extensions)
+# Μάζεψε bundle IDs που ξεκινούν από το base_id (app + extensions)
 def discover_bundle_ids(root:, base_id:)
   ids = []
   Dir.glob(File.join(root, "**/Info.plist")).each do |p|
@@ -94,7 +94,7 @@ platform :ios do
       key_content: ENV.fetch('APP_STORE_CONNECT_API_KEY_CONTENT')
     )
 
-    # 3) match (certs & profiles από git μέσω SSH) - AppStore/Distribution
+    # 3) match (certs & profiles μέσω git/SSH) - AppStore/Distribution
     match(
       type: "appstore",
       readonly: true,
@@ -113,9 +113,9 @@ platform :ios do
     config = "Release"
 
     bn = ENV['BUILD_NUMBER'].to_s.strip
-    bn = ENV['GITHUB_RUN_NUMBER'].to_s.strip    if bn.empty?
-    bn = ENV['GITHUB_RUN_ATTEMPT'].to_s.strip   if bn.empty?
-    bn = Time.now.strftime('%Y%m%d%H%M')        if bn.empty?
+    bn = ENV['GITHUB_RUN_NUMBER'].to_s.strip  if bn.empty?
+    bn = ENV['GITHUB_RUN_ATTEMPT'].to_s.strip if bn.empty?
+    bn = Time.now.strftime('%Y%m%d%H%M')      if bn.empty?
     UI.message("Using BUILD_NUMBER=#{bn}")
 
     agv_ok = false
@@ -157,11 +157,11 @@ platform :ios do
       end
     end
 
-    # 5) Log Xcode/SDK — σεβόμαστε το DEVELOPER_DIR από το workflow (δεν καρφώνουμε Xcode εδώ)
+    # 5) Log Xcode/SDK — σεβόμαστε DEVELOPER_DIR από το workflow
     sh "xcodebuild -version || true"
     sh "xcrun --sdk iphoneos --show-sdk-version || true"
 
-    # 6) Manual/Distribution signing — ΧΩΡΙΣ PROVISIONING_PROFILE_SPECIFIER στα xcargs
+    # 6) Signing για ARCHIVE: Automatic (Pods safe), profiles ΜΟΝΟ στο export
     base_id = ENV.fetch('APP_BUNDLE_ID')
     match_map = (lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {})
     main_profile_spec = match_map[base_id] || "match AppStore #{base_id}"
@@ -172,9 +172,9 @@ platform :ios do
     bundle_ids.each { |bid| provisioning_map[bid] = (match_map[bid] || "match AppStore #{bid}") }
     provisioning_map = { base_id => main_profile_spec } if provisioning_map.empty?
 
-    # QUOTED xcargs χωρίς PP_SPECIFIER (ώστε να μην επηρεαστούν Pods)
+    # QUOTED xcargs (Automatic στο archive, ΧΩΡΙΣ PP_SPECIFIER)
     kv = {
-      "CODE_SIGN_STYLE" => "Manual",
+      "CODE_SIGN_STYLE" => "Automatic",
       "DEVELOPMENT_TEAM" => ENV.fetch('APPLE_TEAM_ID'),
       "CODE_SIGN_IDENTITY" => "Apple Distribution",
       "CODE_SIGNING_ALLOWED" => "YES",
@@ -188,7 +188,7 @@ platform :ios do
 
     UI.message("Signing args: #{quoted_pairs.join(' ')}")
 
-    # 7) Archive με gym (χρήση ενεργού Xcode/SDK)
+    # 7) Archive & Export
     gym(
       workspace: "App.xcworkspace",
       scheme: scheme,
@@ -200,11 +200,11 @@ platform :ios do
       include_symbols: true,
       include_bitcode: false,
       result_bundle: true,
-      xcargs: xcargs_final,   # <-- χωρίς PROVISIONING_PROFILE_SPECIFIER
+      xcargs: xcargs_final,   # <-- Automatic στο archive
       export_options: {
-        signingStyle: "manual",
+        signingStyle: "manual",                      # <-- manual στο export
         signingCertificate: "Apple Distribution",
-        provisioningProfiles: provisioning_map # <-- προφίλ μόνο στο export
+        provisioningProfiles: provisioning_map       # <-- προφίλ ανά bundle id
       },
       silent: false
     )

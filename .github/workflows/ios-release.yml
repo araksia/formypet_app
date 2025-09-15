@@ -56,7 +56,7 @@ jobs:
       - name: Sanity check SSH access to MATCH_GIT_URL
         run: git ls-remote --heads "${MATCH_GIT_URL}"
 
-      # ========= Auto-pick Xcode that has iPhoneOS SDK installed =========
+      # ========= Pick an Xcode that has iPhoneOS SDK =========
       - name: Select best available Xcode (auto)
         run: |
           set -euo pipefail
@@ -66,19 +66,15 @@ jobs:
             /Applications/Xcode_16.2.app
             /Applications/Xcode_16.1.app
             /Applications/Xcode_16.app
+            /Applications/Xcode_15.4.app
           )
           PICK=""
           for X in "${CANDIDATES[@]}"; do
             if [ -d "$X" ] && compgen -G "$X/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS*.sdk" > /dev/null; then
-              PICK="$X"
-              break
+              PICK="$X"; break
             fi
           done
-          if [ -z "$PICK" ]; then
-            echo "❌ No Xcode with iPhoneOS SDK found among: ${CANDIDATES[*]}"
-            ls -la /Applications || true
-            exit 1
-          fi
+          [ -n "$PICK" ] || { echo "❌ No Xcode with iPhoneOS SDK"; ls -la /Applications || true; exit 1; }
           echo "✅ Using Xcode: $PICK"
           sudo xcode-select -s "$PICK"
           echo "DEVELOPER_DIR=$PICK/Contents/Developer" >> "$GITHUB_ENV"
@@ -155,7 +151,21 @@ jobs:
           pod repo update
           pod install --repo-update
 
-      # ========= Shared scheme generator =========
+      # ========= Κράτα τα Pods σε Automatic & χωρίς profiles =========
+      - name: Sanitize Pods signing (force Automatic, no profiles)
+        run: |
+          set -euo pipefail
+          PODS_PBX="ios/App/Pods/Pods.xcodeproj/project.pbxproj"
+          if [ -f "$PODS_PBX" ]; then
+            /usr/bin/sed -i '' -E 's/PROVISIONING_PROFILE_SPECIFIER = [^;]+;/PROVISIONING_PROFILE_SPECIFIER = "";/g' "$PODS_PBX"
+            /usr/bin/sed -i '' -E 's/PROVISIONING_PROFILE = [^;]+;/PROVISIONING_PROFILE = "";/g' "$PODS_PBX"
+            /usr/bin/sed -i '' -E 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' "$PODS_PBX"
+            echo "✅ Pods signing sanitized."
+          else
+            echo "ℹ️ Pods project not found at $PODS_PBX (skipping)."
+          fi
+
+      # ========= (Προαιρετικό) Δημιουργία shared scheme αν λείπει =========
       - name: Generate shared scheme if missing
         run: |
           set -euo pipefail
@@ -164,15 +174,12 @@ jobs:
           SCHEMES_DIR="$PROJ/xcshareddata/xcschemes"
           SCHEME_PATH="$SCHEMES_DIR/${SCHEME_NAME}.xcscheme"
           mkdir -p "$SCHEMES_DIR"
-
           [ -f "$PBX" ] || { echo "project.pbxproj not found at $PBX"; exit 1; }
           if [ -f "$SCHEME_PATH" ]; then
-            echo "Shared scheme already exists: $SCHEME_PATH"; exit 0; fi
-
+            echo "Shared scheme exists: $SCHEME_PATH"; exit 0; fi
           TARGET_UUID=$(awk '{gsub(/^[ \t]+/,"",$0)} /\/\* '"${SCHEME_NAME}"' \*\/[ \t]*=[ \t]*\{/ { split($0,a,/[ \t]+/); print a[1]; exit }' "$PBX") || true
           [ -n "${TARGET_UUID:-}" ] || { echo "No PBXNativeTarget for ${SCHEME_NAME}"; exit 1; }
           BUILDABLE_NAME="${SCHEME_NAME}.app"
-
           {
             printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>'
             printf '%s\n' '<Scheme LastUpgradeVersion="1630" version="1.7">'
@@ -189,44 +196,26 @@ jobs:
             printf '%s\n' '      </BuildActionEntry>'
             printf '%s\n' '    </BuildActionEntries>'
             printf '%s\n' '  </BuildAction>'
-            printf '%s\n' '  <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES">'
-            printf '%s\n' '    <Testables></Testables>'
-            printf '%s\n' '  </TestAction>'
+            printf '%s\n' '  <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES"><Testables/></TestAction>'
             printf '%s\n' '  <LaunchAction buildConfiguration="Release" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES">'
             printf '%s\n' '    <BuildableProductRunnable runnableDebuggingMode="0">'
-            printf '%s\n' '      <BuildableReference'
-            printf '%s\n' '        BuildableIdentifier="primary"'
-            printf '%s\n' '        BlueprintIdentifier="__TARGET_UUID__"'
-            printf '%s\n' '        BuildableName="__BUILDABLE_NAME__"'
-            printf '%s\n' '        BlueprintName="__SCHEME_NAME__"'
-            printf '%s\n' '        ReferencedContainer="container:App.xcodeproj">'
-            printf '%s\n' '      </BuildableReference>'
+            printf '%s\n' '      <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="__TARGET_UUID__" BuildableName="__BUILDABLE_NAME__" BlueprintName="__SCHEME_NAME__" ReferencedContainer="container:App.xcodeproj"></BuildableReference>'
             printf '%s\n' '    </BuildableProductRunnable>'
             printf '%s\n' '  </LaunchAction>'
             printf '%s\n' '  <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES">'
             printf '%s\n' '    <BuildableProductRunnable runnableDebuggingMode="0">'
-            printf '%s\n' '      <BuildableReference'
-            printf '%s\n' '        BuildableIdentifier="primary"'
-            printf '%s\n' '        BlueprintIdentifier="__TARGET_UUID__"'
-            printf '%s\n' '        BuildableName="__BUILDABLE_NAME__"'
-            printf '%s\n' '        BlueprintName="__SCHEME_NAME__"'
-            printf '%s\n' '        ReferencedContainer="container:App.xcodeproj">'
-            printf '%s\n' '      </BuildableReference>'
+            printf '%s\n' '      <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="__TARGET_UUID__" BuildableName="__BUILDABLE_NAME__" BlueprintName="__SCHEME_NAME__" ReferencedContainer="container:App.xcodeproj"></BuildableReference>'
             printf '%s\n' '    </BuildableProductRunnable>'
             printf '%s\n' '  </ProfileAction>'
             printf '%s\n' '  <AnalyzeAction buildConfiguration="Debug"/>'
             printf '%s\n' '  <ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>'
             printf '%s\n' '</Scheme>'
           } > "$SCHEME_PATH"
-
           LC_ALL=C sed -i '' \
             -e "s/__TARGET_UUID__/${TARGET_UUID}/g" \
             -e "s/__BUILDABLE_NAME__/${BUILDABLE_NAME}/g" \
             -e "s/__SCHEME_NAME__/${SCHEME_NAME}/g" \
             "$SCHEME_PATH"
-
-          xcodebuild -list -project "$PROJ" || true
-          xcodebuild -list -workspace ios/App/App.xcworkspace || true
 
       - name: Resolve Swift Packages
         run: |
@@ -240,7 +229,6 @@ jobs:
           xcodebuild -list -workspace ios/App/App.xcworkspace
           xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme "${SCHEME_NAME}" -configuration Release -sdk iphoneos | grep -E "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN|SDKROOT" || true
 
-      # ========= BUILD_NUMBER =========
       - name: Set BUILD_NUMBER env
         run: |
           if [ -n "${{ inputs.build_number }}" ]; then
