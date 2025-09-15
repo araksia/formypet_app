@@ -112,7 +112,9 @@ platform :ios do
       xcargs: xargs,
       skip_profile_detection: true,   # μην «πειράζει» το gym τις επιλογές μας
       silent: false,
-	  xcodebuild_formatter: ""
+	  xcodebuild_formatter: "",          # <— χωρίς beautifier,
+      buildlog_path: "./fastlane/logs",  # <— να ξέρουμε πού θα βγει το log,
+      skip_profile_detection: true
     )
 
     # 11) Entitlements sanity (optional)

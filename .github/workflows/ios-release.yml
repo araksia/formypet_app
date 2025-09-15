@@ -6,7 +6,6 @@ on:
       build_number:
         description: "Override BUILD_NUMBER (optional)"
         required: false
-        default: "237"
   push:
     branches: [ main ]
 
@@ -22,18 +21,26 @@ jobs:
     runs-on: macos-15
 
     env:
-      SCHEME_NAME: App
+      # ---- App / build ----
       APP_BUNDLE_ID: gr.formypet.app
-      BUILD_NUMBER: ${{ inputs.build_number }}
+      SCHEME_NAME: App
+      BUILD_NUMBER: ${{ inputs.build_number || '323' }}
+
+      # ---- fastlane match (git storage over SSH) ----
       MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
       MATCH_GIT_BRANCH: main
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
       KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # ---- App Store Connect API (RAW .p8) ----
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
       APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+
+      # ---- Optional ----
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
 
     steps:
@@ -42,6 +49,9 @@ jobs:
         with:
           persist-credentials: false
 
+      # =========================
+      # SSH Deploy Key for match
+      # =========================
       - name: Start ssh-agent & add deploy key
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -59,32 +69,41 @@ jobs:
           if [ -z "${MATCH_GIT_URL:-}" ]; then
             echo "❌ MATCH_GIT_URL is empty"; exit 1
           fi
+          if [[ ! "${MATCH_GIT_URL}" =~ ^git@github\.com:.+\.git$ ]]; then
+            echo "❌ MATCH_GIT_URL must be SSH form like git@github.com:owner/repo.git"
+            echo "   Current: ${MATCH_GIT_URL}"
+            exit 1
+          fi
+          echo "🔎 Testing ssh access to ${MATCH_GIT_URL}..."
           git ls-remote --heads "${MATCH_GIT_URL}" >/dev/null
           echo "✅ SSH access OK"
 
-      # ---------- Xcode ----------
+      # =========================
+      # Toolchains
+      # =========================
       - name: Select Xcode 16.4
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "16.4"
+          xcode-version: '16.4'
 
-      - name: Show installed SDKs
+      - name: Export DEVELOPER_DIR and show SDKs
         run: |
           set -euo pipefail
+          echo "DEVELOPER_DIR=$DEVELOPER_DIR"
+          xcode-select -p || true
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
-          ls -la /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs || true
+          xcrun --sdk iphoneos --show-sdk-path
 
-      # ---------- Toolchains ----------
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: 20
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.3"
+          ruby-version: '3.3'
           bundler-cache: false
 
       - name: Print tool versions
@@ -94,6 +113,12 @@ jobs:
           ruby -v
           gem -v
 
+      # =========================
+      # Web build
+      # =========================
+      - name: Setup .npmrc (if NPM_TOKEN)
+        if: ${{ env.NPM_TOKEN && env.NPM_TOKEN != '' }}
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
 
       - name: Install JS deps
         run: npm ci
@@ -101,7 +126,9 @@ jobs:
       - name: Build web assets
         run: npm run build
 
-      # ---------- CocoaPods / Capacitor ----------
+      # =========================
+      # CocoaPods / Capacitor
+      # =========================
       - name: Prepare Ruby gems (ios/App)
         working-directory: ios/App
         run: |
@@ -116,8 +143,8 @@ jobs:
             pod --version
           fi
 
-      - name: Write GoogleService-Info.plist (from secret)
-        if: ${{ env.GOOGLE_SERVICE_INFO_PLIST != '' }}
+      - name: Write GoogleService-Info.plist (if provided)
+        if: ${{ env.GOOGLE_SERVICE_INFO_PLIST && env.GOOGLE_SERVICE_INFO_PLIST != '' }}
         run: |
           set -euo pipefail
           mkdir -p ios/App/App ios/App/App/App
@@ -138,94 +165,45 @@ jobs:
         working-directory: ios/App
         run: |
           set -euo pipefail
-          pod repo update
-          pod install --repo-update
-
-      # ---------- BRUTAL: make Pods fully unsigned (clean + insert defaults) ----------
-      - name: Sanitize Pods signing (force unsigned Pods)
-        run: |
-          set -euo pipefail
-          PODS_PBX="ios/App/Pods/Pods.xcodeproj/project.pbxproj"
-          if [ ! -f "$PODS_PBX" ]; then
-            echo "ℹ️ Pods project not found at $PODS_PBX (skipping)."
-            exit 0
-          fi
-
-          # 1) Remove any explicit provisioning / identities / team (all variants)
-          /usr/bin/sed -i '' -E 's/PROVISIONING_PROFILE_SPECIFIER(\[[^]]+\])? = [^;]+;/PROVISIONING_PROFILE_SPECIFIER\1 = "";/g' "$PODS_PBX"
-          /usr/bin/sed -i '' -E 's/PROVISIONING_PROFILE(\[[^]]+\])? = [^;]+;/PROVISIONING_PROFILE\1 = "";/g' "$PODS_PBX"
-          /usr/bin/sed -i '' -E 's/CODE_SIGN_IDENTITY(\[[^]]+\])? = [^;]+;/CODE_SIGN_IDENTITY\1 = "";/g' "$PODS_PBX"
-          /usr/bin/sed -i '' -E 's/DEVELOPMENT_TEAM(\[[^]]+\])? = [A-Z0-9]+;/DEVELOPMENT_TEAM\1 = "";/g' "$PODS_PBX"
-          /usr/bin/sed -i '' -E 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' "$PODS_PBX"
-
-          # 2) Ensure every buildSettings block has the keys we need (insert if missing)
-          /usr/bin/awk '
-            BEGIN { inbs=0 }
-            /buildSettings = \{/ { print; inbs=1; print "\t\t\t\tCODE_SIGN_IDENTITY = \"\";"; print "\t\t\t\tDEVELOPMENT_TEAM = \"\";"; print "\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"\";"; print "\t\t\t\tPROVISIONING_PROFILE = \"\";"; print "\t\t\t\tCODE_SIGNING_ALLOWED = NO;"; print "\t\t\t\tCODE_SIGNING_REQUIRED = NO;"; next }
-            /\};/ && inbs==1 { inbs=0; print; next }
-            { print }
-          ' "$PODS_PBX" > "$PODS_PBX.tmp" && mv "$PODS_PBX.tmp" "$PODS_PBX"
-
-          echo "✅ Pods signing sanitized & defaults inserted."
-
-      # ---------- Diagnostics: non-fatal assert ----------
-      - name: Assert Pods are unsigned (diagnostics, non-fatal)
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-          PODS_PROJ="ios/App/Pods/Pods.xcodeproj"
-          if [ ! -d "$PODS_PROJ" ]; then
-            echo "No Pods project; skipping"
-            exit 0
-          fi
-
-          echo "== Effective build settings (Release) for Pods targets =="
-          xcodebuild -showBuildSettings \
-            -project "$PODS_PROJ" \
-            -alltargets -configuration Release 2>/dev/null \
-            | egrep "TARGETNAME=|CODE_SIGN_STYLE =|CODE_SIGNING_ALLOWED =|CODE_SIGNING_REQUIRED =|CODE_SIGN_IDENTITY =|DEVELOPMENT_TEAM =|PROVISIONING_PROFILE(_SPECIFIER)? =" \
-            | sed 's/^/  /' || true
-
-          echo
-          echo "== Checking for real residual signing (non-empty) =="
-          BAD=$(
-            xcodebuild -showBuildSettings \
-              -project "$PODS_PROJ" -alltargets -configuration Release 2>/dev/null \
-            | egrep -n \
-              -e "CODE_SIGN_IDENTITY = (Apple Development|Apple Distribution|iPhone Developer|iPhone Distribution)" \
-              -e "DEVELOPMENT_TEAM = [A-Z0-9]{10}" \
-              -e "CODE_SIGN_STYLE = Manual" \
-              -e "CODE_SIGNING_ALLOWED = YES" \
-              -e "CODE_SIGNING_REQUIRED = YES" \
-            || true
-          )
-
-          if [ -n "$BAD" ]; then
-            echo "⚠️ Residual signing found in Pods (non-fatal):"
-            echo "$BAD"
+          if [ -f Gemfile ]; then
+            bundle exec pod install --repo-update
           else
-            echo "✅ Pods effective settings look unsigned/safe."
+            pod install --repo-update
           fi
-
-          exit 0
 
       - name: Verify workspace & scheme
         run: |
           set -euo pipefail
           xcodebuild -list -workspace ios/App/App.xcworkspace
-          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme "${SCHEME_NAME}" -configuration Release -sdk iphoneos | egrep "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN|SDKROOT" || true
+          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme "${SCHEME_NAME}" \
+            -configuration Release -sdk iphoneos 2>/dev/null | \
+            egrep "PRODUCT_BUNDLE_IDENTIFIER =|CODE_SIGN|PROVISIONING_PROFILE|SDKROOT =" || true
 
-      - name: Set BUILD_NUMBER env
+      # =========================
+      # Diagnostics (compile-only)
+      # =========================
+      - name: Dry-run build (compile only, no signing)
         run: |
-          if [ -n "${{ inputs.build_number }}" ]; then
-            echo "BUILD_NUMBER=${{ inputs.build_number }}" >> "$GITHUB_ENV"
-          else
-            echo "BUILD_NUMBER=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
-          fi
+          set -euo pipefail
+          echo "== DRY RUN: compile without code signing =="
+          xcodebuild -workspace ios/App/App.xcworkspace \
+            -scheme "${SCHEME_NAME}" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            ONLY_ACTIVE_ARCH=NO ENABLE_USER_SCRIPT_SANDBOXING=NO \
+            build | tee dryrun.log
+          echo "== First errors (dry run) =="
+          grep -nE " error: |fatal error:|Undefined symbols|ld: |Command CompileSwift failed|Command Ld failed" dryrun.log | head -n 80 || true
 
-      # ---------- Fastlane ----------
+      # =========================
+      # Fastlane
+      # =========================
       - name: Fastlane release
         working-directory: ios/App
+        env:
+          DEVELOPER_DIR: ${{ env.DEVELOPER_DIR }}
         run: |
           set -e
           if [ -f Gemfile ]; then
@@ -233,76 +211,34 @@ jobs:
           else
             fastlane release
           fi
-      
+
+      # =========================
+      # Logs & artifacts
+      # =========================
       - name: Dump xcodebuild errors from gym log
         if: failure()
         run: |
           set -euo pipefail
-          LOG=$(ls -t ~/Library/Logs/gym/*.log 2>/dev/null | head -n1 || true)
+          LOG=$(ls -t ~/Library/Logs/gym/*.log ./ios/App/fastlane/logs/*.log 2>/dev/null | head -n1 || true)
           if [ -z "$LOG" ]; then
             echo "No gym log found"
             exit 0
           fi
-          echo "== First 120 error-like lines =="
-          grep -nE " error: |❌|fatal error:|Undefined symbols|ld:|No such file|Provisioning|CodeSign|profile|certificate" "$LOG" | head -n 120 || true
+          echo "== ERROR lines =="
+          grep -nE " error: |fatal error:|Undefined symbols|ld: |Command CompileSwift failed|Command Ld failed|No such file or directory|Provisioning|CodeSign" "$LOG" | head -n 200 || true
           echo
-          echo "== Last 300 lines of xcodebuild =="
+          echo "== Last 300 lines =="
           tail -n 300 "$LOG" || true
-          
-      # ---------- Diagnostics ----------
-      - name: Show gym log snippet
-        if: failure()
-        run: |
-          set -euo pipefail
-          LOG=$(ls -t ~/Library/Logs/gym/*.log 2>/dev/null | head -n1 || true)
-          if [ -n "$LOG" ]; then
-            echo "== Errors (first 100 matches) =="
-            grep -nE "error:|fatal error:|Provisioning|CodeSign|No Accounts|certificate" "$LOG" | head -n 100 || true
-            echo "== Tail (last 200 lines) =="
-            tail -n 200 "$LOG" || true
-          else
-            echo "No gym log found"
-          fi
 
-      - name: Upload build logs
+      - name: Upload artifacts (logs, result bundles, IPAs)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: xcodebuild-logs
+          name: ios-artifacts
           path: |
+            dryrun.log
             ~/Library/Logs/gym/**
-            ios/App/fastlane/build_logs/**
-          if-no-files-found: warn
-
-      - name: Upload xcresult bundle
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: xcode-xcresult
-          path: ios/App/build/*.xcresult
-          if-no-files-found: warn
-
-      - name: Inspect built IPA (only on success)
-        if: ${{ success() }}
-        run: |
-          set -euo pipefail
-          IPA=$(ls -t ios/App/build/*.ipa 2>/dev/null | head -n1 || true)
-          if [ -z "$IPA" ]; then
-            echo "No IPA found"; exit 1
-          fi
-          TMP=$(mktemp -d)
-          unzip -q "$IPA" -d "$TMP"
-          APP_PATH=$(/usr/bin/find "$TMP/Payload" -type d -name '*.app' -print -quit)
-          echo "App bundle: $APP_PATH"
-          /usr/bin/codesign -d --entitlements :- "$APP_PATH" > entitlements.plist
-          /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist || true
-
-      - name: Upload IPA artifact
-        if: ${{ success() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-ipa
-          path: |
+            ios/App/fastlane/logs/**
             ios/App/build/*.ipa
-            **/App.dSYM.zip
+            **/*.xcresult
           if-no-files-found: warn
