@@ -41,27 +41,25 @@ platform :ios do
       increment_build_number(build_number: bn)
     end
 
-    # 5) Info/Lint (προαιρετικά – βοηθά στο diagnose)
+    # 5) Info help
     sh("xcodebuild -version || true")
     sh("xcrun --sdk iphoneos --show-sdk-version || true")
 
-    # 6) Targeting workspace/scheme
+    # 6) Workspace/Scheme
     scheme    = (ENV['SCHEME_NAME'] || 'App')
     workspace = "App.xcworkspace"
 
-    # 7) Manual Distribution signing ΜΟΝΟ για το App target μέσω xcargs
-    #    - Δεν πειράζουμε Pods (τις έχουμε κάνει unsigned στο YAML)
-    #    - Απενεργοποιούμε το Automatic για το App και δίνουμε ρητά Distribution προφίλ/identity
+    # 7) QUOTED xcargs (ΠΡΟΣΟΧΗ στα εισαγωγικά!)
     xargs = [
-      "CODE_SIGN_STYLE=Manual",
+      'CODE_SIGN_STYLE=Manual',
       "DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
-      "PROVISIONING_PROFILE_SPECIFIER=match AppStore #{ENV['APP_BUNDLE_ID']}",
-      "CODE_SIGN_IDENTITY=Apple Distribution",
-      "ONLY_ACTIVE_ARCH=NO",
-      "ENABLE_USER_SCRIPT_SANDBOXING=NO"
-    ].join(" ")
+      %Q(PROVISIONING_PROFILE_SPECIFIER="match AppStore #{ENV['APP_BUNDLE_ID']}"),
+      %Q(CODE_SIGN_IDENTITY="Apple Distribution"),
+      'ONLY_ACTIVE_ARCH=NO',
+      'ENABLE_USER_SCRIPT_SANDBOXING=NO'
+    ].join(' ')
 
-    # 8) Export options: manual + explicit provisioningProfiles mapping
+    # 8) Export options με explicit mapping
     export_opts = {
       method: "app-store",
       signingStyle: "manual",
@@ -73,7 +71,7 @@ platform :ios do
       manageAppVersionAndBuildNumber: false
     }
 
-    # 9) Archive & Export με gym
+    # 9) Archive & Export
     gym(
       workspace: workspace,
       scheme: scheme,
@@ -83,14 +81,14 @@ platform :ios do
       export_method: "app-store",
       export_options: export_opts,
       output_directory: "build",
-      output_name: "App-#{Time.now.strftime('%Y%m%d')}.ipa",
+      output_name: "App-#{Time.now.strftime('%Y%m%d')}",
       include_symbols: true,
       include_bitcode: false,
       xcargs: xargs,
       silent: false
     )
 
-    # 10) Safety check (προαιρετικό)
+    # 10) Entitlements sanity (optional)
     sh <<~BASH
       set -e
       IPA=$(ls -t build/*.ipa | head -n1)
