@@ -137,11 +137,11 @@ platform :ios do
         UI.important("GENERATE_INFOPLIST_FILE=YES (no physical Info.plist). Will override CFBundleVersion via xcodebuild.")
         extra_version_xcargs = " CURRENT_PROJECT_VERSION=#{bn}"
       else
-        guessed = discover_bundle_ids(root: ".", base_id: ENV.fetch('APP_BUNDLE_ID')).first
-        if guessed && !guessed.empty?
-          # Βρες ένα υπαρκτό Info.plist που αντιστοιχεί (best effort)
+        guessed_ids = discover_bundle_ids(root: ".", base_id: ENV.fetch('APP_BUNDLE_ID'))
+        if guessed_ids.any?
           plist = Dir.glob("**/Info.plist").find do |p|
-            sh_quiet(%Q{/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "#{p}" 2>/dev/null}).strip == guessed
+            id = sh_quiet(%Q{/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "#{p}" 2>/dev/null}).strip
+            guessed_ids.include?(id)
           end
           if plist && File.exist?(plist)
             UI.message("Found Info.plist by bundle id at: #{plist}")
@@ -157,36 +157,39 @@ platform :ios do
       end
     end
 
-    # 5) (Προαιρετικό) Log τρέχον Xcode/SDK — δεν πειράζουμε DEVELOPER_DIR εδώ
+    # 5) Log Xcode/SDK — σεβόμαστε το DEVELOPER_DIR από το workflow
     sh "xcodebuild -version || true"
     sh "xcrun --sdk iphoneos --show-sdk-version || true"
 
-    # 6) Manual/Distribution signing
+    # 6) Manual/Distribution signing — QUOTED/ESCAPED values
     base_id = ENV.fetch('APP_BUNDLE_ID')
-    # από το match: {"gr.formypet.app"=>"match AppStore gr.formypet.app"}
     match_map = (lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {})
     main_profile_spec = match_map[base_id] || "match AppStore #{base_id}"
 
-    # Βρες ΟΛΑ τα bundle ids του project που αρχίζουν με base_id, για export options
+    # provisioningProfiles για όλα τα bundle ids (app + extensions)
     bundle_ids = discover_bundle_ids(root: ".", base_id: base_id)
     provisioning_map = {}
     bundle_ids.each { |bid| provisioning_map[bid] = (match_map[bid] || "match AppStore #{bid}") }
     provisioning_map = { base_id => main_profile_spec } if provisioning_map.empty?
 
-    # xcargs για να εξαναγκάσουμε Distribution στο archive
-    signing_args = [
-      "-allowProvisioningUpdates",
-      "CODE_SIGN_STYLE=Manual",
-      "DEVELOPMENT_TEAM=#{ENV.fetch('APPLE_TEAM_ID')}",
-      "CODE_SIGN_IDENTITY=Apple Distribution",
-      "PROVISIONING_PROFILE_SPECIFIER=#{main_profile_spec}",
-      "CODE_SIGNING_ALLOWED=YES",
-      "CODE_SIGNING_REQUIRED=YES",
-      "ONLY_ACTIVE_ARCH=NO",
-      "ENABLE_USER_SCRIPT_SANDBOXING=NO"
-    ].join(" ")
+    # ΦΤΙΑΧΝΟΥΜΕ xcargs με proper escaping (π.χ. "Apple Distribution", "match AppStore ...")
+    kv = {
+      "CODE_SIGN_STYLE" => "Manual",
+      "DEVELOPMENT_TEAM" => ENV.fetch('APPLE_TEAM_ID'),
+      "CODE_SIGN_IDENTITY" => "Apple Distribution",
+      "PROVISIONING_PROFILE_SPECIFIER" => main_profile_spec,
+      "CODE_SIGNING_ALLOWED" => "YES",
+      "CODE_SIGNING_REQUIRED" => "YES",
+      "ONLY_ACTIVE_ARCH" => "NO",
+      "ENABLE_USER_SCRIPT_SANDBOXING" => "NO"
+    }
+    quoted_pairs = kv.map { |k,v| "#{k}=#{Shellwords.escape(v.to_s)}" }
+    signing_args = ["-allowProvisioningUpdates", *quoted_pairs].join(" ")
+    xcargs_final = [signing_args, extra_version_xcargs].reject(&:empty?).join(" ")
 
-    # 7) Archive με gym (χωρίς να καρφώνουμε sdk — αφήνουμε το ενεργό Xcode)
+    UI.message("Signing args: #{quoted_pairs.join(' ')}")
+
+    # 7) Archive με gym (δεν καρφώνουμε sdk — χρησιμοποιούμε το ενεργό Xcode)
     gym(
       workspace: "App.xcworkspace",
       scheme: scheme,
@@ -198,7 +201,7 @@ platform :ios do
       include_symbols: true,
       include_bitcode: false,
       result_bundle: true,
-      xcargs: [signing_args, extra_version_xcargs].join(" "),
+      xcargs: xcargs_final,
       export_options: {
         signingStyle: "manual",
         signingCertificate: "Apple Distribution",
