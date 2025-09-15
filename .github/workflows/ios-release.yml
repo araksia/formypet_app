@@ -146,7 +146,7 @@ jobs:
           pod repo update
           pod install --repo-update
 
-      # ---------- Make Pods fully unsigned ----------
+      # ---------- BRUTAL: make Pods fully unsigned (clean + insert defaults) ----------
       - name: Sanitize Pods signing (force unsigned Pods)
         run: |
           set -euo pipefail
@@ -155,26 +155,24 @@ jobs:
             echo "ℹ️ Pods project not found at $PODS_PBX (skipping)."
             exit 0
           fi
-          # Remove provisioning profiles (all variants)
+
+          # 1) Remove any explicit provisioning / identities / team (all variants)
           /usr/bin/sed -i '' -E 's/PROVISIONING_PROFILE_SPECIFIER(\[[^]]+\])? = [^;]+;/PROVISIONING_PROFILE_SPECIFIER\1 = "";/g' "$PODS_PBX"
           /usr/bin/sed -i '' -E 's/PROVISIONING_PROFILE(\[[^]]+\])? = [^;]+;/PROVISIONING_PROFILE\1 = "";/g' "$PODS_PBX"
-          # Remove code sign identity (including sdk=iphoneos*)
           /usr/bin/sed -i '' -E 's/CODE_SIGN_IDENTITY(\[[^]]+\])? = [^;]+;/CODE_SIGN_IDENTITY\1 = "";/g' "$PODS_PBX"
-          # Remove development team (including sdk variants)
           /usr/bin/sed -i '' -E 's/DEVELOPMENT_TEAM(\[[^]]+\])? = [A-Z0-9]+;/DEVELOPMENT_TEAM\1 = "";/g' "$PODS_PBX"
-          # Force Automatic style (but disable signing act)
           /usr/bin/sed -i '' -E 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' "$PODS_PBX"
-          if grep -q 'CODE_SIGNING_ALLOWED = YES;' "$PODS_PBX"; then
-            /usr/bin/sed -i '' -E 's/CODE_SIGNING_ALLOWED = YES;/CODE_SIGNING_ALLOWED = NO;/g' "$PODS_PBX"
-          else
-            /usr/bin/sed -i '' -E 's/(buildSettings = \{)/\1\n\t\t\t\tCODE_SIGNING_ALLOWED = NO;/' "$PODS_PBX"
-          fi
-          if grep -q 'CODE_SIGNING_REQUIRED = YES;' "$PODS_PBX"; then
-            /usr/bin/sed -i '' -E 's/CODE_SIGNING_REQUIRED = YES;/CODE_SIGNING_REQUIRED = NO;/g' "$PODS_PBX"
-          else
-            /usr/bin/sed -i '' -E 's/(buildSettings = \{)/\1\n\t\t\t\tCODE_SIGNING_REQUIRED = NO;/' "$PODS_PBX"
-          fi
-          echo "✅ Pods signing sanitized."
+
+          # 2) Ensure every buildSettings block has the keys we need (insert if missing)
+          #    -> add empty identity/team/profiles and disable signing (allowed/required)
+          /usr/bin/awk '
+            BEGIN { inbs=0 }
+            /buildSettings = \{/ { print; inbs=1; print "\t\t\t\tCODE_SIGN_IDENTITY = \"\";"; print "\t\t\t\tDEVELOPMENT_TEAM = \"\";"; print "\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"\";"; print "\t\t\t\tPROVISIONING_PROFILE = \"\";"; print "\t\t\t\tCODE_SIGNING_ALLOWED = NO;"; print "\t\t\t\tCODE_SIGNING_REQUIRED = NO;"; next }
+            /\};/ && inbs==1 { inbs=0; print; next }
+            { print }
+          ' "$PODS_PBX" > "$PODS_PBX.tmp" && mv "$PODS_PBX.tmp" "$PODS_PBX"
+
+          echo "✅ Pods signing sanitized & defaults inserted."
 
       - name: Assert Pods are unsigned (diagnostics)
         run: |
@@ -182,8 +180,9 @@ jobs:
           PODS_PBX="ios/App/Pods/Pods.xcodeproj/project.pbxproj"
           [ -f "$PODS_PBX" ] || { echo "No Pods project"; exit 0; }
 
-          echo "== Residual signing fields in Pods (should be empty) =="
+          echo "== Residual signing fields in Pods (should be empty or quotes) =="
           RES=0
+          # Flag ONLY if non-empty values remain (Apple Development, non-empty profiles, Manual style, YES flags)
           for P in \
             'CODE_SIGN_IDENTITY[^\n]*=[^\n]*[^";][^;]*;' \
             'CODE_SIGN_IDENTITY\[sdk=[^]]+\][^\n]*=[^\n]*[^";][^;]*;' \
@@ -228,8 +227,6 @@ jobs:
       # ---------- Fastlane ----------
       - name: Fastlane release
         working-directory: ios/App
-        env:
-          DEVELOPER_DIR: ${{ env.DEVELOPER_DIR }}
         run: |
           set -e
           if [ -f Gemfile ]; then
@@ -245,8 +242,8 @@ jobs:
           set -euo pipefail
           LOG=$(ls -t ~/Library/Logs/gym/*.log 2>/dev/null | head -n1 || true)
           if [ -n "$LOG" ]; then
-            echo "== Errors (first 80 matches) =="
-            grep -nE "error:|fatal error:|Provisioning|CodeSign|No Accounts|certificate" "$LOG" | head -n 80 || true
+            echo "== Errors (first 100 matches) =="
+            grep -nE "error:|fatal error:|Provisioning|CodeSign|No Accounts|certificate" "$LOG" | head -n 100 || true
             echo "== Tail (last 200 lines) =="
             tail -n 200 "$LOG" || true
           else
