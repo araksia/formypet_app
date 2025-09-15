@@ -19,7 +19,7 @@ def read_build_settings(scheme:, configuration:)
   ].map(&:shellescape).join(" ")
   out = sh_quiet(cmd1)
 
-  # 2) fallback: project+target
+  # 2) fallback: project+target (iphoneos)
   if out.to_s.strip.empty? || !out.include?("Build settings")
     cmd2 = %W[
       xcodebuild -showBuildSettings
@@ -34,7 +34,7 @@ def read_build_settings(scheme:, configuration:)
   out
 end
 
-# Εντόπισε αν υπάρχει φυσικό Info.plist ή αν το Xcode το παράγει (GENERATE_INFOPLIST_FILE=YES)
+# Βρες αν χρησιμοποιείται physical Info.plist ή generated (GENERATE_INFOPLIST_FILE=YES)
 def resolve_infoplist_path_and_mode(scheme:, configuration:)
   out = read_build_settings(scheme: scheme, configuration: configuration)
   return [nil, :unknown] if out.to_s.strip.empty?
@@ -58,7 +58,7 @@ def resolve_infoplist_path_and_mode(scheme:, configuration:)
   File.exist?(abs) ? [abs, :file] : [nil, :unknown]
 end
 
-# Βρες όλα τα bundle IDs που ξεκινούν από το βασικό (π.χ. extensions)
+# Μάζεψε όλα τα bundle IDs του project που ξεκινούν από το base_id (π.χ. extensions)
 def discover_bundle_ids(root:, base_id:)
   ids = []
   Dir.glob(File.join(root, "**/Info.plist")).each do |p|
@@ -113,9 +113,9 @@ platform :ios do
     config = "Release"
 
     bn = ENV['BUILD_NUMBER'].to_s.strip
-    bn = ENV['GITHUB_RUN_NUMBER'].to_s.strip if bn.empty?
-    bn = ENV['GITHUB_RUN_ATTEMPT'].to_s.strip if bn.empty?
-    bn = Time.now.strftime('%Y%m%d%H%M') if bn.empty?
+    bn = ENV['GITHUB_RUN_NUMBER'].to_s.strip    if bn.empty?
+    bn = ENV['GITHUB_RUN_ATTEMPT'].to_s.strip   if bn.empty?
+    bn = Time.now.strftime('%Y%m%d%H%M')        if bn.empty?
     UI.message("Using BUILD_NUMBER=#{bn}")
 
     agv_ok = false
@@ -157,27 +157,26 @@ platform :ios do
       end
     end
 
-    # 5) Log Xcode/SDK — σεβόμαστε το DEVELOPER_DIR από το workflow
+    # 5) Log Xcode/SDK — σεβόμαστε το DEVELOPER_DIR από το workflow (δεν καρφώνουμε Xcode εδώ)
     sh "xcodebuild -version || true"
     sh "xcrun --sdk iphoneos --show-sdk-version || true"
 
-    # 6) Manual/Distribution signing — QUOTED/ESCAPED values
+    # 6) Manual/Distribution signing — ΧΩΡΙΣ PROVISIONING_PROFILE_SPECIFIER στα xcargs
     base_id = ENV.fetch('APP_BUNDLE_ID')
     match_map = (lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {})
     main_profile_spec = match_map[base_id] || "match AppStore #{base_id}"
 
-    # provisioningProfiles για όλα τα bundle ids (app + extensions)
+    # provisioningProfiles για app + extensions στο export
     bundle_ids = discover_bundle_ids(root: ".", base_id: base_id)
     provisioning_map = {}
     bundle_ids.each { |bid| provisioning_map[bid] = (match_map[bid] || "match AppStore #{bid}") }
     provisioning_map = { base_id => main_profile_spec } if provisioning_map.empty?
 
-    # ΦΤΙΑΧΝΟΥΜΕ xcargs με proper escaping (π.χ. "Apple Distribution", "match AppStore ...")
+    # QUOTED xcargs χωρίς PP_SPECIFIER (ώστε να μην επηρεαστούν Pods)
     kv = {
       "CODE_SIGN_STYLE" => "Manual",
       "DEVELOPMENT_TEAM" => ENV.fetch('APPLE_TEAM_ID'),
       "CODE_SIGN_IDENTITY" => "Apple Distribution",
-      "PROVISIONING_PROFILE_SPECIFIER" => main_profile_spec,
       "CODE_SIGNING_ALLOWED" => "YES",
       "CODE_SIGNING_REQUIRED" => "YES",
       "ONLY_ACTIVE_ARCH" => "NO",
@@ -189,7 +188,7 @@ platform :ios do
 
     UI.message("Signing args: #{quoted_pairs.join(' ')}")
 
-    # 7) Archive με gym (δεν καρφώνουμε sdk — χρησιμοποιούμε το ενεργό Xcode)
+    # 7) Archive με gym (χρήση ενεργού Xcode/SDK)
     gym(
       workspace: "App.xcworkspace",
       scheme: scheme,
@@ -201,11 +200,11 @@ platform :ios do
       include_symbols: true,
       include_bitcode: false,
       result_bundle: true,
-      xcargs: xcargs_final,
+      xcargs: xcargs_final,   # <-- χωρίς PROVISIONING_PROFILE_SPECIFIER
       export_options: {
         signingStyle: "manual",
         signingCertificate: "Apple Distribution",
-        provisioningProfiles: provisioning_map
+        provisioningProfiles: provisioning_map # <-- προφίλ μόνο στο export
       },
       silent: false
     )
