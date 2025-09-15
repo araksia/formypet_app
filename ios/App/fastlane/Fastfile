@@ -5,18 +5,15 @@ default_platform :ios
 platform :ios do
   desc "Build & upload to TestFlight (Capacitor pods unsigned; App target manual Distribution via profile UUID)"
   lane :release do
-    # 1) CI keychain - Αποθηκεύουμε το path σε μια μεταβλητή
-    keychain_path = create_keychain(
+    # 1) CI keychain
+    create_keychain(
       name: "ci",
       default_keychain: true,
       unlock: true,
       timeout: 3600,
       password: ENV["KEYCHAIN_PASSWORD"]
     )
-    UI.message("Keychain created at: #{keychain_path}")
 
-    # ... (τα βήματα 2 έως 7 παραμένουν ίδια) ...
-    
     # 2) App Store Connect API key
     api_key = app_store_connect_api_key(
       key_id:      ENV.fetch('APP_STORE_CONNECT_API_KEY_ID'),
@@ -33,24 +30,30 @@ platform :ios do
       git_branch: (ENV['MATCH_GIT_BRANCH'] || 'main'),
       app_identifier: ENV.fetch('APP_BUNDLE_ID'),
       team_id: ENV.fetch('APPLE_TEAM_ID'),
-      keychain_name: "ci", # Το όνομα παραμένει εδώ
+      keychain_name: "ci",
       keychain_password: ENV.fetch('MATCH_KEYCHAIN_PASSWORD'),
       api_key: api_key
     )
 
-    # ... (βήματα 4, 5, 6, 7) ...
+    # 4) Build number (προαιρετικό)
     bn = (ENV['BUILD_NUMBER'] || "").strip
     if bn.empty?
       UI.important("BUILD_NUMBER is empty; skipping increment_build_number")
     else
       increment_build_number(build_number: bn)
     end
+
+    # 5) Info
     sh("xcodebuild -version || true")
     sh("xcrun --sdk iphoneos --show-sdk-version || true")
+
+    # 6) Workspace/Scheme
     scheme    = (ENV['SCHEME_NAME'] || 'App')
     workspace = "App.xcworkspace"
     bundle_id = ENV.fetch('APP_BUNDLE_ID')
     team_id   = ENV.fetch('APPLE_TEAM_ID')
+
+    # 7) Βρες το UUID του προφίλ
     profile_name = "match AppStore #{bundle_id}"
     profile_uuid = nil
     Dir["#{Dir.home}/Library/MobileDevice/Provisioning Profiles/*.mobileprovision"]
@@ -72,15 +75,14 @@ platform :ios do
       end
     UI.user_error!("Could not find UUID for provisioning profile '#{profile_name}'") unless profile_uuid && !profile_uuid.empty?
 
-
-    # 8) Βεβαιώσου ότι το keychain είναι ξεκλείδωτο ΠΡΙΝ το build (ΔΙΟΡΘΩΜΕΝΟ)
+    # 8) Βεβαιώσου ότι το keychain είναι ξεκλείδωτο ΠΡΙΝ το build
     UI.header("Ensuring Keychain is Unlocked")
     unlock_keychain(
-      path: keychain_path, # Χρησιμοποιούμε το path που αποθηκεύσαμε
+      path: File.expand_path("~/Library/Keychains/ci-db"),
       password: ENV["KEYCHAIN_PASSWORD"]
     )
 
-    # ... (τα υπόλοιπα βήματα 9, 10, 11, 12, 13 παραμένουν ίδια) ...
+    # 9) QUOTED xcargs
     xargs = [
       'CODE_SIGN_STYLE=Manual',
       "DEVELOPMENT_TEAM=#{team_id}",
@@ -89,6 +91,8 @@ platform :ios do
       'ONLY_ACTIVE_ARCH=NO',
       'ENABLE_USER_SCRIPT_SANDBOXING=NO'
     ].join(' ')
+
+    # 10) Export options
     export_opts = {
       method: "app-store",
       signingStyle: "manual",
@@ -99,6 +103,8 @@ platform :ios do
       uploadBitcode: false,
       manageAppVersionAndBuildNumber: false
     }
+
+    # 11) Archive & Export
     gym(
       workspace: workspace,
       scheme: scheme,
@@ -118,6 +124,8 @@ platform :ios do
       buildlog_path: "./fastlane/logs",
       xcodebuild_command: "xcodebuild -jobs 2"
     )
+
+    # 12) Entitlements sanity
     sh <<~BASH
       set -e
       IPA=$(ls -t build/*.ipa | head -n1)
@@ -127,6 +135,8 @@ platform :ios do
       /usr/bin/codesign -d --entitlements :- "$APP_PATH" > entitlements.plist
       /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist || true
     BASH
+
+    # 13) Upload TestFlight
     pilot(
       api_key: api_key,
       skip_submission: true,
