@@ -50,11 +50,16 @@ jobs:
 
       - name: Trust github.com host
         run: |
+          set -euo pipefail
           mkdir -p ~/.ssh
           ssh-keyscan -t rsa,ecdsa -H github.com >> ~/.ssh/known_hosts
 
       - name: Sanity check SSH access to MATCH_GIT_URL
-        run: git ls-remote --heads "${MATCH_GIT_URL}"
+        run: |
+          set -euo pipefail
+          [ -n "${MATCH_GIT_URL:-}" ] || { echo "❌ MATCH_GIT_URL is empty"; exit 1; }
+          git ls-remote --heads "${MATCH_GIT_URL}" >/dev/null
+          echo "✅ SSH access OK"
 
       # ========= Pick an Xcode that has iPhoneOS SDK =========
       - name: Select best available Xcode (auto)
@@ -118,6 +123,7 @@ jobs:
       - name: Prepare Ruby gems (ios/App)
         working-directory: ios/App
         run: |
+          set -euo pipefail
           if [ -f Gemfile ]; then
             bundle lock --add-platform arm64-darwin-23 x86_64-darwin-23 ruby || true
             bundle config set path 'vendor/bundle'
@@ -131,6 +137,7 @@ jobs:
       - name: Write GoogleService-Info.plist (from secret)
         if: ${{ env.GOOGLE_SERVICE_INFO_PLIST != '' }}
         run: |
+          set -euo pipefail
           mkdir -p ios/App/App ios/App/App/App
           CONTENT="${GOOGLE_SERVICE_INFO_PLIST}"
           if echo "$CONTENT" | head -n1 | grep -Eqi '^\s*<\?xml|^\s*\{'; then
@@ -148,86 +155,35 @@ jobs:
       - name: Ensure CocoaPods install
         working-directory: ios/App
         run: |
+          set -euo pipefail
           pod repo update
           pod install --repo-update
 
-      # ========= Κράτα τα Pods σε Automatic & χωρίς profiles =========
-      - name: Sanitize Pods signing (force Automatic, no profiles)
+      # ========= Κράτα τα Pods σε Automatic & χωρίς υπογραφή =========
+      - name: Sanitize Pods signing (Automatic, no profiles, no identity)
         run: |
           set -euo pipefail
           PODS_PBX="ios/App/Pods/Pods.xcodeproj/project.pbxproj"
           if [ -f "$PODS_PBX" ]; then
+            # Καθάρισε provisioning & identity
             /usr/bin/sed -i '' -E 's/PROVISIONING_PROFILE_SPECIFIER = [^;]+;/PROVISIONING_PROFILE_SPECIFIER = "";/g' "$PODS_PBX"
             /usr/bin/sed -i '' -E 's/PROVISIONING_PROFILE = [^;]+;/PROVISIONING_PROFILE = "";/g' "$PODS_PBX"
+            /usr/bin/sed -i '' -E 's/CODE_SIGN_IDENTITY = [^;]+;/CODE_SIGN_IDENTITY = "";/g' "$PODS_PBX"
+            # Βάλε Automatic, αλλά απενεργοποίησε signing για Pods
             /usr/bin/sed -i '' -E 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' "$PODS_PBX"
+            /usr/bin/sed -i '' -E 's/CODE_SIGNING_ALLOWED = YES;/CODE_SIGNING_ALLOWED = NO;/g' "$PODS_PBX"
+            /usr/bin/sed -i '' -E 's/CODE_SIGNING_REQUIRED = YES;/CODE_SIGNING_REQUIRED = NO;/g' "$PODS_PBX"
             echo "✅ Pods signing sanitized."
           else
             echo "ℹ️ Pods project not found at $PODS_PBX (skipping)."
           fi
 
-      # ========= (Προαιρετικό) Δημιουργία shared scheme αν λείπει =========
-      - name: Generate shared scheme if missing
-        run: |
-          set -euo pipefail
-          PROJ="ios/App/App.xcodeproj"
-          PBX="$PROJ/project.pbxproj"
-          SCHEMES_DIR="$PROJ/xcshareddata/xcschemes"
-          SCHEME_PATH="$SCHEMES_DIR/${SCHEME_NAME}.xcscheme"
-          mkdir -p "$SCHEMES_DIR"
-          [ -f "$PBX" ] || { echo "project.pbxproj not found at $PBX"; exit 1; }
-          if [ -f "$SCHEME_PATH" ]; then
-            echo "Shared scheme exists: $SCHEME_PATH"; exit 0; fi
-          TARGET_UUID=$(awk '{gsub(/^[ \t]+/,"",$0)} /\/\* '"${SCHEME_NAME}"' \*\/[ \t]*=[ \t]*\{/ { split($0,a,/[ \t]+/); print a[1]; exit }' "$PBX") || true
-          [ -n "${TARGET_UUID:-}" ] || { echo "No PBXNativeTarget for ${SCHEME_NAME}"; exit 1; }
-          BUILDABLE_NAME="${SCHEME_NAME}.app"
-          {
-            printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>'
-            printf '%s\n' '<Scheme LastUpgradeVersion="1630" version="1.7">'
-            printf '%s\n' '  <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES">'
-            printf '%s\n' '    <BuildActionEntries>'
-            printf '%s\n' '      <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">'
-            printf '%s\n' '        <BuildableReference'
-            printf '%s\n' '          BuildableIdentifier="primary"'
-            printf '%s\n' '          BlueprintIdentifier="__TARGET_UUID__"'
-            printf '%s\n' '          BuildableName="__BUILDABLE_NAME__"'
-            printf '%s\n' '          BlueprintName="__SCHEME_NAME__"'
-            printf '%s\n' '          ReferencedContainer="container:App.xcodeproj">'
-            printf '%s\n' '        </BuildableReference>'
-            printf '%s\n' '      </BuildActionEntry>'
-            printf '%s\n' '    </BuildActionEntries>'
-            printf '%s\n' '  </BuildAction>'
-            printf '%s\n' '  <TestAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv="YES"><Testables/></TestAction>'
-            printf '%s\n' '  <LaunchAction buildConfiguration="Release" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle="0" useCustomWorkingDirectory="NO" ignoresPersistentStateOnLaunch="NO" debugDocumentVersioning="YES" debugServiceExtension="internal" allowLocationSimulation="YES">'
-            printf '%s\n' '    <BuildableProductRunnable runnableDebuggingMode="0">'
-            printf '%s\n' '      <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="__TARGET_UUID__" BuildableName="__BUILDABLE_NAME__" BlueprintName="__SCHEME_NAME__" ReferencedContainer="container:App.xcodeproj"></BuildableReference>'
-            printf '%s\n' '    </BuildableProductRunnable>'
-            printf '%s\n' '  </LaunchAction>'
-            printf '%s\n' '  <ProfileAction buildConfiguration="Release" shouldUseLaunchSchemeArgsEnv="YES" savedToolIdentifier="" useCustomWorkingDirectory="NO" debugDocumentVersioning="YES">'
-            printf '%s\n' '    <BuildableProductRunnable runnableDebuggingMode="0">'
-            printf '%s\n' '      <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="__TARGET_UUID__" BuildableName="__BUILDABLE_NAME__" BlueprintName="__SCHEME_NAME__" ReferencedContainer="container:App.xcodeproj"></BuildableReference>'
-            printf '%s\n' '    </BuildableProductRunnable>'
-            printf '%s\n' '  </ProfileAction>'
-            printf '%s\n' '  <AnalyzeAction buildConfiguration="Debug"/>'
-            printf '%s\n' '  <ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>'
-            printf '%s\n' '</Scheme>'
-          } > "$SCHEME_PATH"
-          LC_ALL=C sed -i '' \
-            -e "s/__TARGET_UUID__/${TARGET_UUID}/g" \
-            -e "s/__BUILDABLE_NAME__/${BUILDABLE_NAME}/g" \
-            -e "s/__SCHEME_NAME__/${SCHEME_NAME}/g" \
-            "$SCHEME_PATH"
-
-      - name: Resolve Swift Packages
-        run: |
-          xcodebuild -resolvePackageDependencies \
-            -workspace ios/App/App.xcworkspace \
-            -scheme "${SCHEME_NAME}" \
-            -clonedSourcePackagesDirPath "$HOME/spm-cache"
-
+      # ========= Verify workspace & scheme =========
       - name: Verify workspace & scheme
         run: |
+          set -euo pipefail
           xcodebuild -list -workspace ios/App/App.xcworkspace
-          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme "${SCHEME_NAME}" -configuration Release -sdk iphoneos | grep -E "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN|SDKROOT" || true
+          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme "${SCHEME_NAME}" -configuration Release -sdk iphoneos | egrep "PRODUCT_BUNDLE_IDENTIFIER|CODE_SIGN|SDKROOT" || true
 
       - name: Set BUILD_NUMBER env
         run: |
@@ -243,6 +199,7 @@ jobs:
         env:
           DEVELOPER_DIR: ${{ env.DEVELOPER_DIR }}
         run: |
+          set -e
           if [ -f Gemfile ]; then
             bundle exec fastlane release
           else
@@ -250,18 +207,58 @@ jobs:
           fi
 
       # ========= Diagnostics =========
-      - name: Dump xcodebuild root cause
+      - name: Dump ultra-detailed Xcode logs
         if: failure()
         run: |
           set -euo pipefail
+
+          echo "== gym raw log =="
           LOG=$(ls -t ~/Library/Logs/gym/*.log 2>/dev/null | head -n1 || true)
-          if [ -z "$LOG" ]; then
-            echo "No gym log found"; exit 0
+          if [ -n "$LOG" ]; then
+            echo "gym log: $LOG"
+            echo "---- first errors ----"
+            grep -nE "error:|fatal error:|Provisioning|CodeSign|No Accounts|certificate" "$LOG" | head -n 80 || true
+            echo "---- tail 300 lines ----"
+            tail -n 300 "$LOG" || true
+          else
+            echo "No gym log found."
           fi
-          echo "== First 12 error lines =="
-          grep -nE "error:|fatal error:|CodeSign|Provisioning|ld: " "$LOG" | head -n 12 || true
-          echo "== Tail (last 200) =="
-          tail -n 200 "$LOG" || true
+
+          echo
+          echo "== xcresult issues =="
+          XCR=$(ls -t ios/App/build/*.xcresult 2>/dev/null | head -n1 || true)
+          if [ -n "$XCR" ]; then
+            echo "xcresult: $XCR"
+            /usr/bin/xcrun xcresulttool get --path "$XCR" --format json > ios/App/build/xcresult.json
+            /usr/bin/xcrun xcresulttool get --path "$XCR" --format json | /usr/bin/python3 - <<'PY'
+import json,sys
+j=json.load(sys.stdin)
+actions=j.get('actions',[])
+for a in actions:
+  rs=a.get('actionResult',{})
+  issues=rs.get('issues',{})
+  for key in ('errorSummaries','warningSummaries','testFailureSummaries'):
+    for s in issues.get(key,[]):
+      msg=s.get('message','')
+      loc=s.get('documentLocationInCreatingWorkspace',{}).get('url','')
+      print(f"[{key.upper()}] {msg}")
+      if loc: print(f"  at {loc}")
+PY
+          else
+            echo "No xcresult bundle found."
+          fi
+
+          echo
+          echo "== DerivedData build logs (first log + tail) =="
+          DD=$(ls -t ~/Library/Developer/Xcode/DerivedData/*/Logs/Build/*.log 2>/dev/null | head -n1 || true)
+          if [ -n "$DD" ]; then
+            echo "DerivedData log: $DD"
+            grep -nE "error:|fatal error:|Provisioning|CodeSign|No Accounts|certificate" "$DD" | head -n 80 || true
+            echo "---- tail 200 ----"
+            tail -n 200 "$DD" || true
+          else
+            echo "No DerivedData build logs found."
+          fi
 
       - name: Upload build logs
         if: always()
@@ -271,6 +268,7 @@ jobs:
           path: |
             ~/Library/Logs/gym/**
             ios/App/fastlane/build_logs/**
+            ios/App/build/xcresult.json
           if-no-files-found: warn
 
       - name: Upload xcresult bundle
@@ -278,14 +276,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: xcode-xcresult
-          path: |
-            ios/App/build/*.xcresult
-            ~/Library/Logs/gym/*.xcresult
+          path: ios/App/build/*.xcresult
           if-no-files-found: warn
 
       - name: Inspect built IPA (only on success)
         if: ${{ success() }}
         run: |
+          set -euo pipefail
           IPA=$(ls -t ios/App/build/*.ipa 2>/dev/null | head -n1 || true)
           if [ -z "$IPA" ]; then
             echo "No IPA found"; exit 1
@@ -293,6 +290,7 @@ jobs:
           TMP=$(mktemp -d)
           unzip -q "$IPA" -d "$TMP"
           APP_PATH=$(/usr/bin/find "$TMP/Payload" -type d -name '*.app' -print -quit)
+          echo "🧩 App bundle: $APP_PATH"
           /usr/bin/codesign -d --entitlements :- "$APP_PATH" > entitlements.plist
           /usr/libexec/PlistBuddy -c "Print :aps-environment" entitlements.plist || true
 
