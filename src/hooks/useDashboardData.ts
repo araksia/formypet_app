@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, isAfter, addDays } from 'date-fns';
 import { el } from 'date-fns/locale';
 import { getEventTypeLabel, getEventIcon } from '@/utils/eventUtils';
+import { useOfflineStore } from './useOfflineStore';
+import { useOnline } from './useOnline';
 
 interface Stats {
   pets: number;
@@ -37,19 +39,40 @@ export const useDashboardData = (userId: string | undefined) => {
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [firstPet, setFirstPet] = useState<Pet | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  const { getItems } = useOfflineStore();
+  const isOnline = useOnline();
 
   const loadStats = useMemo(() => async () => {
     if (!userId) return;
 
     try {
-      // Get pets count and first pet
-      const { data: pets, error: petsError } = await supabase
-        .from('pets')
-        .select('id, name, species')
-        .eq('owner_id', userId)
-        .order('created_at', { ascending: true });
+      let pets: any[] = [];
+      let expenses: any[] = [];
+      let familyMembers: any[] = [];
 
-      if (petsError) throw petsError;
+      if (isOnline) {
+        // Online: Fetch from server
+        const [petsResult, familyResult, expensesResult] = await Promise.all([
+          supabase.from('pets').select('id, name, species').eq('owner_id', userId).order('created_at', { ascending: true }),
+          supabase.from('pet_family_members').select('id').neq('user_id', userId).eq('status', 'accepted'),
+          supabase.from('expenses').select('amount').eq('user_id', userId)
+        ]);
+
+        if (petsResult.error) throw petsResult.error;
+        if (familyResult.error) throw familyResult.error;
+        if (expensesResult.error) throw expensesResult.error;
+
+        pets = petsResult.data || [];
+        familyMembers = familyResult.data || [];
+        expenses = expensesResult.data || [];
+      } else {
+        // Offline: Get from local store
+        pets = await getItems('pets', { userId });
+        expenses = await getItems('expenses', { userId });
+        // Family members not implemented in offline store yet
+        familyMembers = [];
+      }
 
       // Set first pet if exists
       if (pets && pets.length > 0) {
@@ -57,23 +80,6 @@ export const useDashboardData = (userId: string | undefined) => {
       } else {
         setFirstPet(null);
       }
-
-      // Get family members count (excluding owner)
-      const { data: familyMembers, error: familyError } = await supabase
-        .from('pet_family_members')
-        .select('id')
-        .neq('user_id', userId)
-        .eq('status', 'accepted');
-
-      if (familyError) throw familyError;
-
-      // Get total expenses
-      const { data: expenses, error: expensesError } = await supabase
-        .from('expenses')
-        .select('amount')
-        .eq('user_id', userId);
-
-      if (expensesError) throw expensesError;
 
       const totalExpenses = expenses?.reduce((sum, expense) => sum + Number(expense.amount), 0) || 0;
 
@@ -85,8 +91,29 @@ export const useDashboardData = (userId: string | undefined) => {
       });
     } catch (error) {
       console.error('Error loading stats:', error);
+      
+      // Fallback to offline data on error
+      if (isOnline) {
+        try {
+          const pets = await getItems('pets', { userId });
+          const expenses = await getItems('expenses', { userId });
+          
+          if (pets.length > 0) setFirstPet(pets[0]);
+          
+          const totalExpenses = expenses?.reduce((sum, expense) => sum + Number(expense.amount), 0) || 0;
+          
+          setStats({
+            pets: pets?.length || 0,
+            medicalRecords: 0,
+            totalExpenses,
+            familyMembers: 0
+          });
+        } catch (offlineError) {
+          console.error('Offline fallback failed:', offlineError);
+        }
+      }
     }
-  }, [userId]);
+  }, [userId, isOnline, getItems]);
 
   const loadUpcomingEvents = useMemo(() => async () => {
     if (!userId) return;
@@ -97,28 +124,50 @@ export const useDashboardData = (userId: string | undefined) => {
 
       console.log('🔍 Loading events between:', today.toISOString(), 'and', nextMonth.toISOString());
 
-      // Get upcoming events with pet information using join
-      const { data: events, error } = await supabase
-        .from('events')
-        .select(`
-          id, 
-          title, 
-          event_type, 
-          event_date, 
-          event_time, 
-          pet_id,
-          pets (
-            name
-          )
-        `)
-        .gte('event_date', today.toISOString().split('T')[0])
-        .lte('event_date', nextMonth.toISOString().split('T')[0])
-        .order('event_date', { ascending: true })
-        .limit(3);
+      let events: any[] = [];
 
-      console.log('📅 Events query result:', { events, error });
+      if (isOnline) {
+        // Online: Fetch from server with joins
+        const { data, error } = await supabase
+          .from('events')
+          .select(`
+            id, 
+            title, 
+            event_type, 
+            event_date, 
+            event_time, 
+            pet_id,
+            pets (
+              name
+            )
+          `)
+          .gte('event_date', today.toISOString().split('T')[0])
+          .lte('event_date', nextMonth.toISOString().split('T')[0])
+          .order('event_date', { ascending: true })
+          .limit(3);
 
-      if (error) throw error;
+        if (error) throw error;
+        events = data || [];
+      } else {
+        // Offline: Get from local store and manually join with pets
+        const allEvents = await getItems('events', { userId });
+        const pets = await getItems('pets', { userId });
+        
+        // Filter by date range
+        events = allEvents
+          .filter(event => {
+            const eventDate = new Date(event.event_date);
+            return eventDate >= today && eventDate <= nextMonth;
+          })
+          .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
+          .slice(0, 3)
+          .map(event => ({
+            ...event,
+            pets: pets.find(pet => pet.id === event.pet_id)
+          }));
+      }
+
+      console.log('📅 Events query result:', { events, count: events.length });
 
       if (!events || events.length === 0) {
         console.log('❌ No events found');
@@ -155,9 +204,41 @@ export const useDashboardData = (userId: string | undefined) => {
       setUpcomingEvents(formattedEvents);
     } catch (error) {
       console.error('💥 Error loading upcoming events:', error);
-      setUpcomingEvents([]);
+      
+      // Fallback to offline data on error
+      if (isOnline) {
+        try {
+          const allEvents = await getItems('events', { userId });
+          const pets = await getItems('pets', { userId });
+          
+          const today = new Date();
+          const nextMonth = addDays(new Date(), 30);
+          
+          const events = allEvents
+            .filter(event => {
+              const eventDate = new Date(event.event_date);
+              return eventDate >= today && eventDate <= nextMonth;
+            })
+            .slice(0, 3);
+            
+          const formattedEvents = events.map(event => ({
+            id: event.id,
+            type: getEventTypeLabel(event.event_type),
+            pet: pets.find(pet => pet.id === event.pet_id)?.name || 'Άγνωστο',
+            date: format(new Date(event.event_date), 'dd MMM', { locale: el }),
+            time: 'Όλη μέρα',
+            icon: getEventIcon(event.event_type),
+            urgent: isAfter(new Date(), new Date(event.event_date))
+          }));
+          
+          setUpcomingEvents(formattedEvents);
+        } catch (offlineError) {
+          console.error('Offline fallback failed:', offlineError);
+          setUpcomingEvents([]);
+        }
+      }
     }
-  }, [userId]);
+  }, [userId, isOnline, getItems]);
 
   const loadDashboardData = useMemo(() => async () => {
     if (!userId) return;

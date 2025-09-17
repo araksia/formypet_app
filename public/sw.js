@@ -101,7 +101,7 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Handle API requests with network-first strategy
+// Handle API requests with enhanced offline support
 async function handleApiRequest(request) {
   try {
     console.log('🌐 ForMyPet SW: API request:', request.url);
@@ -110,9 +110,20 @@ async function handleApiRequest(request) {
     const networkResponse = await fetch(request);
     
     if (networkResponse.ok) {
-      // Cache successful responses
+      // Cache successful responses in both cache and IndexedDB
       const cache = await caches.open(DYNAMIC_CACHE);
       cache.put(request, networkResponse.clone());
+      
+      // For GET requests, also cache in IndexedDB for structured data
+      if (request.method === 'GET') {
+        try {
+          const responseData = await networkResponse.clone().json();
+          await cacheAPIResponse(request.url, responseData);
+        } catch (jsonError) {
+          // Not JSON response, just cache in regular cache
+        }
+      }
+      
       console.log('📥 ForMyPet SW: API response cached:', request.url);
     }
     
@@ -120,7 +131,22 @@ async function handleApiRequest(request) {
   } catch (error) {
     console.log('📱 ForMyPet SW: Network failed, trying cache for:', request.url);
     
-    // Network failed, try cache
+    // For GET requests, try IndexedDB first for structured data
+    if (request.method === 'GET') {
+      const cachedData = await getCachedAPIResponse(request.url);
+      if (cachedData) {
+        console.log('💾 ForMyPet SW: Serving from IndexedDB cache:', request.url);
+        return new Response(JSON.stringify(cachedData), {
+          status: 200,
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Cache': 'offline-indexeddb'
+          }
+        });
+      }
+    }
+    
+    // Fallback to regular cache
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       console.log('💾 ForMyPet SW: Serving from cache:', request.url);
@@ -131,13 +157,17 @@ async function handleApiRequest(request) {
     return new Response(
       JSON.stringify({ 
         error: 'offline', 
-        message: 'No network connection and no cached data available',
-        offline: true 
+        message: 'Δεν υπάρχει σύνδεση στο διαδίκτυο. Τα δεδομένα που βλέπετε είναι από την τοπική αποθήκευση.',
+        offline: true,
+        timestamp: Date.now()
       }), 
       {
         status: 503,
         statusText: 'Service Unavailable',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Cache': 'offline-fallback'
+        }
       }
     );
   }
@@ -221,6 +251,76 @@ async function handleImageRequest(request) {
     }
     
     throw error;
+  }
+}
+
+// Enhanced offline data management
+const OFFLINE_STORES = ['pets', 'expenses', 'events', 'profiles'];
+
+// Handle IndexedDB operations in service worker
+async function openOfflineDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('FormyPetOffline', 1);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      
+      OFFLINE_STORES.forEach(storeName => {
+        if (!db.objectStoreNames.contains(storeName)) {
+          const store = db.createObjectStore(storeName, { keyPath: 'id' });
+          store.createIndex('timestamp', 'timestamp', { unique: false });
+          store.createIndex('synced', 'synced', { unique: false });
+        }
+      });
+    };
+  });
+}
+
+// Cache API responses in IndexedDB for offline access
+async function cacheAPIResponse(url, data) {
+  try {
+    const db = await openOfflineDB();
+    const transaction = db.transaction(['api_cache'], 'readwrite');
+    const store = transaction.objectStore('api_cache');
+    
+    await store.put({
+      id: url,
+      data: data,
+      timestamp: Date.now(),
+      synced: true
+    });
+    
+    console.log('💾 ForMyPet SW: Cached API response:', url);
+  } catch (error) {
+    console.error('❌ ForMyPet SW: Failed to cache API response:', error);
+  }
+}
+
+// Get cached API response from IndexedDB
+async function getCachedAPIResponse(url) {
+  try {
+    const db = await openOfflineDB();
+    const transaction = db.transaction(['api_cache'], 'readonly');
+    const store = transaction.objectStore('api_cache');
+    const request = store.get(url);
+    
+    return new Promise((resolve) => {
+      request.onsuccess = () => {
+        const result = request.result;
+        if (result && (Date.now() - result.timestamp < 5 * 60 * 1000)) { // 5 minutes
+          resolve(result.data);
+        } else {
+          resolve(null);
+        }
+      };
+      request.onerror = () => resolve(null);
+    });
+  } catch (error) {
+    console.error('❌ ForMyPet SW: Failed to get cached API response:', error);
+    return null;
   }
 }
 

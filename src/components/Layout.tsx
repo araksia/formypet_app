@@ -5,17 +5,26 @@ import Header from './Header';
 import OfflineIndicator from './OfflineIndicator';
 import { OfflineStatusBar } from './OfflineStatusBar';
 import { useOnline } from '../hooks/useOnline';
+import { useOfflineData } from '../hooks/useOfflineData';
 import { useVirtualKeyboard } from '../hooks/useVirtualKeyboard';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from './AuthProvider';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 const Layout = ({ children }: LayoutProps) => {
+  const { user } = useAuth();
   const isOnline = useOnline();
   const { isKeyboardOpen, keyboardHeight } = useVirtualKeyboard();
   const location = useLocation();
+  
+  // Initialize offline data for logged-in users
+  useOfflineData({ 
+    userId: user?.id,
+    autoDownload: true 
+  });
 
   if (!isOnline) {
     return <OfflineIndicator />;
