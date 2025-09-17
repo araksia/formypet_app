@@ -1,212 +1,271 @@
-name: Build and Release iOS
+name: iOS Release (Capacitor + Fastlane)
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: "Override BUILD_NUMBER (optional)"
+        required: false
   push:
-    tags:
-      - ios-v*
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  ios:
-    runs-on: macos-14
-    defaults:
-      run:
-        shell: bash
+  ios-build:
+    runs-on: macos-latest-large
+
     env:
-      LANG: en_US.UTF-8
-      LC_ALL: en_US.UTF-8
+      # ---- App / build ----
       APP_BUNDLE_ID: gr.formypet.app
-      BUILD_NUMBER: ${{ github.run_number }}
+      SCHEME_NAME: App
+      BUILD_NUMBER: ${{ inputs.build_number || '323' }}
+
+      # ---- fastlane match (git storage over SSH) ----
+      MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+      MATCH_GIT_BRANCH: main
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # ---- App Store Connect API (RAW .p8) ----
+      APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+      APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+      APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+
+      # ---- Optional ----
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
 
     steps:
-      # 1) Checkout
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          persist-credentials: false
 
-      # 2) Xcode 16
-      - name: Select Xcode 16
+      # =========================
+      # SSH Deploy Key for match
+      # =========================
+      - name: Start ssh-agent & add deploy key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
+
+      - name: Trust github.com host
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          ssh-keyscan -t rsa,ecdsa -H github.com >> ~/.ssh/known_hosts
+
+      - name: Sanity check SSH access to MATCH_GIT_URL
+        run: |
+          set -euo pipefail
+          if [ -z "${MATCH_GIT_URL:-}" ]; then
+            echo "❌ MATCH_GIT_URL is empty"; exit 1
+          fi
+          if [[ ! "${MATCH_GIT_URL}" =~ ^git@github\.com:.+\.git$ ]]; then
+            echo "❌ MATCH_GIT_URL must be SSH form like git@github.com:owner/repo.git"
+            echo "   Current: ${MATCH_GIT_URL}"
+            exit 1
+          fi
+          echo "🔎 Testing ssh access to ${MATCH_GIT_URL}..."
+          git ls-remote --heads "${MATCH_GIT_URL}" >/dev/null
+          echo "✅ SSH access OK"
+
+      # =========================
+      # Toolchains
+      # =========================
+      - name: Clean Caches
+        run: |
+          npm cache clean --force
+          rm -rf ios/App/Pods
+          rm -rf ios/App/App.xcworkspace
+    
+      - name: Select Xcode 15.4
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.*'
+          xcode-version: '15.4'
 
-      - name: Show selected Xcode / SDK
+      - name: Detect & export DEVELOPER_DIR
         run: |
+          set -euo pipefail
+          DEVELOPER_DIR="$(xcode-select -p)"
+          echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
+          echo "DEVELOPER_DIR=$DEVELOPER_DIR"
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
+          xcrun --sdk iphoneos --show-sdk-path
 
-      # 3) Node / web assets
-      - name: Set up Node 20
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 20
 
-      - name: Configure npm auth (optional)
-        run: |
-          if [ -n "${NPM_TOKEN:-}" ]; then
-            npm config set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
-          fi
-          npm config set audit false
-          npm config set fund false
-
-      - name: Install JS dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          elif [ -f yarn.lock ]; then
-            corepack enable
-            yarn install --frozen-lockfile
-          else
-            npm install
-          fi
-
-      - name: Build web assets (create ./dist)
-        run: npm run build
-
-      # 4) Ruby & Bundler
-      - name: Set up Ruby 3.3
+      - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
           bundler-cache: false
 
-      - name: Install gems for iOS (cocoapods/fastlane)
+      - name: Print tool versions
+        run: |
+          node -v
+          npm -v
+          ruby -v
+          gem -v
+
+      # =========================
+      # Web build
+      # =========================
+      - name: Setup .npmrc (if NPM_TOKEN)
+        if: ${{ env.NPM_TOKEN && env.NPM_TOKEN != '' }}
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+
+      - name: Install JS deps
+        run: npm ci
+
+      - name: Build web assets
+        run: npm run build
+
+      # =========================
+      # CocoaPods / Capacitor
+      # =========================
+      - name: Prepare Ruby gems (ios/App)
         working-directory: ios/App
         run: |
-          set -e
-          bundle config set path vendor/bundle
-          bundle install --jobs 4 --retry 3
+          set -euo pipefail
+          if [ -f Gemfile ]; then
+            bundle lock --add-platform arm64-darwin-23 x86_64-darwin-23 ruby || true
+            bundle config set path 'vendor/bundle'
+            bundle install --jobs 4
+            bundle exec pod --version
+          else
+            gem install cocoapods -N
+            pod --version
+          fi
 
-      # 5) Capacitor sync (χωρίς pods)
-      - name: Sync Capacitor iOS (skip pods)
-        env:
-          CAPACITOR_SKIP_POD_INSTALL: '1'
+      - name: Write GoogleService-Info.plist (if provided)
+        if: ${{ env.GOOGLE_SERVICE_INFO_PLIST && env.GOOGLE_SERVICE_INFO_PLIST != '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p ios/App/App ios/App/App/App
+          CONTENT="${GOOGLE_SERVICE_INFO_PLIST}"
+          if echo "$CONTENT" | head -n1 | grep -Eqi '^\s*<\?xml|^\s*\{'; then
+            printf "%s" "$CONTENT" > ios/App/App/GoogleService-Info.plist
+          else
+            printf "%s" "$CONTENT" | base64 --decode > ios/App/App/GoogleService-Info.plist || \
+            printf "%s" "$CONTENT" | base64 -d        > ios/App/App/GoogleService-Info.plist
+          fi
+          cp ios/App/App/GoogleService-Info.plist ios/App/App/App/GoogleService-Info.plist
+          /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist || true
+      
+      - name: Clean Old Pods and Caches
+        working-directory: ios/App
+        run: |
+          echo "Removing Pods directory and Podfile.lock"
+          rm -rf Pods
+          rm -f Podfile.lock
+      
+      - name: Capacitor sync iOS
         run: npx cap sync ios
 
-      # 6) Firebase plist (αν χρειάζεται)
-      - name: Write GoogleService-Info.plist
-        run: |
-          set -e
-          mkdir -p ios/App/App
-          echo "$FIREBASE_IOS_PLIST_BASE64" | base64 --decode > ios/App/App/GoogleService-Info.plist
-          /usr/bin/plutil -lint ios/App/App/GoogleService-Info.plist
-        env:
-          FIREBASE_IOS_PLIST_BASE64: ${{ secrets.FIREBASE_IOS_PLIST_BASE64 }}
-
-      # 7) CocoaPods
-      - name: CocoaPods install
+      - name: Ensure CocoaPods install
         working-directory: ios/App
         run: |
-          set -e
-          bundle exec pod repo update
-          bundle exec pod install --repo-update
+          set -euo pipefail
+          if [ -f Gemfile ]; then
+            bundle exec pod install --repo-update
+          else
+            pod install --repo-update
+          fi
 
-      # 8) (προαιρετικό) Εμφάνιση βασικών build settings
-      - name: Show schemes & build settings
+      - name: Verify workspace & scheme
         run: |
+          set -euo pipefail
           xcodebuild -list -workspace ios/App/App.xcworkspace
-          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme App -configuration Release | egrep 'INFOPLIST_FILE|PRODUCT_BUNDLE_IDENTIFIER|DEVELOPMENT_TEAM|CODE_SIGN_STYLE|PROVISIONING_PROFILE_SPECIFIER' || true
+          xcodebuild -showBuildSettings -workspace ios/App/App.xcworkspace -scheme "${SCHEME_NAME}" \
+            -configuration Release -sdk iphoneos 2>/dev/null | \
+            egrep "PRODUCT_BUNDLE_IDENTIFIER =|CODE_SIGN|PROVISIONING_PROFILE|SDKROOT =" || true
 
-      # 9) SSH για match repo
-      - name: Start ssh-agent (match repo)
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.MATCH_SSH_PRIVATE_KEY }}
+      # =========================
+      # Diagnostics (compile-only)
+      # =========================
+      - name: Dry-run build (compile only, no signing)
+        run: |
+          set -euo pipefail
+          echo "== DRY RUN: compile without code signing =="
+          xcodebuild -workspace ios/App/App.xcworkspace \
+            -scheme "${SCHEME_NAME}" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            ONLY_ACTIVE_ARCH=NO ENABLE_USER_SCRIPT_SANDBOXING=NO \
+            build | tee dryrun.log
+          echo "== First errors (dry run) =="
+          grep -nE " error: |fatal error:|Undefined symbols|ld: |Command CompileSwift failed|Command Ld failed" dryrun.log | head -n 80 || true
 
-      - name: Known hosts & git identity
+      # =========================
+      # Fastlane
+      # =========================
+      - name: Fastlane release
+        working-directory: ios/App
+        env:
+          DEVELOPER_DIR: ${{ env.DEVELOPER_DIR }}
         run: |
           set -e
-          mkdir -p ~/.ssh
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-          git config --global user.email "ci@github.actions"
-          git config --global user.name "GitHub Actions"
-          git ls-remote "${{ secrets.MATCH_GIT_URL }}" -h
-
-      # 10) Normalize ASC .p8 (raw ή base64) -> AuthKey.p8 (ΧΩΡΙΣ heredocs)
-      - name: Normalize App Store Connect API key (no heredocs)
-        working-directory: ios/App
-        env:
-          ASC_INPUT: ${{ secrets.APP_STORE_CONNECT_API_KEY_PEM }}
-        run: |
-          set -euo pipefail
-          printf "%s" "$ASC_INPUT" | tr -d '\r' > key_input.txt
-          if grep -q "BEGIN PRIVATE KEY" key_input.txt; then
-            cp key_input.txt AuthKey.p8
+          if [ -f Gemfile ]; then
+            bundle exec fastlane release
           else
-            base64 --decode key_input.txt > AuthKey.p8 2>/dev/null || \
-            base64 -d      key_input.txt > AuthKey.p8 2>/dev/null || \
-            base64 -D      key_input.txt > AuthKey.p8 2>/dev/null || \
-            /usr/bin/python3 -c 'import base64,sys; open("AuthKey.p8","wb").write(base64.b64decode(open("key_input.txt","rb").read()))' || \
-            { echo "❌ Failed to parse APP_STORE_CONNECT_API_KEY_PEM (not PEM or base64)"; exit 1; }
-          fi
-          /usr/bin/openssl pkey -in AuthKey.p8 -noout -text | head -n 8 || true
-
-      # 11) asc_api_key.json (για smoke test) με jq (ΧΩΡΙΣ heredocs)
-      - name: Create App Store Connect API JSON
-        working-directory: ios/App
-        env:
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-        run: |
-          set -euo pipefail
-          jq -n --arg kid "$ASC_KEY_ID" --arg iss "$ASC_ISSUER_ID" --rawfile key AuthKey.p8 \
-            '{key_id:$kid, issuer_id:$iss, key:$key, in_house:false}' > asc_api_key.json
-          echo "APP_STORE_CONNECT_API_KEY_PATH=$PWD/asc_api_key.json" >> "$GITHUB_ENV"
-
-      # 12) Smoke test ASC JWT (fail νωρίς αν είναι λάθος)
-      - name: Smoke test App Store Connect JWT
-        working-directory: ios/App
-        run: |
-          set -euo pipefail
-          JWT=$(bundle exec ruby -e "require 'spaceship/connect_api'; t=Spaceship::ConnectAPI::Token.from_json_file('asc_api_key.json'); puts t.text")
-          echo "JWT length: ${#JWT}"
-          code=$(curl -sS -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $JWT" "https://api.appstoreconnect.apple.com/v1/apps?limit=1")
-          echo "ASC /v1/apps -> HTTP $code"
-          [ "$code" = "200" ] || { echo "❌ ASC JWT invalid ($code)"; exit 1; }
-
-      # 13) Patch Fastfile να χρησιμοποιεί keyfile_path αντί για key_content (ΧΩΡΙΣ heredocs)
-      - name: Patch Fastfile for keyfile_path
-        working-directory: ios/App/fastlane
-        run: |
-          set -euo pipefail
-          if [ -f Fastfile ]; then
-            cp Fastfile Fastfile.bak
-            sed -E -i '' "s/key_content:\s*ENV\[[^]]+\]/keyfile_path: ENV['APP_STORE_CONNECT_API_KEYFILE_PATH'] || 'AuthKey.p8'/g" Fastfile
-            echo "✅ Patched Fastfile to use keyfile_path"
-          else
-            echo "❌ Fastfile not found"; exit 1
+            fastlane release
           fi
 
-      # 14) Fastlane release (build + sign + upload TestFlight)
-      - name: Fastlane release (TestFlight)
-        working-directory: ios/App
-        env:
-          APP_BUNDLE_ID: ${{ env.APP_BUNDLE_ID }}
-          BUILD_NUMBER: ${{ env.BUILD_NUMBER }}
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          MATCH_GIT_BRANCH: main
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # IDs για το app_store_connect_api_key(...)
-          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-          # Path στο .p8 για το keyfile_path:
-          APP_STORE_CONNECT_API_KEYFILE_PATH: ${{ github.workspace }}/ios/App/AuthKey.p8
+      # =========================
+      # Logs & artifacts
+      # =========================
+      - name: Dump XCResult compiler errors (on failure)
+        if: failure()
         run: |
-          set -e
-          bundle exec fastlane release
+          set -euo pipefail
+          # Βρες το πιο πρόσφατο .xcresult (από gym ή από Archives)
+          BUNDLE="$(ls -t ios/App/build/*.xcresult 2>/dev/null | head -n1 || true)"
+          if [ -z "${BUNDLE}" ]; then
+            BUNDLE="$(ls -t ~/Library/Developer/Xcode/Archives/*/*.xcresult 2>/dev/null | head -n1 || true)"
+          fi
 
-      # 15) Artifacts / logs
-      - name: Upload build artifacts & logs
+          if [ -z "${BUNDLE}" ]; then
+            echo "❌ No .xcresult bundle found."; exit 0
+          fi
+
+          echo "📦 Using xcresult: ${BUNDLE}"
+          # Κάνε human-readable dump
+          xcrun xcresulttool formatDescription \
+            -resultBundlePath "${BUNDLE}" \
+            -outputPath xcresult.txt \
+            -format txt
+
+          echo "== First 200 compiler errors/warnings =="
+          grep -nE " error: |fatal error:|Undefined symbol|Command CompileSwift failed|Command Ld failed|non-modular|No such module|Cannot find type|cannot find '.*' in scope" xcresult.txt | head -n 200 || true
+
+          echo
+          echo "== Tail of xcresult (last 400 lines) =="
+          tail -n 400 xcresult.txt || true
+
+      - name: Upload artifacts (logs, result bundles, IPAs)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-build
+          name: ios-artifacts
           path: |
+            dryrun.log
+            ~/Library/Logs/gym/**
+            ios/App/fastlane/logs/**
             ios/App/build/*.ipa
-            ~/Library/Logs/gym/*
-            ~/Library/Developer/Xcode/DerivedData/**/Logs/**
+            **/*.xcresult
+          if-no-files-found: warn
