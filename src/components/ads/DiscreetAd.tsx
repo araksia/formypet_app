@@ -7,16 +7,18 @@ interface DiscreetAdProps {
 
 const DiscreetAd: React.FC<DiscreetAdProps> = ({ className = '' }) => {
   return (
-    <div className={`mt-8 mb-4 ${className}`}>
-      <div className="max-w-md mx-auto">
-        <div className="text-xs text-muted-foreground text-center mb-2 opacity-60">
+    <div className={`mt-6 mb-3 ${className}`}>
+      <div className="max-w-2xl mx-auto">
+        <div className="text-[10px] text-muted-foreground text-center mb-1 opacity-50">
           Διαφήμιση
         </div>
-        <div className="bg-muted/30 rounded-lg border border-border/50 overflow-hidden">
+        <div className="bg-muted/20 rounded-md border border-border/30 overflow-hidden">
           <GoogleAds 
             slotId="YOUR_AD_SLOT_ID"
-            format="auto"
-            className="min-h-[100px]"
+            format="horizontal"
+            width={728}
+            height={90}
+            className="min-h-[90px]"
           />
         </div>
       </div>

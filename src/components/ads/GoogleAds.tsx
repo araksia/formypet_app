@@ -32,7 +32,7 @@ const GoogleAds: React.FC<GoogleAdsProps> = ({
   }, []);
 
   return (
-    <div className={`flex justify-center py-4 ${className}`}>
+    <div className={`flex justify-center py-2 ${className}`}>
       <ins
         className="adsbygoogle"
         style={{
