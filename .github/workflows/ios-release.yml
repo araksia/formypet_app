@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   ios-build:
-    runs-on: macos-14-large
+    runs-on: macos-14
 
     env:
       # ---- App / build ----
