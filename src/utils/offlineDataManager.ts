@@ -75,7 +75,7 @@ export class OfflineDataManager {
   ): Promise<void> {
     try {
       let query = supabase
-        .from(config.table)
+        .from(config.table as any)
         .select(config.columns.join(', '));
 
       // Filter by user if applicable
@@ -92,7 +92,7 @@ export class OfflineDataManager {
 
       if (data && data.length > 0) {
         // Store each item in offline store
-        for (const item of data) {
+        for (const item of data as any[]) {
           await offlineStore.store(tableName, item, { synced: true });
         }
         
@@ -149,7 +149,7 @@ export class OfflineDataManager {
 
     // Check if item exists on server
     const { data: existing } = await supabase
-      .from(config.table)
+      .from(config.table as any)
       .select('id, updated_at')
       .eq('id', item.id)
       .single();
@@ -157,7 +157,7 @@ export class OfflineDataManager {
     if (existing) {
       // Update existing item
       const { error } = await supabase
-        .from(config.table)
+        .from(config.table as any)
         .update(item)
         .eq('id', item.id);
 
@@ -165,7 +165,7 @@ export class OfflineDataManager {
     } else {
       // Create new item
       const { error } = await supabase
-        .from(config.table)
+        .from(config.table as any)
         .insert(item);
 
       if (error) throw error;

@@ -7,6 +7,7 @@ import { useGamification } from '@/hooks/useGamification';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { StatsCardSkeleton } from '@/components/ui/skeletons';
 import PullToRefresh from '@/components/ui/PullToRefresh';
+import DiscreetAd from '@/components/ads/DiscreetAd';
 
 // Dashboard components
 import {
@@ -116,6 +117,9 @@ const Dashboard = () => {
           onEventClick={handleEventClick}
           onAddEvent={() => navigate('/add-event')}
         />
+
+        {/* Discreet Ad */}
+        <DiscreetAd />
       </div>
     </PullToRefresh>
   );

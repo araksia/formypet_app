@@ -229,7 +229,7 @@ export const useOfflineStore = () => {
           switch (op.type) {
             case 'CREATE':
               result = await supabase
-                .from(op.table)
+                .from(op.table as any)
                 .insert(op.data)
                 .select()
                 .single();
@@ -246,7 +246,7 @@ export const useOfflineStore = () => {
 
             case 'UPDATE':
               result = await supabase
-                .from(op.table)
+                .from(op.table as any)
                 .update(op.data)
                 .eq('id', op.serverId || op.localId);
               
@@ -256,7 +256,7 @@ export const useOfflineStore = () => {
 
             case 'DELETE':
               result = await supabase
-                .from(op.table)
+                .from(op.table as any)
                 .delete()
                 .eq('id', op.serverId || op.localId);
               

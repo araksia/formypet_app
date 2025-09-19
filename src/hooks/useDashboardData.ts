@@ -67,11 +67,11 @@ export const useDashboardData = (userId: string | undefined) => {
         familyMembers = familyResult.data || [];
         expenses = expensesResult.data || [];
       } else {
-        // Offline: Get from local store
-        pets = await getItems('pets', { userId });
-        expenses = await getItems('expenses', { userId });
-        // Family members not implemented in offline store yet
-        familyMembers = [];
+      // Offline: Get from local store
+      pets = (await getItems('pets', { userId })) as any[];
+      expenses = (await getItems('expenses', { userId })) as any[];
+      // Family members not implemented in offline store yet
+      familyMembers = [];
       }
 
       // Set first pet if exists
@@ -95,12 +95,12 @@ export const useDashboardData = (userId: string | undefined) => {
       // Fallback to offline data on error
       if (isOnline) {
         try {
-          const pets = await getItems('pets', { userId });
-          const expenses = await getItems('expenses', { userId });
+          const pets = (await getItems('pets', { userId })) as any[];
+          const expenses = (await getItems('expenses', { userId })) as any[];
           
-          if (pets.length > 0) setFirstPet(pets[0]);
+          if (pets.length > 0) setFirstPet(pets[0] as Pet);
           
-          const totalExpenses = expenses?.reduce((sum, expense) => sum + Number(expense.amount), 0) || 0;
+          const totalExpenses = expenses?.reduce((sum: number, expense: any) => sum + Number(expense.amount), 0) || 0;
           
           setStats({
             pets: pets?.length || 0,
@@ -150,20 +150,20 @@ export const useDashboardData = (userId: string | undefined) => {
         events = data || [];
       } else {
         // Offline: Get from local store and manually join with pets
-        const allEvents = await getItems('events', { userId });
-        const pets = await getItems('pets', { userId });
+        const allEvents = (await getItems('events', { userId })) as any[];
+        const pets = (await getItems('pets', { userId })) as any[];
         
         // Filter by date range
         events = allEvents
-          .filter(event => {
+          .filter((event: any) => {
             const eventDate = new Date(event.event_date);
             return eventDate >= today && eventDate <= nextMonth;
           })
-          .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
+          .sort((a: any, b: any) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
           .slice(0, 3)
-          .map(event => ({
+          .map((event: any) => ({
             ...event,
-            pets: pets.find(pet => pet.id === event.pet_id)
+            pets: pets.find((pet: any) => pet.id === event.pet_id)
           }));
       }
 
@@ -208,23 +208,23 @@ export const useDashboardData = (userId: string | undefined) => {
       // Fallback to offline data on error
       if (isOnline) {
         try {
-          const allEvents = await getItems('events', { userId });
-          const pets = await getItems('pets', { userId });
+          const allEvents = (await getItems('events', { userId })) as any[];
+          const pets = (await getItems('pets', { userId })) as any[];
           
           const today = new Date();
           const nextMonth = addDays(new Date(), 30);
           
           const events = allEvents
-            .filter(event => {
+            .filter((event: any) => {
               const eventDate = new Date(event.event_date);
               return eventDate >= today && eventDate <= nextMonth;
             })
             .slice(0, 3);
             
-          const formattedEvents = events.map(event => ({
+          const formattedEvents = events.map((event: any) => ({
             id: event.id,
             type: getEventTypeLabel(event.event_type),
-            pet: pets.find(pet => pet.id === event.pet_id)?.name || 'Άγνωστο',
+            pet: pets.find((pet: any) => pet.id === event.pet_id)?.name || 'Άγνωστο',
             date: format(new Date(event.event_date), 'dd MMM', { locale: el }),
             time: 'Όλη μέρα',
             icon: getEventIcon(event.event_type),

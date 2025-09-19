@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { CalendarPageSkeleton, EventCardSkeleton } from '@/components/ui/skeletons';
+import DiscreetAd from '@/components/ads/DiscreetAd';
 
 // Event types για icons και colors
 type EventType = {
@@ -547,6 +548,9 @@ const CalendarPage = () => {
             <Plus className="h-6 w-6" />
           </Button>
         </div>
+
+        {/* Discreet Ad */}
+        <DiscreetAd />
       </div>
     </div>
   );

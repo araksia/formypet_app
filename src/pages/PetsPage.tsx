@@ -16,6 +16,7 @@ import SwipeableCard from '@/components/ui/SwipeableCard';
 import { VirtualList } from '@/components/ui/VirtualList';
 import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import PullToRefresh from '@/components/ui/PullToRefresh';
+import DiscreetAd from '@/components/ads/DiscreetAd';
 
 const PetsPage = () => {
   const navigate = useNavigate();
@@ -470,6 +471,9 @@ const PetsPage = () => {
       >
         <Plus className="h-6 w-6" />
       </Button>
+
+      {/* Discreet Ad */}
+      <DiscreetAd />
     </div>
   );
 };

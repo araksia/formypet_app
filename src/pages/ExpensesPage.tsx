@@ -28,6 +28,7 @@ import { el } from "date-fns/locale";
 import { supabase } from '@/integrations/supabase/client';
 import { ExpenseItemSkeleton, StatsCardSkeleton, ExpenseChartSkeleton } from '@/components/ui/skeletons';
 import { VirtualList } from '@/components/ui/VirtualList';
+import DiscreetAd from '@/components/ads/DiscreetAd';
 import { useToast } from "@/hooks/use-toast";
 
 // Type definitions
@@ -546,6 +547,9 @@ const ExpensesPage = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Discreet Ad */}
+        <DiscreetAd />
       </div>
     </div>
   );
