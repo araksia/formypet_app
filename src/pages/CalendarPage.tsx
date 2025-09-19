@@ -13,7 +13,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
-import { EventCardSkeleton } from '@/components/ui/skeleton';
+import { CalendarPageSkeleton, EventCardSkeleton } from '@/components/ui/skeletons';
 
 // Event types για icons και colors
 type EventType = {

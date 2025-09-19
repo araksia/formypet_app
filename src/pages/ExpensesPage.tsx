@@ -26,7 +26,8 @@ import { PieChart as RechartsePieChart, Pie, Cell, ResponsiveContainer, BarChart
 import { format } from "date-fns";
 import { el } from "date-fns/locale";
 import { supabase } from '@/integrations/supabase/client';
-import { ExpenseItemSkeleton, StatsCardSkeleton } from '@/components/ui/skeleton';
+import { ExpenseItemSkeleton, StatsCardSkeleton, ExpenseChartSkeleton } from '@/components/ui/skeletons';
+import { VirtualList } from '@/components/ui/VirtualList';
 import { useToast } from "@/hooks/use-toast";
 
 // Type definitions
@@ -243,6 +244,7 @@ const ExpensesPage = () => {
               <StatsCardSkeleton key={i} />
             ))}
           </div>
+          <ExpenseChartSkeleton />
           <div className="space-y-2 sm:space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
               <ExpenseItemSkeleton key={i} />
@@ -490,48 +492,58 @@ const ExpensesPage = () => {
             <CardTitle className="text-sm sm:text-base">Λίστα Εξόδων</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 sm:space-y-3 max-h-64 sm:max-h-80 overflow-y-auto">
-              {filteredExpenses.length > 0 ? filteredExpenses.map((expense, index) => (
-                <div 
-                  key={expense.id} 
-                  className="flex items-center justify-between p-2 sm:p-3 bg-muted/50 rounded-md card-hover stagger-fade"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className="p-1 sm:p-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: `${categoryColors[expense.category as keyof typeof categoryColors]}20` }}>
-                      <Euro className="h-3 w-3 sm:h-4 sm:w-4" style={{ color: categoryColors[expense.category as keyof typeof categoryColors] }} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-xs sm:text-sm truncate">{expense.description}</p>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <span className="truncate">{expense.petName}</span>
-                        <span className="hidden sm:inline">•</span>
-                        <span className="truncate hidden sm:inline">{categoryLabels[expense.category as keyof typeof categoryLabels] || expense.category}</span>
+            {filteredExpenses.length > 0 ? (
+              <VirtualList
+                items={filteredExpenses}
+                itemHeight={60}
+                containerHeight={256}
+                className="space-y-2 sm:space-y-3"
+                gap={8}
+                renderItem={(expense, index, isVisible) => (
+                  <div 
+                    className="flex items-center justify-between p-2 sm:p-3 bg-muted/50 rounded-md card-hover stagger-fade"
+                    style={{ 
+                      animationDelay: `${index * 0.05}s`,
+                      opacity: isVisible ? 1 : 0.5,
+                      transition: 'opacity 0.3s ease'
+                    }}
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <div className="p-1 sm:p-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: `${categoryColors[expense.category as keyof typeof categoryColors]}20` }}>
+                        <Euro className="h-3 w-3 sm:h-4 sm:w-4" style={{ color: categoryColors[expense.category as keyof typeof categoryColors] }} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-xs sm:text-sm truncate">{expense.description}</p>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <span className="truncate">{expense.petName}</span>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="truncate hidden sm:inline">{categoryLabels[expense.category as keyof typeof categoryLabels] || expense.category}</span>
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {expense.receipt && (
+                        <Badge variant="secondary" className="text-xs p-0.5 hidden sm:inline">📄</Badge>
+                      )}
+                      <span className="font-bold text-xs sm:text-sm mr-2">{expense.amount.toFixed(0)}€</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteExpense(expense.id, expense.description)}
+                        className="p-1 h-6 w-6 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {expense.receipt && (
-                      <Badge variant="secondary" className="text-xs p-0.5 hidden sm:inline">📄</Badge>
-                    )}
-                    <span className="font-bold text-xs sm:text-sm mr-2">{expense.amount.toFixed(0)}€</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteExpense(expense.id, expense.description)}
-                      className="p-1 h-6 w-6 text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              )) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Δεν υπάρχουν έξοδα ακόμα</p>
-                  <p className="text-sm">Προσθέστε το πρώτο σας έξοδο!</p>
-                </div>
-              )}
-            </div>
+                )}
+              />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Δεν υπάρχουν έξοδα ακόμα</p>
+                <p className="text-sm">Προσθέστε το πρώτο σας έξοδο!</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -51,7 +51,7 @@ export const WelcomeBanner = React.memo<WelcomeBannerProps>(({ userName, firstPe
             >
               <p className="text-gray-800 text-sm leading-relaxed">
                 {firstPet 
-                  ? `"Γεια σου ${capitalizedName}! Ευτυχώς που κατέβασες το ForMyPet επιτέλους και δε θα ξαναχάσουμε ραντεβού με τον ${petName}!"` 
+                  ? `"Γεια σου ${capitalizedName}! Επιτέλους κατέβασες το ForMyPet και δε θα ξαναχάσω ραντεβού!"` 
                   : `"Γεια σου ${capitalizedName}! Ευτυχώς που κατέβασες το ForMyPet επιτέλους και δε θα ξαναχάσουμε ραντεβού!"`
                 }
               </p>

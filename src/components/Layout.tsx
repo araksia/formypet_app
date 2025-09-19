@@ -3,6 +3,7 @@ import React from 'react';
 import Navigation from './Navigation';
 import Header from './Header';
 import OfflineIndicator from './OfflineIndicator';
+import { OfflineStatusBar } from './OfflineStatusBar';
 import { useOnline } from '../hooks/useOnline';
 import { useVirtualKeyboard } from '../hooks/useVirtualKeyboard';
 import { useLocation } from 'react-router-dom';
@@ -44,6 +45,7 @@ const Layout = ({ children }: LayoutProps) => {
 
   return (
     <div className="min-h-screen bg-background text-foreground safe-area-top safe-area-left safe-area-right">
+      <OfflineStatusBar />
       <Header 
         title={getPageTitle()}
         showNotifications={true}

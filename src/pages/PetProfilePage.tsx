@@ -457,15 +457,6 @@ const PetProfilePage = () => {
               {/* Cover Image / Color */}
               <div className="h-32 bg-gradient-to-r from-primary to-primary/80 relative">
                 <div className="absolute inset-0 bg-black/20" />
-                <div className="absolute bottom-4 left-4 text-white">
-                  <div className="flex items-center gap-2">
-                    <span className="text-3xl">{getSpeciesEmoji(pet.species)}</span>
-                    <div>
-                      <h1 className="text-2xl font-bold">{pet.name}</h1>
-                      <p className="text-sm opacity-90">{getSpeciesDisplayName(pet.species)}</p>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* Pet Avatar */}
@@ -536,20 +527,20 @@ const PetProfilePage = () => {
                 )}
 
                 {/* Action Buttons */}
-                <div className="grid grid-cols-4 gap-2">
+                <div className="flex flex-col gap-2">
                   <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
                     <DialogTrigger asChild>
                       <Button 
-                        variant="outline" 
+                        variant="default" 
                         size="sm"
                         onClick={openEditDialog}
-                        className="flex items-center gap-2"
+                        className="w-full flex items-center justify-center gap-2"
                       >
                         <Edit className="h-4 w-4" />
                         Επεξεργασία
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+                    <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>Επεξεργασία {pet.name}</DialogTitle>
                       </DialogHeader>
@@ -588,8 +579,8 @@ const PetProfilePage = () => {
                           </div>
                         </div>
 
-                        {/* Basic Info */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                         {/* Basic Info */}
+                        <div className="space-y-3">
                           <div>
                             <Label htmlFor="edit-name">Όνομα *</Label>
                             <Input 
@@ -618,9 +609,6 @@ const PetProfilePage = () => {
                               </SelectContent>
                             </Select>
                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <Label htmlFor="edit-breed">Ράτσα</Label>
                             <Input 
@@ -641,9 +629,6 @@ const PetProfilePage = () => {
                               </SelectContent>
                             </Select>
                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <Label htmlFor="edit-birth-date">Ημερομηνία Γέννησης</Label>
                             <Popover>
@@ -672,7 +657,6 @@ const PetProfilePage = () => {
                                     date > new Date() || date < new Date("1900-01-01")
                                   }
                                   initialFocus
-                                  className={cn("p-3 pointer-events-auto")}
                                 />
                               </PopoverContent>
                             </Popover>
@@ -688,64 +672,66 @@ const PetProfilePage = () => {
                               onChange={(e) => handleEditInputChange('weight', e.target.value)}
                             />
                           </div>
+                          <div>
+                            <Label htmlFor="edit-description">Σημειώσεις</Label>
+                            <Textarea 
+                              id="edit-description" 
+                              value={editFormData.description}
+                              onChange={(e) => handleEditInputChange('description', e.target.value)}
+                            />
+                          </div>
                         </div>
 
-                        <div>
-                          <Label htmlFor="edit-description">Σημειώσεις</Label>
-                          <Textarea 
-                            id="edit-description" 
-                            value={editFormData.description}
-                            onChange={(e) => handleEditInputChange('description', e.target.value)}
-                          />
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row gap-2 pt-4">
+                        <div className="flex flex-col gap-2 pt-4">
+                          <Button 
+                            type="submit" 
+                            disabled={editLoading}
+                            className="w-full"
+                          >
+                            {editLoading ? 'Αποθήκευση...' : 'Αποθήκευση'}
+                          </Button>
                           <Button 
                             type="button" 
                             variant="outline" 
                             onClick={() => setEditDialogOpen(false)}
-                            className="flex-1"
+                            className="w-full"
                           >
                             Ακύρωση
-                          </Button>
-                          <Button 
-                            type="submit" 
-                            disabled={editLoading}
-                            className="flex-1"
-                          >
-                            {editLoading ? 'Αποθήκευση...' : 'Αποθήκευση'}
                           </Button>
                         </div>
                       </form>
                     </DialogContent>
                   </Dialog>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => navigate(`/calendar?petId=${pet.id}`)}
-                    className="flex items-center gap-2"
-                  >
-                    <Calendar className="h-4 w-4" />
-                    Ημερολόγιο
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => navigate(`/pet/${pet.id}/medical`)}
-                    className="flex items-center gap-2"
-                  >
-                    <Stethoscope className="h-4 w-4" />
-                    Ιατρικά
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => navigate('/expenses')}
-                    className="flex items-center gap-2"
-                  >
-                    <Euro className="h-4 w-4" />
-                    Έξοδα
-                  </Button>
+                  
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigate(`/calendar?petId=${pet.id}`)}
+                      className="flex flex-col items-center gap-1 p-2 h-auto"
+                    >
+                      <Calendar className="h-4 w-4" />
+                      <span className="text-xs">Ημερολόγιο</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigate(`/pet/${pet.id}/medical`)}
+                      className="flex flex-col items-center gap-1 p-2 h-auto"
+                    >
+                      <Stethoscope className="h-4 w-4" />
+                      <span className="text-xs">Ιατρικά</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigate('/expenses')}
+                      className="flex flex-col items-center gap-1 p-2 h-auto"
+                    >
+                      <Euro className="h-4 w-4" />
+                      <span className="text-xs">Έξοδα</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>

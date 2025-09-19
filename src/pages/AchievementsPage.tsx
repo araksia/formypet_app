@@ -179,17 +179,17 @@ const AchievementsPage = () => {
           
           {/* Category Tabs - Mobile Responsive */}
           <div className="overflow-x-auto">
-            <TabsList className="grid w-full min-w-max grid-cols-7 gap-1">
+            <TabsList className="grid w-full min-w-max grid-cols-7 gap-1 bg-transparent p-0 h-auto">
               {categories.map(category => {
                 const Icon = category.icon;
                 return (
                   <TabsTrigger 
                     key={category.id} 
                     value={category.id}
-                    className="flex flex-col items-center justify-center p-2 min-w-[60px] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                    className="flex flex-col items-center justify-center p-3 min-w-[70px] rounded-lg bg-muted/50 text-muted-foreground hover:bg-muted data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm transition-all duration-200"
                   >
-                    <Icon className="h-3 w-3 mb-1" />
-                    <span className="text-[10px] leading-tight text-center">{category.label}</span>
+                    <Icon className="h-4 w-4 mb-1" />
+                    <span className="text-xs leading-tight text-center font-medium">{category.label}</span>
                   </TabsTrigger>
                 );
               })}

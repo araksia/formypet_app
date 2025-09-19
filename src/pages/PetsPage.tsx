@@ -11,7 +11,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/AuthProvider';
 import { differenceInYears } from 'date-fns';
-import { PetCardSkeleton } from '@/components/ui/skeleton';
+import { PetCardSkeleton, PetsPageSkeleton } from '@/components/ui/skeletons';
+import SwipeableCard from '@/components/ui/SwipeableCard';
+import { VirtualList } from '@/components/ui/VirtualList';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
+import PullToRefresh from '@/components/ui/PullToRefresh';
 
 const PetsPage = () => {
   const navigate = useNavigate();
@@ -260,7 +264,8 @@ const PetsPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
       <Header title="Τα Κατοικίδιά μου" />
       
-      <div className="p-3 sm:p-4 pb-20 space-y-4">
+      <PullToRefresh onRefresh={fetchPets}>
+        <div className="p-3 sm:p-4 pb-20 space-y-4">
 
         {/* Loading State */}
         {loading && (
@@ -273,31 +278,69 @@ const PetsPage = () => {
 
         {/* Pets Grid/List */}
         {!loading && pets.length > 0 ? (
-          <div className="grid gap-3 sm:gap-4">
-            {pets.map((pet, index) => (
-              <Card 
-                key={pet.id} 
+          <VirtualList
+            items={pets}
+            itemHeight={200}
+            containerHeight={600}
+            className="space-y-3 sm:space-y-4"
+            gap={16}
+            renderItem={(pet, index, isVisible) => (
+              <SwipeableCard 
+                key={pet.id}
                 className="overflow-hidden card-hover stagger-fade"
                 style={{ animationDelay: `${index * 0.1}s` }}
+                actions={[
+                  {
+                    icon: Calendar,
+                    label: 'Ημερολόγιο',
+                    onClick: () => navigate(`/calendar?petId=${pet.id}`),
+                    variant: 'calendar'
+                  },
+                  {
+                    icon: Edit,
+                    label: 'Επεξεργασία',
+                    onClick: () => navigate(`/pet/${pet.id}?edit=true`),
+                    variant: 'edit'
+                  },
+                  {
+                    icon: Stethoscope,
+                    label: 'Ιατρικά',
+                    onClick: () => navigate(`/pet/${pet.id}/medical`),
+                    variant: 'medical'
+                  },
+                  {
+                    icon: Trash2,
+                    label: 'Διαγραφή',
+                    onClick: () => openDeleteDialog(pet),
+                    variant: 'delete'
+                  }
+                ]}
               >
                 <CardContent className="p-0">
                   <div className="flex flex-col sm:flex-row h-full">
                     {/* Pet Image */}
-                    <div className="relative flex-shrink-0">
+                    <div className="relative flex-shrink-0 cursor-pointer" onClick={() => navigate(`/pet/${pet.id}`)}>
                       {pet.avatar_url ? (
-                        <img 
-                          src={pet.avatar_url} 
+                        <OptimizedImage
+                          src={pet.avatar_url}
                           alt={pet.name}
-                          className="w-full h-32 sm:w-24 sm:h-full object-cover"
+                          className="w-full h-32 sm:w-24 sm:h-full hover:opacity-90 transition-opacity"
+                          aspectRatio="4/3"
+                          lazyLoad={!isVisible}
+                          errorFallback={
+                            <div className="w-full h-32 sm:w-24 sm:h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                              <span className="text-3xl sm:text-2xl">{getSpeciesEmoji(pet.species)}</span>
+                            </div>
+                          }
                         />
                       ) : (
-                        <div className="w-full h-32 sm:w-24 sm:h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                        <div className="w-full h-32 sm:w-24 sm:h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center hover:bg-primary/30 transition-colors">
                           <span className="text-3xl sm:text-2xl">{getSpeciesEmoji(pet.species)}</span>
                         </div>
                       )}
                       <Badge 
                         variant="secondary" 
-                        className="absolute top-2 left-2 text-xs bg-white/90 backdrop-blur-sm"
+                        className="absolute top-2 left-2 text-xs bg-white/90 backdrop-blur-sm pointer-events-none"
                       >
                         {getSpeciesEmoji(pet.species)} {pet.species === 'dog' ? 'Σκύλος' : pet.species === 'cat' ? 'Γάτα' : 'Κατοικίδιο'}
                       </Badge>
@@ -307,7 +350,7 @@ const PetsPage = () => {
                     <div className="flex-1 p-3 sm:p-4">
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
                         <div className="flex-1">
-                          <h3 className="font-bold text-lg sm:text-xl text-gray-900">{pet.name}</h3>
+                          <h3 className="font-bold text-lg sm:text-xl text-gray-900 cursor-pointer hover:text-primary transition-colors" onClick={() => navigate(`/pet/${pet.id}`)}>{pet.name}</h3>
                           {pet.breed && (
                             <p className="text-sm text-muted-foreground font-medium">{pet.breed}</p>
                           )}
@@ -325,8 +368,8 @@ const PetsPage = () => {
                           </div>
                         </div>
                         
-                        {/* Action Buttons */}
-                        <div className="flex flex-wrap gap-1 sm:flex-col sm:gap-1">
+                        {/* Desktop Action Buttons - hidden on mobile where swipe is used */}
+                        <div className="hidden sm:flex flex-wrap gap-1 sm:flex-col sm:gap-1">
                           <div className="flex gap-1">
                             <Button 
                               variant="ghost" 
@@ -370,9 +413,9 @@ const PetsPage = () => {
                     </div>
                   </div>
                 </CardContent>
-              </Card>
-            ))}
-          </div>
+              </SwipeableCard>
+            )}
+          />
         ) : !loading && pets.length === 0 ? (
           <Card className="p-8 bounce-in">
             <div className="text-center space-y-4">
@@ -386,7 +429,8 @@ const PetsPage = () => {
             </div>
           </Card>
         ) : null}
-      </div>
+        </div>
+      </PullToRefresh>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

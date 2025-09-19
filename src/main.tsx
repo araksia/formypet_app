@@ -40,6 +40,19 @@ if (typeof window !== 'undefined') {
   iOSLogger.log("iOS User Agent Check", { isIOSUserAgent });
 }
 
+// Register Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        console.log('✅ ForMyPet SW: Service Worker registered successfully:', registration.scope);
+      })
+      .catch((error) => {
+        console.error('❌ ForMyPet SW: Service Worker registration failed:', error);
+      });
+  });
+}
+
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
