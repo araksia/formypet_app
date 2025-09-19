@@ -5,7 +5,6 @@ import Header from './Header';
 import OfflineIndicator from './OfflineIndicator';
 import { OfflineStatusBar } from './OfflineStatusBar';
 import { useOnline } from '../hooks/useOnline';
-import { useOfflineData } from '../hooks/useOfflineData';
 import { useVirtualKeyboard } from '../hooks/useVirtualKeyboard';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
@@ -20,11 +19,12 @@ const Layout = ({ children }: LayoutProps) => {
   const { isKeyboardOpen, keyboardHeight } = useVirtualKeyboard();
   const location = useLocation();
   
-  // Initialize offline data for logged-in users
-  useOfflineData({ 
-    userId: user?.id,
-    autoDownload: true 
-  });
+  // Temporarily disable offline functionality to fix the React hooks error
+  // TODO: Re-enable once the hooks issue is resolved
+  // useOfflineData({ 
+  //   userId: user?.id,
+  //   autoDownload: true 
+  // });
 
   if (!isOnline) {
     return <OfflineIndicator />;
