@@ -92,10 +92,10 @@ jobs:
           rm -rf ios/App/Pods
           rm -rf ios/App/App.xcworkspace
     
-      - name: Select Xcode 16.4
+      - name: Select Xcode 14.1
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '16.4'
+          xcode-version: '14.1'
 
       - name: Detect & export DEVELOPER_DIR
         run: |
