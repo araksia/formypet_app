@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   ios-build:
-    runs-on: macos-latest
+    runs-on: self-hosted
 
     env:
       # ---- App / build ----
